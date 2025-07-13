@@ -34,34 +34,29 @@ class ZoteroDatabase:
     def get_collection_items(self, collection_name: str, 
                            only_attachments: bool = False, after_year: int = None, 
                            before_year: int = None, only_books: bool = False, 
-                           only_articles: bool = False) -> Tuple[List[ZoteroItem], int]:
+                           only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
         """Get items from collections matching the given name. Returns (items, total_count)."""
         collections = self.search_collections(collection_name)
         
         if not collections:
             return [], 0
         
-        # Get total count first
-        total_count = 0
-        for collection in collections:
-            total_count += self.collections.get_collection_item_count(collection.collection_id)
-        
         # Get items from all matching collections, ordered by collection depth
         all_items = []
-        
+
         for collection in collections:
             items = self.items.get_items_in_collection(
-                collection.collection_id, only_attachments, 
-                after_year, before_year, only_books, only_articles
+                collection.collection_id, only_attachments,
+                after_year, before_year, only_books, only_articles, tags
             )
             all_items.extend(items)
-        
-        return all_items, total_count
+
+        return all_items, len(all_items)
     
     def get_collection_items_grouped(self, collection_name: str, 
                                    only_attachments: bool = False, after_year: int = None, 
                                    before_year: int = None, only_books: bool = False, 
-                                   only_articles: bool = False) -> Tuple[List[Tuple[ZoteroCollection, List[ZoteroItem]]], int]:
+                                   only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[Tuple[ZoteroCollection, List[ZoteroItem]]], int]:
         """Get items from collections matching the given name, grouped by collection. Returns (grouped_items, total_count)."""
         collections = self.search_collections(collection_name)
         
@@ -79,7 +74,7 @@ class ZoteroDatabase:
         for collection in collections:
             items = self.items.get_items_in_collection(
                 collection.collection_id, only_attachments,
-                after_year, before_year, only_books, only_articles
+                after_year, before_year, only_books, only_articles, tags
             )
             
             if items:  # Only add if there are items
@@ -90,31 +85,32 @@ class ZoteroDatabase:
     def search_items_by_name(self, name, exact_match: bool = False,
                            only_attachments: bool = False, after_year: int = None,
                            before_year: int = None, only_books: bool = False,
-                           only_articles: bool = False) -> Tuple[List[ZoteroItem], int]:
+                           only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
         """Search items by title content. Returns (items, total_count)."""
         return self.items.search_items_by_name(
             name, exact_match, only_attachments,
-            after_year, before_year, only_books, only_articles
+            after_year, before_year, only_books, only_articles, tags
         )
     
     def search_items_by_author(self, author, exact_match: bool = False,
                              only_attachments: bool = False, after_year: int = None,
                              before_year: int = None, only_books: bool = False,
-                             only_articles: bool = False) -> Tuple[List[ZoteroItem], int]:
+                             only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
         """Search items by author name. Returns (items, total_count)."""
         return self.items.search_items_by_author(
             author, exact_match, only_attachments,
-            after_year, before_year, only_books, only_articles
+            after_year, before_year, only_books, only_articles, tags
         )
     
     def search_items_combined(self, name=None, author=None, 
                             exact_match: bool = False, only_attachments: bool = False,
                             after_year: int = None, before_year: int = None,
-                            only_books: bool = False, only_articles: bool = False) -> Tuple[List[ZoteroItem], int]:
+                            only_books: bool = False, only_articles: bool = False, 
+                            tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
         """Search items by combined criteria (title and/or author). Returns (items, total_count)."""
         return self.items.search_items_combined(
             name, author, exact_match, only_attachments,
-            after_year, before_year, only_books, only_articles
+            after_year, before_year, only_books, only_articles, tags
         )
     
     # Metadata methods

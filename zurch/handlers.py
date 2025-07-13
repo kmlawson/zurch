@@ -185,7 +185,7 @@ def handle_interactive_list_mode(db: ZoteroDatabase, collections: List[ZoteroCol
     # Get items from selected collection
     items, total_count = db.get_collection_items(
         selected_collection.name, args.only_attachments, 
-        args.after, args.before, args.books, args.articles
+        args.after, args.before, args.books, args.articles, args.tag
     )
     
     # Display results
@@ -284,7 +284,7 @@ def handle_multiple_collections(db: ZoteroDatabase, folder_name: str, args, max_
     """Handle folder command when multiple collections match."""
     grouped_items, total_count = db.get_collection_items_grouped(
         folder_name, args.only_attachments, 
-        args.after, args.before, args.books, args.articles
+        args.after, args.before, args.books, args.articles, args.tag
     )
     
     if not grouped_items:
@@ -319,7 +319,7 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
     """Handle folder command when single collection matches."""
     items, total_count = db.get_collection_items(
         folder_name, args.only_attachments, 
-        args.after, args.before, args.books, args.articles
+        args.after, args.before, args.books, args.articles, args.tag
     )
     
     if not items:
@@ -400,11 +400,17 @@ def build_filter_description(args) -> str:
     if args.before:
         date_filters.append(f"before {args.before}")
     
+    tag_filters = []
+    if args.tag:
+        tag_filters.append(f"tags: {' AND '.join(args.tag)}")
+
     filter_desc = ""
     if args.only_attachments:
         filter_desc = " (with PDF/EPUB attachments)"
     if date_filters:
         filter_desc += f" ({', '.join(date_filters)})"
+    if tag_filters:
+        filter_desc += f" ({', '.join(tag_filters)})"
     
     return filter_desc
 
@@ -447,7 +453,8 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
         after_year=args.after,
         before_year=args.before,
         only_books=args.books,
-        only_articles=args.articles
+        only_articles=args.articles,
+        tags=args.tag
     )
     
     if not items:

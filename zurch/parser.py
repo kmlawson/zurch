@@ -1,11 +1,12 @@
 import argparse
+from . import __version__
 
 def add_basic_arguments(parser: argparse.ArgumentParser) -> None:
     """Add basic arguments like version, debug, etc."""
     parser.add_argument(
         "-v", "--version", 
         action="version", 
-        version=f"%(prog)s 0.6.1"
+        version=f"%(prog)s {__version__}"
     )
     
     parser.add_argument(
@@ -64,6 +65,13 @@ def add_search_arguments(parser: argparse.ArgumentParser) -> None:
         type=str,
         nargs='+',
         help="Search for items by author name. Multiple words = AND search (each word must be present). Quoted text = phrase search (exact phrase)."
+    )
+    
+    parser.add_argument(
+        "-t", "--tag", 
+        type=str,
+        nargs='+',
+        help="Filter by tags. Multiple words = AND search (item must have all tags). Case-insensitive."
     )
 
 def add_filter_arguments(parser: argparse.ArgumentParser) -> None:
@@ -136,9 +144,7 @@ from . import __version__
 def create_parser():
     parser = argparse.ArgumentParser(
         description="Zurch - Zotero Search CLI",
-        formatter_class=argparse.RawTextHelpFormatter,
-        add_help=False,
-        version=f"%(prog)s {__version__}"
+        formatter_class=argparse.RawTextHelpFormatter
     )
     
     # Add argument groups

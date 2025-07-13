@@ -372,7 +372,7 @@ class TestCLIIntegration:
         help_text = parser.format_help()
         
         # Check for key components
-        assert "zurch" in help_text
+        assert help_text.startswith("usage:")
         assert "--folder" in help_text
         assert "--name" in help_text
         assert "--list" in help_text

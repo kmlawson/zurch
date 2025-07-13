@@ -39,7 +39,8 @@ def build_collection_tree_query() -> str:
 
 def build_collection_items_query(collection_id: int, only_attachments: bool = False, 
                                 after_year: int = None, before_year: int = None, 
-                                only_books: bool = False, only_articles: bool = False) -> Tuple[str, List]:
+                                only_books: bool = False, only_articles: bool = False, 
+                                tags: Optional[List[str]] = None) -> Tuple[str, List]:
     """Build query for items in a specific collection with filters and attachment data."""
     # Build date filtering conditions
     date_conditions = []
@@ -66,6 +67,12 @@ def build_collection_items_query(collection_id: int, only_attachments: bool = Fa
         attachment_join = "JOIN itemAttachments ia_filter ON (i.itemID = ia_filter.parentItemID OR i.itemID = ia_filter.itemID)"
         attachment_conditions.append("ia_filter.contentType IN ('application/pdf', 'application/epub+zip')")
     
+    # Add tag filtering
+    tag_conditions = []
+    if tags:
+        tag_conditions, tag_params = build_tag_conditions(tags)
+        query_params.extend(tag_params)
+
     # Combine all conditions
     where_conditions = ["ci.collectionID = ?"]
     if date_conditions:
@@ -74,6 +81,8 @@ def build_collection_items_query(collection_id: int, only_attachments: bool = Fa
         where_conditions.extend(type_conditions)
     if attachment_conditions:
         where_conditions.extend(attachment_conditions)
+    if tag_conditions:
+        where_conditions.extend(tag_conditions)
     
     where_clause = "WHERE " + " AND ".join(where_conditions)
     
@@ -120,7 +129,10 @@ def build_search_conditions(search_terms, exact_match: bool = False) -> Tuple[Li
     """Build search conditions for title or author searches."""
     search_conditions = []
     search_params = []
-    
+
+    if search_terms is None:
+        return search_conditions, search_params
+
     if isinstance(search_terms, list) and len(search_terms) > 1 and not exact_match:
         # Multiple keywords - each must be present (AND logic)
         for keyword in search_terms:
@@ -136,7 +148,7 @@ def build_search_conditions(search_terms, exact_match: bool = False) -> Tuple[Li
                 # Import escape function
                 from .utils import escape_sql_like_pattern
                 escaped_keyword = escape_sql_like_pattern(keyword)
-                search_conditions.append("LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'")
+                search_conditions.append("LOWER(idv.value) LIKE LOWER(?)")
                 search_params.append(f"%{escaped_keyword}%")
     else:
         # Single keyword or phrase search
@@ -158,8 +170,55 @@ def build_search_conditions(search_terms, exact_match: bool = False) -> Tuple[Li
             else:
                 from .utils import escape_sql_like_pattern
                 escaped_terms = escape_sql_like_pattern(search_terms)
-                search_conditions.append("LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'")
+                search_conditions.append("LOWER(idv.value) LIKE LOWER(?)")
                 search_params.append(f"%{escaped_terms}%")
+
+    return search_conditions, search_params
+
+
+def build_author_search_conditions(author_terms, exact_match: bool = False) -> Tuple[List[str], List]:
+    """Build search conditions for author searches."""
+    search_conditions = []
+    search_params = []
+    
+    if isinstance(author_terms, list) and len(author_terms) > 1 and not exact_match:
+        # Multiple keywords - each must be present in author names (AND logic)
+        for keyword in author_terms:
+            if '%' in keyword or '_' in keyword:
+                # User provided wildcards
+                if not keyword.startswith('%'):
+                    keyword = '%' + keyword
+                if not keyword.endswith('%'):
+                    keyword = keyword + '%'
+                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
+                search_params.extend([keyword, keyword])
+            else:
+                from .utils import escape_sql_like_pattern
+                escaped_keyword = escape_sql_like_pattern(keyword)
+                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
+                search_params.extend([f"%{escaped_keyword}%", f"%{escaped_keyword}%"])
+    else:
+        # Single keyword or phrase search
+        if isinstance(author_terms, list):
+            author_terms = ' '.join(author_terms)
+            
+        if exact_match:
+            search_conditions.append("(LOWER(c.firstName) = LOWER(?) OR LOWER(c.lastName) = LOWER(?))")
+            search_params.extend([author_terms, author_terms])
+        else:
+            if '%' in author_terms or '_' in author_terms:
+                # User provided wildcards
+                if not author_terms.startswith('%'):
+                    author_terms = '%' + author_terms
+                if not author_terms.endswith('%'):
+                    author_terms = author_terms + '%'
+                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
+                search_params.extend([author_terms, author_terms])
+            else:
+                from .utils import escape_sql_like_pattern
+                escaped_author = escape_sql_like_pattern(author_terms)
+                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
+                search_params.extend([f"%{escaped_author}%", f"%{escaped_author}%"])
     
     return search_conditions, search_params
 
@@ -182,7 +241,7 @@ def build_author_search_conditions(author_terms, exact_match: bool = False) -> T
             else:
                 from .utils import escape_sql_like_pattern
                 escaped_keyword = escape_sql_like_pattern(keyword)
-                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) ESCAPE '\\' OR LOWER(c.lastName) LIKE LOWER(?) ESCAPE '\\')")
+                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
                 search_params.extend([f"%{escaped_keyword}%", f"%{escaped_keyword}%"])
     else:
         # Single keyword or phrase search
@@ -204,16 +263,34 @@ def build_author_search_conditions(author_terms, exact_match: bool = False) -> T
             else:
                 from .utils import escape_sql_like_pattern
                 escaped_author = escape_sql_like_pattern(author_terms)
-                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) ESCAPE '\\' OR LOWER(c.lastName) LIKE LOWER(?) ESCAPE '\\')")
+                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
                 search_params.extend([f"%{escaped_author}%", f"%{escaped_author}%"])
     
     return search_conditions, search_params
 
+def build_tag_conditions(tags: List[str]) -> Tuple[List[str], List]:
+    """Build search conditions for tags (AND logic)."""
+    tag_conditions = []
+    tag_params = []
+    
+    for i, tag in enumerate(tags):
+        tag_conditions.append(f"EXISTS (SELECT 1 FROM itemTags it{i} JOIN tags t{i} ON it{i}.tagID = t{i}.tagID WHERE it{i}.itemID = i.itemID AND LOWER(t{i}.name) = LOWER(?))")
+        tag_params.append(tag)
+    return tag_conditions, tag_params
+
 def build_name_search_query(name, exact_match: bool = False, only_attachments: bool = False,
                           after_year: int = None, before_year: int = None, 
-                          only_books: bool = False, only_articles: bool = False) -> Tuple[str, str, List]:
+                          only_books: bool = False, only_articles: bool = False, 
+                          tags: Optional[List[str]] = None) -> Tuple[str, str, List]:
     """Build title search query with all filters and attachment data."""
     search_conditions, search_params = build_search_conditions(name, exact_match)
+    
+    # Add tag filtering
+    if tags:
+        tag_conditions, tag_params = build_tag_conditions(tags)
+        search_conditions.extend(tag_conditions)
+        search_params.extend(tag_params)
+
     where_clause = "WHERE " + " AND ".join(search_conditions)
     
     # Add date filtering if specified
@@ -278,12 +355,12 @@ def build_name_search_query(name, exact_match: bool = False, only_attachments: b
     {where_clause}
     ORDER BY LOWER(idv.value)
     """
-    
     return count_query, items_query, search_params
 
 def build_author_search_query(author, exact_match: bool = False, only_attachments: bool = False,
                             after_year: int = None, before_year: int = None,
-                            only_books: bool = False, only_articles: bool = False) -> Tuple[str, str, List]:
+                            only_books: bool = False, only_articles: bool = False, 
+                            tags: Optional[List[str]] = None) -> Tuple[str, str, List]:
     """Build author search query with all filters and attachment data."""
     author_conditions, search_params = build_author_search_conditions(author, exact_match)
     
@@ -296,10 +373,18 @@ def build_author_search_query(author, exact_match: bool = False, only_attachment
         date_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) <= ?")
         search_params.append(before_year)
     
+    # Add tag filtering
+    tag_conditions = []
+    if tags:
+        tag_conditions, tag_params = build_tag_conditions(tags)
+        search_params.extend(tag_params)
+
     # Combine conditions
     where_conditions = [f"({' AND '.join(author_conditions)})"]
     if date_conditions:
         where_conditions.extend(date_conditions)
+    if tag_conditions:
+        where_conditions.extend(tag_conditions)
     
     # Add item type filtering if specified
     if only_books:

@@ -50,7 +50,7 @@ class DatabaseConnection:
             logger.warning(f"Cannot read database version: {e}")
             return "unknown"
     
-    def execute_query(self, query: str, params: tuple = ()):
+    def execute_query(self, query: str, params: tuple = ()): # type: ignore
         """Execute a query and return results."""
         try:
             with self._get_connection() as conn:
@@ -60,7 +60,7 @@ class DatabaseConnection:
         except Exception as e:
             raise DatabaseError(f"Error executing query: {e}")
     
-    def execute_single_query(self, query: str, params: tuple = ()):
+    def execute_single_query(self, query: str, params: tuple = ()): # type: ignore
         """Execute a query and return a single result."""
         try:
             with self._get_connection() as conn:

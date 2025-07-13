@@ -15,10 +15,10 @@ class ItemService:
     def get_items_in_collection(self, collection_id: int, 
                               only_attachments: bool = False, after_year: int = None, 
                               before_year: int = None, only_books: bool = False, 
-                              only_articles: bool = False) -> List[ZoteroItem]:
+                              only_articles: bool = False, tags: Optional[List[str]] = None) -> List[ZoteroItem]:
         """Get items in a specific collection."""
         query, params = build_collection_items_query(
-            collection_id, only_attachments, after_year, before_year, only_books, only_articles
+            collection_id, only_attachments, after_year, before_year, only_books, only_articles, tags
         )
         
         results = self.db.execute_query(query, params)
@@ -45,10 +45,10 @@ class ItemService:
     def search_items_by_name(self, name, exact_match: bool = False, 
                            only_attachments: bool = False, after_year: int = None, 
                            before_year: int = None, only_books: bool = False, 
-                           only_articles: bool = False) -> Tuple[List[ZoteroItem], int]:
+                           only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
         """Search items by title content. Returns (items, total_count)."""
         count_query, items_query, search_params = build_name_search_query(
-            name, exact_match, only_attachments, after_year, before_year, only_books, only_articles
+            name, exact_match, only_attachments, after_year, before_year, only_books, only_articles, tags
         )
         
         # Get total count
@@ -80,10 +80,10 @@ class ItemService:
     def search_items_by_author(self, author, exact_match: bool = False,
                              only_attachments: bool = False, after_year: int = None,
                              before_year: int = None, only_books: bool = False,
-                             only_articles: bool = False) -> Tuple[List[ZoteroItem], int]:
+                             only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
         """Search items by author name. Returns (items, total_count)."""
         count_query, items_query, search_params = build_author_search_query(
-            author, exact_match, only_attachments, after_year, before_year, only_books, only_articles
+            author, exact_match, only_attachments, after_year, before_year, only_books, only_articles, tags
         )
         
         # Get total count
@@ -115,26 +115,32 @@ class ItemService:
     def search_items_combined(self, name=None, author=None,
                             exact_match: bool = False, only_attachments: bool = False,
                             after_year: int = None, before_year: int = None,
-                            only_books: bool = False, only_articles: bool = False) -> Tuple[List[ZoteroItem], int]:
+                            only_books: bool = False, only_articles: bool = False, 
+                            tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
         """Search items by combined criteria (title and/or author). Returns (items, total_count)."""
         if name and author:
             # For now, do name search and filter by author (simplified approach)
             # This could be improved with a proper combined query
             items, total_count = self.search_items_by_name(
                 name, exact_match, only_attachments,
-                after_year, before_year, only_books, only_articles
+                after_year, before_year, only_books, only_articles, tags
             )
             # TODO: This is a simplified implementation - needs author filtering
             return items, total_count
         elif name:
             return self.search_items_by_name(
                 name, exact_match, only_attachments,
-                after_year, before_year, only_books, only_articles
+                after_year, before_year, only_books, only_articles, tags
             )
         elif author:
             return self.search_items_by_author(
                 author, exact_match, only_attachments,
-                after_year, before_year, only_books, only_articles
+                after_year, before_year, only_books, only_articles, tags
+            )
+        elif tags: # Handle case where only tags are provided
+            return self.search_items_by_name(
+                None, exact_match, only_attachments,
+                after_year, before_year, only_books, only_articles, tags
             )
         else:
             return [], 0
