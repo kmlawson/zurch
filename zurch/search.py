@@ -134,7 +134,7 @@ class ZoteroDatabase:
         
         return matching
     
-    def get_collection_items(self, collection_name: str, max_results: int = 100, only_attachments: bool = False) -> tuple[List[ZoteroItem], int]:
+    def get_collection_items(self, collection_name: str, max_results: int = 100, only_attachments: bool = False, after_year: int = None, before_year: int = None, only_books: bool = False, only_articles: bool = False) -> tuple[List[ZoteroItem], int]:
         """Get items from collections matching the given name. Returns (items, total_count)."""
         collections = self.search_collections(collection_name)
         
@@ -150,19 +150,17 @@ class ZoteroDatabase:
         all_items = []
         
         for collection in collections:
-            items = self._get_items_in_collection(collection.collection_id, max_results, only_attachments)
+            items = self._get_items_in_collection(collection.collection_id, max_results, only_attachments, after_year, before_year, only_books, only_articles)
             all_items.extend(items)
             
             if len(all_items) >= max_results:
                 break
         
-        # Filter again if needed (since we're combining from multiple collections)
-        if only_attachments:
-            all_items = [item for item in all_items if item.attachment_type in ["pdf", "epub"]]
+        # No need to filter again - already done in SQL at the _get_items_in_collection level
         
         return all_items[:max_results], total_count
 
-    def get_collection_items_grouped(self, collection_name: str, max_results: int = 100, only_attachments: bool = False) -> tuple[List[tuple[ZoteroCollection, List[ZoteroItem]]], int]:
+    def get_collection_items_grouped(self, collection_name: str, max_results: int = 100, only_attachments: bool = False, after_year: int = None, before_year: int = None, only_books: bool = False, only_articles: bool = False) -> tuple[List[tuple[ZoteroCollection, List[ZoteroItem]]], int]:
         """Get items from collections matching the given name, grouped by collection. Returns (grouped_items, total_count)."""
         collections = self.search_collections(collection_name)
         
@@ -183,11 +181,9 @@ class ZoteroDatabase:
                 break
                 
             remaining_limit = max_results - items_added
-            items = self._get_items_in_collection(collection.collection_id, remaining_limit, only_attachments)
+            items = self._get_items_in_collection(collection.collection_id, remaining_limit, only_attachments, after_year, before_year, only_books, only_articles)
             
-            # Filter by attachments if requested
-            if only_attachments:
-                items = [item for item in items if item.attachment_type in ["pdf", "epub"]]
+            # No need to filter by attachments here - already done in SQL
             
             if items:  # Only add if there are items
                 grouped_items.append((collection, items))
@@ -209,10 +205,37 @@ class ZoteroDatabase:
             logger.error(f"Error getting collection item count: {e}")
             return 0
     
-    def _get_items_in_collection(self, collection_id: int, max_results: int, only_attachments: bool = False) -> List[ZoteroItem]:
+    def _get_items_in_collection(self, collection_id: int, max_results: int, only_attachments: bool = False, after_year: int = None, before_year: int = None, only_books: bool = False, only_articles: bool = False) -> List[ZoteroItem]:
         """Get items in a specific collection."""
+        # Build date filtering conditions
+        date_conditions = []
+        query_params = [collection_id]
+        
+        if after_year is not None:
+            date_conditions.append("CAST(SUBSTR(date_data.value, 1, 4) AS INTEGER) >= ?")
+            query_params.append(after_year)
+        if before_year is not None:
+            date_conditions.append("CAST(SUBSTR(date_data.value, 1, 4) AS INTEGER) <= ?")
+            query_params.append(before_year)
+        
+        # Build item type filtering conditions
+        type_conditions = []
+        if only_books:
+            type_conditions.append("it.typeName = 'book'")
+        elif only_articles:
+            type_conditions.append("it.typeName = 'journalArticle'")
+        
+        # Combine all conditions
+        where_conditions = ["ci.collectionID = ?"]
+        if date_conditions:
+            where_conditions.extend(date_conditions)
+        if type_conditions:
+            where_conditions.extend(type_conditions)
+        
+        where_clause = "WHERE " + " AND ".join(where_conditions)
+        
         # First get the basic items without attachments
-        query = """
+        query = f"""
         SELECT 
             i.itemID,
             COALESCE(title_data.value, '') as title,
@@ -227,15 +250,20 @@ class ZoteroDatabase:
             JOIN itemDataValues idv ON id.valueID = idv.valueID
             WHERE id.fieldID = 1  -- title field
         ) title_data ON i.itemID = title_data.itemID
-        WHERE ci.collectionID = ?
+        LEFT JOIN (
+            SELECT id.itemID, idv.value
+            FROM itemData id
+            JOIN itemDataValues idv ON id.valueID = idv.valueID
+            WHERE id.fieldID = 14  -- date field
+        ) date_data ON i.itemID = date_data.itemID
+        {where_clause}
         ORDER BY LOWER(COALESCE(title_data.value, ''))
-        LIMIT ?
         """
         
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(query, (collection_id, max_results))
+                cursor.execute(query, query_params)
                 results = cursor.fetchall()
                 
                 items = []
@@ -266,18 +294,15 @@ class ZoteroDatabase:
                         attachment_path=attachment_path
                     )
                     
-                    # Filter by attachments if requested
-                    if only_attachments:
-                        if attachment_type in ["pdf", "epub"]:
-                            items.append(item)
-                    else:
-                        items.append(item)
+                    # No need to filter by attachments here - already done in SQL
+                    items.append(item)
                 
+                # Return all items - max_results limit applied in CLI after deduplication
                 return items
         except Exception as e:
             raise DatabaseError(f"Error getting collection items: {e}")
     
-    def search_items_by_name(self, name, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False, after_year: int = None, before_year: int = None) -> tuple[List[ZoteroItem], int]:
+    def search_items_by_name(self, name, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False, after_year: int = None, before_year: int = None, only_books: bool = False, only_articles: bool = False) -> tuple[List[ZoteroItem], int]:
         """Search items by title content. Returns (items, total_count).
         
         Args:
@@ -287,6 +312,8 @@ class ZoteroDatabase:
             only_attachments: If True, only return items with PDF/EPUB attachments
             after_year: If provided, only return items published after this year (inclusive)
             before_year: If provided, only return items published before this year (inclusive)
+            only_books: If True, only return book items
+            only_articles: If True, only return article items
         """
         # Handle multiple keywords (AND search) vs single phrase search
         if isinstance(name, list) and len(name) > 1 and not exact_match:
@@ -350,11 +377,26 @@ class ZoteroDatabase:
         if date_conditions:
             where_clause += " AND " + " AND ".join(date_conditions)
         
+        # Add item type filtering if specified
+        if only_books:
+            where_clause += " AND it.typeName = 'book'"
+        elif only_articles:
+            where_clause += " AND it.typeName = 'journalArticle'"
+        
+        # Add attachment filtering if specified (to SQL level for proper LIMIT handling)
+        attachment_join = ""
+        if only_attachments:
+            attachment_join = """
+            JOIN itemAttachments ia ON (i.itemID = ia.parentItemID OR i.itemID = ia.itemID)
+            """
+            where_clause += " AND ia.contentType IN ('application/pdf', 'application/epub+zip')"
+        
         # First get the total count
         count_query = f"""
         SELECT COUNT(DISTINCT i.itemID)
         FROM items i
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+        {attachment_join}
         LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
         LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
         LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
@@ -362,7 +404,7 @@ class ZoteroDatabase:
         {where_clause}
         """
         
-        # Then get the actual items (without attachments to avoid duplicates)
+        # Then get the actual items (with attachment filtering in SQL for proper limit handling)
         items_query = f"""
         SELECT DISTINCT
             i.itemID,
@@ -370,13 +412,13 @@ class ZoteroDatabase:
             it.typeName
         FROM items i
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+        {attachment_join}
         LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
         LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
         LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
         LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
         {where_clause}
         ORDER BY LOWER(idv.value)
-        LIMIT ?
         """
         
         try:
@@ -387,8 +429,8 @@ class ZoteroDatabase:
                 cursor.execute(count_query, search_params)
                 total_count = cursor.fetchone()[0]
                 
-                # Get items
-                cursor.execute(items_query, search_params + [max_results])
+                # Get items (all filtered results)
+                cursor.execute(items_query, search_params)
                 results = cursor.fetchall()
                 
                 items = []
@@ -419,18 +461,19 @@ class ZoteroDatabase:
                         attachment_path=attachment_path
                     )
                     
-                    # Filter by attachments if requested
-                    if only_attachments:
-                        if attachment_type in ["pdf", "epub"]:
-                            items.append(item)
-                    else:
-                        items.append(item)
+                    # No need to filter by attachments here - already done in SQL
+                    items.append(item)
                 
+                # Debug: print actual vs requested items
+                if len(items) < max_results:
+                    print(f"DEBUG: SQL returned {len(items)} items, requested {max_results}")
+                
+                # Return all items - max_results limit applied in CLI after deduplication
                 return items, total_count
         except Exception as e:
             raise DatabaseError(f"Error searching items: {e}")
     
-    def search_items_by_author(self, author, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False, after_year: int = None, before_year: int = None) -> tuple[List[ZoteroItem], int]:
+    def search_items_by_author(self, author, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False, after_year: int = None, before_year: int = None, only_books: bool = False, only_articles: bool = False) -> tuple[List[ZoteroItem], int]:
         """Search items by author name. Returns (items, total_count).
         
         Args:
@@ -440,6 +483,8 @@ class ZoteroDatabase:
             only_attachments: If True, only return items with PDF/EPUB attachments
             after_year: If provided, only return items published after this year (inclusive)
             before_year: If provided, only return items published before this year (inclusive)
+            only_books: If True, only return book items
+            only_articles: If True, only return article items
         """
         # Handle multiple keywords (AND search) vs single phrase search
         if isinstance(author, list) and len(author) > 1 and not exact_match:
@@ -505,6 +550,20 @@ class ZoteroDatabase:
         if date_conditions:
             where_conditions.extend(date_conditions)
         
+        # Add item type filtering if specified
+        if only_books:
+            where_conditions.append("it.typeName = 'book'")
+        elif only_articles:
+            where_conditions.append("it.typeName = 'journalArticle'")
+        
+        # Add attachment filtering if specified (to SQL level for proper LIMIT handling)
+        attachment_join_author = ""
+        if only_attachments:
+            attachment_join_author = """
+            JOIN itemAttachments ia ON (i.itemID = ia.parentItemID OR i.itemID = ia.itemID)
+            """
+            where_conditions.append("ia.contentType IN ('application/pdf', 'application/epub+zip')")
+        
         where_clause = "WHERE " + " AND ".join(where_conditions)
         
         # First get the total count
@@ -514,6 +573,7 @@ class ZoteroDatabase:
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
         JOIN itemCreators ic ON i.itemID = ic.itemID
         JOIN creators c ON ic.creatorID = c.creatorID
+        {attachment_join_author}
         LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
         LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
         {where_clause}
@@ -529,13 +589,13 @@ class ZoteroDatabase:
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
         JOIN itemCreators ic ON i.itemID = ic.itemID
         JOIN creators c ON ic.creatorID = c.creatorID
+        {attachment_join_author}
         LEFT JOIN itemData id_title ON i.itemID = id_title.itemID AND id_title.fieldID = 1  -- title field
         LEFT JOIN itemDataValues idv_title ON id_title.valueID = idv_title.valueID
         LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
         LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
         {where_clause}
         ORDER BY LOWER(idv_title.value)
-        LIMIT ?
         """
         
         try:
@@ -547,7 +607,7 @@ class ZoteroDatabase:
                 total_count = cursor.fetchone()[0]
                 
                 # Get items
-                cursor.execute(items_query, search_params + [max_results])
+                cursor.execute(items_query, search_params)
                 results = cursor.fetchall()
                 
                 items = []
@@ -578,18 +638,15 @@ class ZoteroDatabase:
                         attachment_path=attachment_path
                     )
                     
-                    # Filter by attachments if requested
-                    if only_attachments:
-                        if attachment_type in ["pdf", "epub"]:
-                            items.append(item)
-                    else:
-                        items.append(item)
+                    # No need to filter by attachments here - already done in SQL
+                    items.append(item)
                 
+                # Return all items - max_results limit applied in CLI after deduplication
                 return items, total_count
         except Exception as e:
             raise DatabaseError(f"Error searching items by author: {e}")
     
-    def search_items_combined(self, name=None, author=None, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False, after_year: int = None, before_year: int = None) -> tuple[List[ZoteroItem], int]:
+    def search_items_combined(self, name=None, author=None, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False, after_year: int = None, before_year: int = None, only_books: bool = False, only_articles: bool = False) -> tuple[List[ZoteroItem], int]:
         """Search items by combined criteria (title and/or author). Returns (items, total_count).
         
         Args:
@@ -600,6 +657,8 @@ class ZoteroDatabase:
             only_attachments: If True, only return items with PDF/EPUB attachments
             after_year: If provided, only return items published after this year (inclusive)
             before_year: If provided, only return items published before this year (inclusive)
+            only_books: If True, only return book items
+            only_articles: If True, only return article items
         """
         search_conditions = []
         search_params = []
@@ -698,6 +757,16 @@ class ZoteroDatabase:
             search_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) <= ?")
             search_params.append(before_year)
         
+        # Add item type filtering if specified
+        if only_books:
+            search_conditions.append("it.typeName = 'book'")
+        elif only_articles:
+            search_conditions.append("it.typeName = 'journalArticle'")
+        
+        # Add attachment filtering if specified (to SQL level for proper LIMIT handling)
+        if only_attachments:
+            search_conditions.append("ia.contentType IN ('application/pdf', 'application/epub+zip')")
+        
         # Construct WHERE clause
         if search_conditions:
             where_clause = "WHERE " + " AND ".join(search_conditions)
@@ -721,6 +790,12 @@ class ZoteroDatabase:
             JOIN creators c ON ic.creatorID = c.creatorID
             """
         
+        # Add attachment join if filtering by attachments
+        if only_attachments:
+            base_from += """
+            JOIN itemAttachments ia ON (i.itemID = ia.parentItemID OR i.itemID = ia.itemID)
+            """
+        
         # Count query
         count_query = f"""
         SELECT COUNT(DISTINCT i.itemID)
@@ -737,7 +812,6 @@ class ZoteroDatabase:
         {base_from}
         {where_clause}
         ORDER BY LOWER(idv_title.value)
-        LIMIT ?
         """
         
         try:
@@ -749,7 +823,7 @@ class ZoteroDatabase:
                 total_count = cursor.fetchone()[0]
                 
                 # Get items
-                cursor.execute(items_query, search_params + [max_results])
+                cursor.execute(items_query, search_params)
                 results = cursor.fetchall()
                 
                 items = []
@@ -780,13 +854,11 @@ class ZoteroDatabase:
                         attachment_path=attachment_path
                     )
                     
-                    # Filter by attachments if requested
-                    if only_attachments:
-                        if attachment_type in ["pdf", "epub"]:
-                            items.append(item)
-                    else:
-                        items.append(item)
+                    # No need to filter by attachments here - already done in SQL
+                    items.append(item)
                 
+                
+                # Return all items - max_results limit applied in CLI after deduplication
                 return items, total_count
         except Exception as e:
             raise DatabaseError(f"Error searching items with combined criteria: {e}")

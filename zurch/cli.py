@@ -137,11 +137,23 @@ def create_parser():
         help="Show item ID numbers in search results"
     )
     
+    parser.add_argument(
+        "--books", 
+        action="store_true",
+        help="Show only book items in search results"
+    )
+    
+    parser.add_argument(
+        "--articles", 
+        action="store_true",
+        help="Show only article items in search results"
+    )
+    
     return parser
 
 def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False) -> None:
     """Display items with numbering and icons."""
-    for i, item in enumerate(items[:max_results], 1):
+    for i, item in enumerate(items, 1):
         # Item type icon (books and journal articles)
         type_icon = format_item_type_icon(item.item_type, item.is_duplicate)
         
@@ -482,6 +494,10 @@ def main():
         print("Error: --grab (-g) flag requires --interactive (-i) flag")
         return 1
     
+    if args.books and args.articles:
+        print("Error: Cannot use both --books and --articles flags together")
+        return 1
+    
     # Get database connection
     db = get_database(config)
     if not db:
@@ -588,7 +604,7 @@ def main():
                     selected_collection = interactive_collection_selection(collections[:max_results])
                     if selected_collection:
                         # Run -f on the selected collection
-                        items, total_count = db.get_collection_items(selected_collection.name, max_results, args.only_attachments)
+                        items, total_count = db.get_collection_items(selected_collection.name, max_results, args.only_attachments, args.after, args.before, args.books, args.articles)
                         if args.only_attachments:
                             print(f"\nItems in folder '{selected_collection.name}' (with PDF/EPUB attachments):")
                             if len(items) < total_count:
@@ -637,7 +653,7 @@ def main():
             
             # Use grouped display if multiple collections match
             if len(collections) > 1:
-                grouped_items, total_count = db.get_collection_items_grouped(folder_name, max_results, args.only_attachments)
+                grouped_items, total_count = db.get_collection_items_grouped(folder_name, max_results, args.only_attachments, args.after, args.before, args.books, args.articles)
                 
                 if not grouped_items:
                     print(f"No items found in folders matching '{folder_name}'")
@@ -666,7 +682,7 @@ def main():
                     handle_interactive_mode(db, all_items, args.grab, config, max_results, folder_name, grouped_items, args.showids)
             else:
                 # Single collection - use original display
-                items, total_count = db.get_collection_items(folder_name, max_results, args.only_attachments)
+                items, total_count = db.get_collection_items(folder_name, max_results, args.only_attachments, args.after, args.before, args.books, args.articles)
                 
                 if not items:
                     print(f"No items found in folder '{folder_name}'")
@@ -674,21 +690,32 @@ def main():
                 
                 # Apply deduplication if enabled
                 duplicates_removed = 0
+                items_before_dedupe = len(items)
                 if not args.no_dedupe:
                     items, duplicates_removed = deduplicate_items(db, items, args.debug)
+                items_after_dedupe = len(items)
+                
+                # Apply max_results limit as final step (after all filtering and deduplication)
+                items_before_limit = len(items)
+                items = items[:max_results]
+                items_final = len(items)
                 
                 if args.only_attachments:
                     print(f"Items in folder '{folder_name}' (with PDF/EPUB attachments):")
-                    if len(items) < total_count:
-                        item_word = "item" if len(items) == 1 else "items"
-                        print(f"Showing {len(items)} {item_word} with attachments from {total_count} total matches:")
                 else:
                     print(f"Items in folder '{folder_name}':")
-                    if total_count > max_results:
-                        print(f"Showing first {max_results} of {total_count} items:")
+                
+                # Show clear count information
+                if items_final < items_before_limit:
+                    if duplicates_removed > 0:
+                        print(f"Showing {items_final} of {items_before_limit} items ({duplicates_removed} duplicates removed, {total_count} total found):")
+                    else:
+                        print(f"Showing first {items_final} of {items_before_limit} items:")
+                elif duplicates_removed > 0:
+                    print(f"Showing {items_final} items ({duplicates_removed} duplicates removed from {total_count} total found):")
                 
                 if duplicates_removed > 0 and args.debug:
-                    print(f"({duplicates_removed} duplicates removed)")
+                    print(f"(Debug: {duplicates_removed} duplicates removed)")
                 
                 display_items(items, max_results, show_ids=args.showids)  # Don't highlight folder name in item titles
                 
@@ -734,7 +761,9 @@ def main():
                 exact_match=args.exact, 
                 only_attachments=args.only_attachments,
                 after_year=args.after,
-                before_year=args.before
+                before_year=args.before,
+                only_books=args.books,
+                only_articles=args.articles
             )
             
             if not items:
@@ -743,8 +772,15 @@ def main():
             
             # Apply deduplication if enabled
             duplicates_removed = 0
+            items_before_dedupe = len(items)
             if not args.no_dedupe:
                 items, duplicates_removed = deduplicate_items(db, items, args.debug)
+            items_after_dedupe = len(items)
+            
+            # Apply max_results limit as final step (after all filtering and deduplication)
+            items_before_limit = len(items)
+            items = items[:max_results]
+            items_final = len(items)
             
             # Build description with date filters
             date_filters = []
@@ -760,15 +796,18 @@ def main():
                 filter_desc += f" ({', '.join(date_filters)})"
             
             print(f"Items matching '{search_display}'{filter_desc}:")
-            if len(items) < total_count:
-                if args.only_attachments:
-                    item_word = "item" if len(items) == 1 else "items"
-                    print(f"Showing {len(items)} {item_word} with attachments from {total_count} total matches:")
-                elif total_count > max_results:
-                    print(f"Showing first {max_results} of {total_count} items:")
+            
+            # Show clear count information
+            if items_final < items_before_limit:
+                if duplicates_removed > 0:
+                    print(f"Showing {items_final} of {items_before_limit} items ({duplicates_removed} duplicates removed, {total_count} total found):")
+                else:
+                    print(f"Showing first {items_final} of {items_before_limit} items:")
+            elif duplicates_removed > 0:
+                print(f"Showing {items_final} items ({duplicates_removed} duplicates removed from {total_count} total found):")
             
             if duplicates_removed > 0 and args.debug:
-                print(f"({duplicates_removed} duplicates removed)")
+                print(f"(Debug: {duplicates_removed} duplicates removed)")
             
             # For highlighting: only highlight for phrase searches, not AND searches
             highlight_term = ""

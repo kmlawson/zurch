@@ -90,11 +90,28 @@ zurch -f "Travel" -i
 
 ### Search by Name (-n/--name)
 ```bash
-# Search item titles
-zurch -n "machine learning"
+# Search item titles (supports AND logic for multiple words)
+zurch -n machine learning    # Finds items with BOTH "machine" AND "learning"
+zurch -n "machine learning"  # Finds items with exact phrase "machine learning"
 
 # Case-insensitive, partial matching
 zurch -n "china"
+
+# Wildcard patterns
+zurch -n "china%"    # Titles starting with "china"
+zurch -n "%history"  # Titles ending with "history"  
+zurch -n "%war%"     # Titles containing "war"
+```
+
+### Search by Author (-a/--author)
+```bash
+# Search by author name (supports AND logic for multiple words)
+zurch -a smith       # Find items by authors named "smith"
+zurch -a john smith  # Find items by authors with BOTH "john" AND "smith"
+zurch -a "john smith"# Find items by author with exact name "john smith"
+
+# Works with first or last names
+zurch -a benjamin    # Finds Benjamin Franklin, Benjamin Netanyahu, etc.
 ```
 
 ### Interactive Mode (-i/--interactive)
@@ -111,12 +128,22 @@ zurch -f "Papers" -i -g
 # Select an item and its attachment will be copied to current directory
 ```
 
-### Options
-- `-x/--max-results N`: Limit number of results (default: 100)
+### Filtering Options
+- `-o/--only-attachments`: Show only items with PDF/EPUB attachments
+- `--books`: Show only book items in search results  
+- `--articles`: Show only journal article items in search results
+- `--after YEAR`: Show only items published after this year (inclusive)
+- `--before YEAR`: Show only items published before this year (inclusive)
+- `-k/--exact`: Use exact matching instead of partial matching
+
+### Other Options
+- `-x/--max-results N`: Limit number of results (default: 100) - **Applied as final step after all filtering and deduplication**
 - `-d/--debug`: Enable detailed logging and show purple duplicates
 - `-v/--version`: Show version information
 - `-h/--help`: Show help message
 - `--id ID`: Show metadata for a specific item ID
+- `--showids`: Show item ID numbers in search results
+- `--getbyid ID [ID...]`: Grab attachments for specific item IDs
 - `--no-dedupe`: Disable automatic duplicate removal
 
 ### Duplicate Detection
@@ -145,6 +172,19 @@ Example configuration:
   "debug": false
 }
 ```
+
+## Processing Order
+
+Zurch processes search requests in a specific order to ensure predictable results:
+
+1. **Search Criteria**: Find all items matching search terms (`-n`, `-a`, `-f`)
+2. **Content Filters**: Apply filters like `-o` (attachments), `--books`, `--articles`, `--after`, `--before`
+3. **Deduplication**: Remove duplicate items (unless `--no-dedupe` is used)
+4. **Result Limiting**: Apply `-x/--max-results` limit as the final step
+
+This means when you specify `-x 5`, you get exactly 5 items from the final processed result set. For example:
+- `zurch -n "war crimes" -o -x 5` finds all "war crimes" items, filters for those with attachments, removes duplicates, then shows the first 5
+- If you want 5 items before deduplication, use `--no-dedupe`
 
 ## Advanced Features
 
