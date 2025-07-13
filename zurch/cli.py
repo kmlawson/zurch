@@ -12,7 +12,7 @@ from .utils import (
 from .search import ZoteroDatabase, ZoteroItem, DatabaseError, DatabaseLockedError
 from .interactive import interactive_collection_selection
 
-__version__ = "0.4.3"
+__version__ = "0.4.4"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
@@ -112,6 +112,42 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
         number = pad_number(i, min(len(items), max_results))
         title = highlight_search_term(item.title, search_term) if search_term else item.title
         print(f"{number}. {type_icon}{attachment_icon}{title}")
+
+def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "") -> List[ZoteroItem]:
+    """Display items grouped by collection with separators. Returns flat list for interactive mode."""
+    all_items = []
+    item_counter = 1
+    
+    for i, (collection, items) in enumerate(grouped_items):
+        if item_counter > max_results:
+            break
+            
+        # Add spacing between collections (except for the first one)
+        if i > 0:
+            print()
+        
+        # Collection header
+        print(f"=== {collection.full_path} ({len(items)} items) ===")
+        
+        # Display items in this collection
+        for item in items:
+            if item_counter > max_results:
+                break
+                
+            # Item type icon (books and journal articles)
+            type_icon = format_item_type_icon(item.item_type)
+            
+            # Link icon for PDF/EPUB attachments
+            attachment_icon = format_attachment_link_icon(item.attachment_type)
+            
+            number = pad_number(item_counter, max_results)
+            title = highlight_search_term(item.title, search_term) if search_term else item.title
+            print(f"{number}. {type_icon}{attachment_icon}{title}")
+            
+            all_items.append(item)
+            item_counter += 1
+    
+    return all_items
 
 def matches_search_term(text: str, search_term: str) -> bool:
     """Check if text matches the search term (with wildcard support)."""
@@ -491,9 +527,11 @@ def main():
         
         elif args.folder:
             folder_name = ' '.join(args.folder)
-            items, total_count = db.get_collection_items(folder_name, max_results, args.only_attachments)
             
-            if not items:
+            # Check how many collections match
+            collections = db.search_collections(folder_name)
+            
+            if not collections:
                 # No exact matches, show suggestions
                 similar = db.find_similar_collections(folder_name, 5)
                 print(f"No items found in folder '{folder_name}'")
@@ -504,19 +542,49 @@ def main():
                         print(f"  {collection.name}")
                 return 1
             
-            if args.only_attachments:
-                print(f"Items in folder '{folder_name}' (with PDF/EPUB attachments):")
-                if len(items) < total_count:
-                    item_word = "item" if len(items) == 1 else "items"
-                    print(f"Showing {len(items)} {item_word} with attachments from {total_count} total matches:")
-            else:
-                print(f"Items in folder '{folder_name}':")
+            # Use grouped display if multiple collections match
+            if len(collections) > 1:
+                grouped_items, total_count = db.get_collection_items_grouped(folder_name, max_results, args.only_attachments)
+                
+                if not grouped_items:
+                    print(f"No items found in folders matching '{folder_name}'")
+                    return 1
+                
+                if args.only_attachments:
+                    print(f"Items in folders matching '{folder_name}' (with PDF/EPUB attachments):")
+                else:
+                    print(f"Items in folders matching '{folder_name}':")
+                
                 if total_count > max_results:
-                    print(f"Showing first {max_results} of {total_count} items:")
-            display_items(items, max_results)  # Don't highlight folder name in item titles
-            
-            if args.interactive:
-                handle_interactive_mode(db, items, args.grab, config)
+                    print(f"Showing first {max_results} of {total_count} total items:")
+                print()
+                
+                # Display grouped items and get flat list for interactive mode
+                all_items = display_grouped_items(grouped_items, max_results)
+                
+                if args.interactive:
+                    handle_interactive_mode(db, all_items, args.grab, config)
+            else:
+                # Single collection - use original display
+                items, total_count = db.get_collection_items(folder_name, max_results, args.only_attachments)
+                
+                if not items:
+                    print(f"No items found in folder '{folder_name}'")
+                    return 1
+                
+                if args.only_attachments:
+                    print(f"Items in folder '{folder_name}' (with PDF/EPUB attachments):")
+                    if len(items) < total_count:
+                        item_word = "item" if len(items) == 1 else "items"
+                        print(f"Showing {len(items)} {item_word} with attachments from {total_count} total matches:")
+                else:
+                    print(f"Items in folder '{folder_name}':")
+                    if total_count > max_results:
+                        print(f"Showing first {max_results} of {total_count} items:")
+                display_items(items, max_results)  # Don't highlight folder name in item titles
+                
+                if args.interactive:
+                    handle_interactive_mode(db, items, args.grab, config)
             
             return 0
         

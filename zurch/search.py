@@ -160,6 +160,39 @@ class ZoteroDatabase:
             all_items = [item for item in all_items if item.attachment_type in ["pdf", "epub"]]
         
         return all_items[:max_results], total_count
+
+    def get_collection_items_grouped(self, collection_name: str, max_results: int = 100, only_attachments: bool = False) -> tuple[List[tuple[ZoteroCollection, List[ZoteroItem]]], int]:
+        """Get items from collections matching the given name, grouped by collection. Returns (grouped_items, total_count)."""
+        collections = self.search_collections(collection_name)
+        
+        if not collections:
+            return [], 0
+        
+        # Get total count first
+        total_count = 0
+        for collection in collections:
+            total_count += self._get_collection_item_count(collection.collection_id)
+        
+        # Get items from each collection separately, maintaining grouping
+        grouped_items = []
+        items_added = 0
+        
+        for collection in collections:
+            if items_added >= max_results:
+                break
+                
+            remaining_limit = max_results - items_added
+            items = self._get_items_in_collection(collection.collection_id, remaining_limit, only_attachments)
+            
+            # Filter by attachments if requested
+            if only_attachments:
+                items = [item for item in items if item.attachment_type in ["pdf", "epub"]]
+            
+            if items:  # Only add if there are items
+                grouped_items.append((collection, items))
+                items_added += len(items)
+        
+        return grouped_items, total_count
     
     def _get_collection_item_count(self, collection_id: int) -> int:
         """Get the total number of items in a collection."""
