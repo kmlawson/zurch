@@ -21,7 +21,9 @@
       "Bash(uv lock:*)",
       "Bash(true)",
       "Bash(gh repo create:*)",
-      "Bash(gh repo view:*)"
+      "Bash(gh repo view:*)",
+      "Bash(PYTHONPATH=/Users/kml8/shell/current/zurch uv run pytest tests/ -v)",
+      "Bash(PYTHONPATH=/Users/kml8/shell/current/zurch uv run pytest tests/test_zurch.py::TestZoteroDatabase::test_search_items_wildcards -v)"
     ],
     "deny": []
   }

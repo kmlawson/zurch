@@ -169,6 +169,38 @@ class TestZoteroDatabase:
         # (items with "world" and "history" separately vs "world history" together)
         assert total_and >= total_phrase, "AND search should find more or equal items than phrase search"
     
+    def test_search_items_wildcards(self, db):
+        """Test wildcard patterns in search."""
+        # Test prefix wildcard - should find items with "world" patterns
+        items_prefix, total_prefix = db.search_items_by_name("world%", max_results=5)
+        assert isinstance(items_prefix, list)
+        assert isinstance(total_prefix, int)
+        
+        # All results should contain "world" (the wildcard extends the search)
+        for item in items_prefix:
+            title_lower = item.title.lower()
+            assert "world" in title_lower, f"Item '{item.title}' doesn't contain 'world'"
+        
+        # Test suffix wildcard - should find words ending with "history" anywhere in title
+        items_suffix, total_suffix = db.search_items_by_name("%history", max_results=5)
+        assert isinstance(items_suffix, list)
+        assert isinstance(total_suffix, int)
+        
+        # All results should contain "history" (SQL LIKE handles partial matches correctly)
+        for item in items_suffix:
+            title_lower = item.title.lower()
+            assert "history" in title_lower, f"Item '{item.title}' doesn't contain 'history'"
+        
+        # Test contains wildcard (anywhere)
+        items_contains, total_contains = db.search_items_by_name("%world%", max_results=5)
+        assert isinstance(items_contains, list)
+        assert isinstance(total_contains, int)
+        
+        # All results should contain "world"
+        for item in items_contains:
+            title_lower = item.title.lower()
+            assert "world" in title_lower, f"Item '{item.title}' doesn't contain 'world'"
+    
     def test_get_item_metadata(self, db):
         """Test getting item metadata."""
         # First find an item

@@ -294,9 +294,19 @@ class ZoteroDatabase:
             search_params = []
             
             for keyword in name:
-                escaped_keyword = escape_sql_like_pattern(keyword)
-                search_conditions.append("LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'")
-                search_params.append(f"%{escaped_keyword}%")
+                if '%' in keyword or '_' in keyword:
+                    # User provided wildcards - add partial matching unless already positioned
+                    if not keyword.startswith('%'):
+                        keyword = '%' + keyword  # Add leading wildcard for partial matching
+                    if not keyword.endswith('%'):
+                        keyword = keyword + '%'  # Add trailing wildcard for partial matching
+                    search_conditions.append("LOWER(idv.value) LIKE LOWER(?)")
+                    search_params.append(keyword)
+                else:
+                    # Escape and add partial matching wildcards
+                    escaped_keyword = escape_sql_like_pattern(keyword)
+                    search_conditions.append("LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'")
+                    search_params.append(f"%{escaped_keyword}%")
             
             where_clause = "WHERE " + " AND ".join(search_conditions)
             
@@ -309,12 +319,22 @@ class ZoteroDatabase:
                 search_params = [name]
                 where_clause = "WHERE LOWER(idv.value) = LOWER(?)"
             else:
-                # Import escape function
-                from .utils import escape_sql_like_pattern
-                # Escape SQL LIKE wildcards in user input
-                escaped_name = escape_sql_like_pattern(name)
-                search_params = [f"%{escaped_name}%"]
-                where_clause = "WHERE LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'"
+                # Handle wildcard patterns vs regular search
+                if '%' in name or '_' in name:
+                    # User provided wildcards - add partial matching unless already positioned
+                    if not name.startswith('%'):
+                        name = '%' + name  # Add leading wildcard for partial matching
+                    if not name.endswith('%'):
+                        name = name + '%'  # Add trailing wildcard for partial matching
+                    search_params = [name]
+                    where_clause = "WHERE LOWER(idv.value) LIKE LOWER(?)"
+                else:
+                    # Import escape function
+                    from .utils import escape_sql_like_pattern
+                    # Escape SQL LIKE wildcards in user input for partial matching
+                    escaped_name = escape_sql_like_pattern(name)
+                    search_params = [f"%{escaped_name}%"]
+                    where_clause = "WHERE LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'"
         
         # First get the total count
         count_query = f"""
