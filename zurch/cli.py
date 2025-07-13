@@ -11,8 +11,9 @@ from .utils import (
 )
 from .search import ZoteroDatabase, ZoteroItem, DatabaseError, DatabaseLockedError
 from .interactive import interactive_collection_selection
+from .duplicates import deduplicate_items, deduplicate_grouped_items
 
-__version__ = "0.4.4"
+__version__ = "0.5.0"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
@@ -96,6 +97,12 @@ def create_parser():
         "--id", 
         type=int,
         help="Show metadata for a specific item ID"
+    )
+    
+    parser.add_argument(
+        "--no-dedupe", 
+        action="store_true",
+        help="Disable automatic deduplication of results"
     )
     
     return parser
@@ -550,6 +557,11 @@ def main():
                     print(f"No items found in folders matching '{folder_name}'")
                     return 1
                 
+                # Apply deduplication if enabled
+                duplicates_removed = 0
+                if not args.no_dedupe:
+                    grouped_items, duplicates_removed = deduplicate_grouped_items(db, grouped_items)
+                
                 if args.only_attachments:
                     print(f"Items in folders matching '{folder_name}' (with PDF/EPUB attachments):")
                 else:
@@ -557,6 +569,8 @@ def main():
                 
                 if total_count > max_results:
                     print(f"Showing first {max_results} of {total_count} total items:")
+                if duplicates_removed > 0 and args.debug:
+                    print(f"({duplicates_removed} duplicates removed)")
                 print()
                 
                 # Display grouped items and get flat list for interactive mode
@@ -572,6 +586,11 @@ def main():
                     print(f"No items found in folder '{folder_name}'")
                     return 1
                 
+                # Apply deduplication if enabled
+                duplicates_removed = 0
+                if not args.no_dedupe:
+                    items, duplicates_removed = deduplicate_items(db, items)
+                
                 if args.only_attachments:
                     print(f"Items in folder '{folder_name}' (with PDF/EPUB attachments):")
                     if len(items) < total_count:
@@ -581,6 +600,10 @@ def main():
                     print(f"Items in folder '{folder_name}':")
                     if total_count > max_results:
                         print(f"Showing first {max_results} of {total_count} items:")
+                
+                if duplicates_removed > 0 and args.debug:
+                    print(f"({duplicates_removed} duplicates removed)")
+                
                 display_items(items, max_results)  # Don't highlight folder name in item titles
                 
                 if args.interactive:
@@ -596,6 +619,11 @@ def main():
                 print(f"No items found matching '{name_search}'")
                 return 1
             
+            # Apply deduplication if enabled
+            duplicates_removed = 0
+            if not args.no_dedupe:
+                items, duplicates_removed = deduplicate_items(db, items)
+            
             if args.only_attachments:
                 print(f"Items matching '{name_search}' (with PDF/EPUB attachments):")
                 if len(items) < total_count:
@@ -605,6 +633,10 @@ def main():
                 print(f"Items matching '{name_search}':")
                 if total_count > max_results:
                     print(f"Showing first {max_results} of {total_count} items:")
+            
+            if duplicates_removed > 0 and args.debug:
+                print(f"({duplicates_removed} duplicates removed)")
+            
             display_items(items, max_results, name_search)
             
             if args.interactive:
