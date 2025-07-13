@@ -277,7 +277,7 @@ class ZoteroDatabase:
         except Exception as e:
             raise DatabaseError(f"Error getting collection items: {e}")
     
-    def search_items_by_name(self, name, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False) -> tuple[List[ZoteroItem], int]:
+    def search_items_by_name(self, name, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False, after_year: int = None, before_year: int = None) -> tuple[List[ZoteroItem], int]:
         """Search items by title content. Returns (items, total_count).
         
         Args:
@@ -285,6 +285,8 @@ class ZoteroDatabase:
             max_results: Maximum number of results to return
             exact_match: If True, use exact matching
             only_attachments: If True, only return items with PDF/EPUB attachments
+            after_year: If provided, only return items published after this year (inclusive)
+            before_year: If provided, only return items published before this year (inclusive)
         """
         # Handle multiple keywords (AND search) vs single phrase search
         if isinstance(name, list) and len(name) > 1 and not exact_match:
@@ -336,6 +338,18 @@ class ZoteroDatabase:
                     search_params = [f"%{escaped_name}%"]
                     where_clause = "WHERE LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'"
         
+        # Add date filtering if specified
+        date_conditions = []
+        if after_year is not None:
+            date_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?")
+            search_params.append(after_year)
+        if before_year is not None:
+            date_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) <= ?")
+            search_params.append(before_year)
+        
+        if date_conditions:
+            where_clause += " AND " + " AND ".join(date_conditions)
+        
         # First get the total count
         count_query = f"""
         SELECT COUNT(DISTINCT i.itemID)
@@ -343,6 +357,8 @@ class ZoteroDatabase:
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
         LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
         LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
+        LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+        LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
         {where_clause}
         """
         
@@ -356,6 +372,8 @@ class ZoteroDatabase:
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
         LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
         LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
+        LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+        LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
         {where_clause}
         ORDER BY LOWER(idv.value)
         LIMIT ?
@@ -411,6 +429,367 @@ class ZoteroDatabase:
                 return items, total_count
         except Exception as e:
             raise DatabaseError(f"Error searching items: {e}")
+    
+    def search_items_by_author(self, author, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False, after_year: int = None, before_year: int = None) -> tuple[List[ZoteroItem], int]:
+        """Search items by author name. Returns (items, total_count).
+        
+        Args:
+            author: Can be a string (phrase search) or list of strings (AND search for multiple keywords)
+            max_results: Maximum number of results to return
+            exact_match: If True, use exact matching
+            only_attachments: If True, only return items with PDF/EPUB attachments
+            after_year: If provided, only return items published after this year (inclusive)
+            before_year: If provided, only return items published before this year (inclusive)
+        """
+        # Handle multiple keywords (AND search) vs single phrase search
+        if isinstance(author, list) and len(author) > 1 and not exact_match:
+            # Multiple keywords - each must be present in author names (AND logic)
+            from .utils import escape_sql_like_pattern
+            search_conditions = []
+            search_params = []
+            
+            for keyword in author:
+                if '%' in keyword or '_' in keyword:
+                    # User provided wildcards - add partial matching unless already positioned
+                    if not keyword.startswith('%'):
+                        keyword = '%' + keyword
+                    if not keyword.endswith('%'):
+                        keyword = keyword + '%'
+                    search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
+                    search_params.extend([keyword, keyword])
+                else:
+                    # Escape and add partial matching wildcards
+                    escaped_keyword = escape_sql_like_pattern(keyword)
+                    search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) ESCAPE '\\' OR LOWER(c.lastName) LIKE LOWER(?) ESCAPE '\\')")
+                    search_params.extend([f"%{escaped_keyword}%", f"%{escaped_keyword}%"])
+            
+            author_where_clause = " AND ".join(search_conditions)
+            
+        else:
+            # Single keyword or phrase search (or exact match)
+            if isinstance(author, list):
+                author = ' '.join(author)  # Join list into single string
+                
+            if exact_match:
+                author_where_clause = "(LOWER(c.firstName) = LOWER(?) OR LOWER(c.lastName) = LOWER(?))"
+                search_params = [author, author]
+            else:
+                # Handle wildcard patterns vs regular search
+                if '%' in author or '_' in author:
+                    # User provided wildcards - add partial matching unless already positioned
+                    if not author.startswith('%'):
+                        author = '%' + author
+                    if not author.endswith('%'):
+                        author = author + '%'
+                    author_where_clause = "(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))"
+                    search_params = [author, author]
+                else:
+                    # Import escape function
+                    from .utils import escape_sql_like_pattern
+                    # Escape SQL LIKE wildcards in user input for partial matching
+                    escaped_author = escape_sql_like_pattern(author)
+                    author_where_clause = "(LOWER(c.firstName) LIKE LOWER(?) ESCAPE '\\' OR LOWER(c.lastName) LIKE LOWER(?) ESCAPE '\\')"
+                    search_params = [f"%{escaped_author}%", f"%{escaped_author}%"]
+        
+        # Add date filtering if specified
+        date_conditions = []
+        if after_year is not None:
+            date_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?")
+            search_params.append(after_year)
+        if before_year is not None:
+            date_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) <= ?")
+            search_params.append(before_year)
+        
+        # Combine conditions
+        where_conditions = [f"({author_where_clause})"]
+        if date_conditions:
+            where_conditions.extend(date_conditions)
+        
+        where_clause = "WHERE " + " AND ".join(where_conditions)
+        
+        # First get the total count
+        count_query = f"""
+        SELECT COUNT(DISTINCT i.itemID)
+        FROM items i
+        JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+        JOIN itemCreators ic ON i.itemID = ic.itemID
+        JOIN creators c ON ic.creatorID = c.creatorID
+        LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+        LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
+        {where_clause}
+        """
+        
+        # Then get the actual items
+        items_query = f"""
+        SELECT DISTINCT
+            i.itemID,
+            COALESCE(idv_title.value, '') as title,
+            it.typeName
+        FROM items i
+        JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+        JOIN itemCreators ic ON i.itemID = ic.itemID
+        JOIN creators c ON ic.creatorID = c.creatorID
+        LEFT JOIN itemData id_title ON i.itemID = id_title.itemID AND id_title.fieldID = 1  -- title field
+        LEFT JOIN itemDataValues idv_title ON id_title.valueID = idv_title.valueID
+        LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+        LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
+        {where_clause}
+        ORDER BY LOWER(idv_title.value)
+        LIMIT ?
+        """
+        
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Get total count
+                cursor.execute(count_query, search_params)
+                total_count = cursor.fetchone()[0]
+                
+                # Get items
+                cursor.execute(items_query, search_params + [max_results])
+                results = cursor.fetchall()
+                
+                items = []
+                for row in results:
+                    item_id, title, item_type = row
+                    
+                    # Get the first attachment for this item
+                    attachment_query = """
+                    SELECT contentType, path FROM itemAttachments 
+                    WHERE parentItemID = ? OR itemID = ?
+                    LIMIT 1
+                    """
+                    cursor.execute(attachment_query, (item_id, item_id))
+                    attachment_result = cursor.fetchone()
+                    
+                    attachment_type = None
+                    attachment_path = None
+                    if attachment_result:
+                        content_type, path = attachment_result
+                        attachment_type = self._get_attachment_type(content_type)
+                        attachment_path = path
+                    
+                    item = ZoteroItem(
+                        item_id=item_id,
+                        title=title or "Untitled",
+                        item_type=item_type,
+                        attachment_type=attachment_type,
+                        attachment_path=attachment_path
+                    )
+                    
+                    # Filter by attachments if requested
+                    if only_attachments:
+                        if attachment_type in ["pdf", "epub"]:
+                            items.append(item)
+                    else:
+                        items.append(item)
+                
+                return items, total_count
+        except Exception as e:
+            raise DatabaseError(f"Error searching items by author: {e}")
+    
+    def search_items_combined(self, name=None, author=None, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False, after_year: int = None, before_year: int = None) -> tuple[List[ZoteroItem], int]:
+        """Search items by combined criteria (title and/or author). Returns (items, total_count).
+        
+        Args:
+            name: Title search criteria (string or list of strings)
+            author: Author search criteria (string or list of strings)
+            max_results: Maximum number of results to return
+            exact_match: If True, use exact matching
+            only_attachments: If True, only return items with PDF/EPUB attachments
+            after_year: If provided, only return items published after this year (inclusive)
+            before_year: If provided, only return items published before this year (inclusive)
+        """
+        search_conditions = []
+        search_params = []
+        
+        # Handle title search criteria
+        if name is not None:
+            if isinstance(name, list) and len(name) > 1 and not exact_match:
+                # Multiple keywords - each must be present in title (AND logic)
+                from .utils import escape_sql_like_pattern
+                title_conditions = []
+                
+                for keyword in name:
+                    if '%' in keyword or '_' in keyword:
+                        if not keyword.startswith('%'):
+                            keyword = '%' + keyword
+                        if not keyword.endswith('%'):
+                            keyword = keyword + '%'
+                        title_conditions.append("LOWER(idv_title.value) LIKE LOWER(?)")
+                        search_params.append(keyword)
+                    else:
+                        escaped_keyword = escape_sql_like_pattern(keyword)
+                        title_conditions.append("LOWER(idv_title.value) LIKE LOWER(?) ESCAPE '\\'")
+                        search_params.append(f"%{escaped_keyword}%")
+                
+                search_conditions.append("(" + " AND ".join(title_conditions) + ")")
+            else:
+                # Single keyword or phrase search
+                if isinstance(name, list):
+                    name = ' '.join(name)
+                    
+                if exact_match:
+                    search_conditions.append("LOWER(idv_title.value) = LOWER(?)")
+                    search_params.append(name)
+                else:
+                    if '%' in name or '_' in name:
+                        if not name.startswith('%'):
+                            name = '%' + name
+                        if not name.endswith('%'):
+                            name = name + '%'
+                        search_conditions.append("LOWER(idv_title.value) LIKE LOWER(?)")
+                        search_params.append(name)
+                    else:
+                        from .utils import escape_sql_like_pattern
+                        escaped_name = escape_sql_like_pattern(name)
+                        search_conditions.append("LOWER(idv_title.value) LIKE LOWER(?) ESCAPE '\\'")
+                        search_params.append(f"%{escaped_name}%")
+        
+        # Handle author search criteria
+        if author is not None:
+            if isinstance(author, list) and len(author) > 1 and not exact_match:
+                # Multiple keywords - each must be present in author names (AND logic)
+                from .utils import escape_sql_like_pattern
+                author_conditions = []
+                
+                for keyword in author:
+                    if '%' in keyword or '_' in keyword:
+                        if not keyword.startswith('%'):
+                            keyword = '%' + keyword
+                        if not keyword.endswith('%'):
+                            keyword = keyword + '%'
+                        author_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
+                        search_params.extend([keyword, keyword])
+                    else:
+                        escaped_keyword = escape_sql_like_pattern(keyword)
+                        author_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) ESCAPE '\\' OR LOWER(c.lastName) LIKE LOWER(?) ESCAPE '\\')")
+                        search_params.extend([f"%{escaped_keyword}%", f"%{escaped_keyword}%"])
+                
+                search_conditions.append("(" + " AND ".join(author_conditions) + ")")
+            else:
+                # Single keyword or phrase search
+                if isinstance(author, list):
+                    author = ' '.join(author)
+                    
+                if exact_match:
+                    search_conditions.append("(LOWER(c.firstName) = LOWER(?) OR LOWER(c.lastName) = LOWER(?))")
+                    search_params.extend([author, author])
+                else:
+                    if '%' in author or '_' in author:
+                        if not author.startswith('%'):
+                            author = '%' + author
+                        if not author.endswith('%'):
+                            author = author + '%'
+                        search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
+                        search_params.extend([author, author])
+                    else:
+                        from .utils import escape_sql_like_pattern
+                        escaped_author = escape_sql_like_pattern(author)
+                        search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) ESCAPE '\\' OR LOWER(c.lastName) LIKE LOWER(?) ESCAPE '\\')")
+                        search_params.extend([f"%{escaped_author}%", f"%{escaped_author}%"])
+        
+        # Add date filtering if specified
+        if after_year is not None:
+            search_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?")
+            search_params.append(after_year)
+        if before_year is not None:
+            search_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) <= ?")
+            search_params.append(before_year)
+        
+        # Construct WHERE clause
+        if search_conditions:
+            where_clause = "WHERE " + " AND ".join(search_conditions)
+        else:
+            where_clause = ""
+        
+        # Base tables - need both title and author joins when combining searches
+        base_from = """
+        FROM items i
+        JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+        LEFT JOIN itemData id_title ON i.itemID = id_title.itemID AND id_title.fieldID = 1  -- title field
+        LEFT JOIN itemDataValues idv_title ON id_title.valueID = idv_title.valueID
+        LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+        LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
+        """
+        
+        # Add author joins only if author search is specified
+        if author is not None:
+            base_from += """
+            JOIN itemCreators ic ON i.itemID = ic.itemID
+            JOIN creators c ON ic.creatorID = c.creatorID
+            """
+        
+        # Count query
+        count_query = f"""
+        SELECT COUNT(DISTINCT i.itemID)
+        {base_from}
+        {where_clause}
+        """
+        
+        # Items query
+        items_query = f"""
+        SELECT DISTINCT
+            i.itemID,
+            COALESCE(idv_title.value, '') as title,
+            it.typeName
+        {base_from}
+        {where_clause}
+        ORDER BY LOWER(idv_title.value)
+        LIMIT ?
+        """
+        
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Get total count
+                cursor.execute(count_query, search_params)
+                total_count = cursor.fetchone()[0]
+                
+                # Get items
+                cursor.execute(items_query, search_params + [max_results])
+                results = cursor.fetchall()
+                
+                items = []
+                for row in results:
+                    item_id, title, item_type = row
+                    
+                    # Get the first attachment for this item
+                    attachment_query = """
+                    SELECT contentType, path FROM itemAttachments 
+                    WHERE parentItemID = ? OR itemID = ?
+                    LIMIT 1
+                    """
+                    cursor.execute(attachment_query, (item_id, item_id))
+                    attachment_result = cursor.fetchone()
+                    
+                    attachment_type = None
+                    attachment_path = None
+                    if attachment_result:
+                        content_type, path = attachment_result
+                        attachment_type = self._get_attachment_type(content_type)
+                        attachment_path = path
+                    
+                    item = ZoteroItem(
+                        item_id=item_id,
+                        title=title or "Untitled",
+                        item_type=item_type,
+                        attachment_type=attachment_type,
+                        attachment_path=attachment_path
+                    )
+                    
+                    # Filter by attachments if requested
+                    if only_attachments:
+                        if attachment_type in ["pdf", "epub"]:
+                            items.append(item)
+                    else:
+                        items.append(item)
+                
+                return items, total_count
+        except Exception as e:
+            raise DatabaseError(f"Error searching items with combined criteria: {e}")
     
     def get_item_metadata(self, item_id: int) -> Dict[str, Any]:
         """Get full metadata for an item."""

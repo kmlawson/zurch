@@ -13,7 +13,7 @@ from .search import ZoteroDatabase, ZoteroItem, DatabaseError, DatabaseLockedErr
 from .interactive import interactive_collection_selection
 from .duplicates import deduplicate_items, deduplicate_grouped_items
 
-__version__ = "0.5.1"
+__version__ = "0.6.0"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
@@ -105,9 +105,41 @@ def create_parser():
         help="Disable automatic deduplication of results"
     )
     
+    parser.add_argument(
+        "-a", "--author", 
+        type=str,
+        nargs='+',
+        help="Search for items by author name. Multiple words = AND search (each word must be present). Quoted text = phrase search (exact phrase)."
+    )
+    
+    parser.add_argument(
+        "--after", 
+        type=int,
+        help="Only show items published after this year (inclusive)"
+    )
+    
+    parser.add_argument(
+        "--before", 
+        type=int,
+        help="Only show items published before this year (inclusive)"
+    )
+    
+    parser.add_argument(
+        "--getbyid", 
+        type=int,
+        nargs='+',
+        help="Grab attachments for specific item IDs (space-separated). Use with -g flag."
+    )
+    
+    parser.add_argument(
+        "--showids", 
+        action="store_true",
+        help="Show item ID numbers in search results"
+    )
+    
     return parser
 
-def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "") -> None:
+def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False) -> None:
     """Display items with numbering and icons."""
     for i, item in enumerate(items[:max_results], 1):
         # Item type icon (books and journal articles)
@@ -119,9 +151,13 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
         number = pad_number(i, min(len(items), max_results))
         title = highlight_search_term(item.title, search_term) if search_term else item.title
         title = format_duplicate_title(title, item.is_duplicate)
-        print(f"{number}. {type_icon}{attachment_icon}{title}")
+        
+        # Add ID if requested
+        id_display = f" [ID:{item.item_id}]" if show_ids else ""
+        
+        print(f"{number}. {type_icon}{attachment_icon}{title}{id_display}")
 
-def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "") -> List[ZoteroItem]:
+def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "", show_ids: bool = False) -> List[ZoteroItem]:
     """Display items grouped by collection with separators. Returns flat list for interactive mode."""
     all_items = []
     item_counter = 1
@@ -151,7 +187,11 @@ def display_grouped_items(grouped_items: List[tuple], max_results: int, search_t
             number = pad_number(item_counter, max_results)
             title = highlight_search_term(item.title, search_term) if search_term else item.title
             title = format_duplicate_title(title, item.is_duplicate)
-            print(f"{number}. {type_icon}{attachment_icon}{title}")
+            
+            # Add ID if requested
+            id_display = f" [ID:{item.item_id}]" if show_ids else ""
+            
+            print(f"{number}. {type_icon}{attachment_icon}{title}{id_display}")
             
             all_items.append(item)
             item_counter += 1
@@ -255,7 +295,7 @@ def display_hierarchical_search_results(collections: List, search_term: str, max
     
     print_hierarchy(hierarchy)
 
-def interactive_selection(items: List[ZoteroItem], max_results: int = 100, search_term: str = "", grouped_items: List[tuple] = None) -> tuple[Optional[ZoteroItem], bool]:
+def interactive_selection(items: List[ZoteroItem], max_results: int = 100, search_term: str = "", grouped_items: List[tuple] = None, show_ids: bool = False) -> tuple[Optional[ZoteroItem], bool]:
     """Handle interactive item selection.
     
     Returns (item, should_grab) tuple.
@@ -274,9 +314,9 @@ def interactive_selection(items: List[ZoteroItem], max_results: int = 100, searc
                 # Re-display the items
                 print()
                 if grouped_items:
-                    display_grouped_items(grouped_items, max_results, search_term)
+                    display_grouped_items(grouped_items, max_results, search_term, show_ids)
                 else:
-                    display_items(items, max_results, search_term)
+                    display_items(items, max_results, search_term, show_ids)
                 continue
             
             # Check for 'g' suffix
@@ -375,12 +415,12 @@ def show_item_metadata(db: ZoteroDatabase, item: ZoteroItem) -> None:
     except Exception as e:
         print(f"Error getting metadata: {e}")
 
-def handle_interactive_mode(db: ZoteroDatabase, items: List[ZoteroItem], grab_mode: bool, config: dict, max_results: int = 100, search_term: str = "", grouped_items: List[tuple] = None) -> None:
+def handle_interactive_mode(db: ZoteroDatabase, items: List[ZoteroItem], grab_mode: bool, config: dict, max_results: int = 100, search_term: str = "", grouped_items: List[tuple] = None, show_ids: bool = False) -> None:
     """Handle interactive item selection and actions."""
     zotero_data_dir = Path(config['zotero_database_path']).parent
     
     while True:
-        selected, should_grab = interactive_selection(items, max_results, search_term, grouped_items)
+        selected, should_grab = interactive_selection(items, max_results, search_term, grouped_items, show_ids)
         if not selected:
             break
         
@@ -434,12 +474,12 @@ def main():
     # Override max_results from command line
     max_results = args.max_results or config.get('max_results', 100)
     
-    if not any([args.folder, args.name, args.list is not None, args.id]):
+    if not any([args.folder, args.name, args.list is not None, args.id, args.author, args.getbyid]):
         parser.print_help()
         return 1
     
-    if args.grab and not args.interactive:
-        print("Error: --grab (-g) flag requires --interactive (-i) flag")
+    if args.grab and not args.interactive and not args.getbyid:
+        print("Error: --grab (-g) flag requires --interactive (-i) flag or --getbyid")
         return 1
     
     # Get database connection
@@ -474,6 +514,45 @@ def main():
                 return 1
             
             return 0
+            
+        elif args.getbyid:
+            # Handle --getbyid flag - grab attachments for specific item IDs
+            if not args.grab:
+                print("Error: --getbyid requires --grab (-g) flag")
+                return 1
+            
+            config_path = Path(config['zotero_database_path']).parent
+            success_count = 0
+            error_count = 0
+            
+            for item_id in args.getbyid:
+                try:
+                    # Get item metadata to show what we're grabbing
+                    metadata = db.get_item_metadata(item_id)
+                    title = metadata.get('title', 'Untitled')
+                    
+                    # Create a dummy ZoteroItem for the grab function
+                    dummy_item = ZoteroItem(
+                        item_id=item_id,
+                        title=title,
+                        item_type=metadata.get('itemType', 'Unknown')
+                    )
+                    
+                    print(f"Attempting to grab attachment for ID {item_id}: {title}")
+                    
+                    # Try to grab the attachment
+                    if grab_attachment(db, dummy_item, config_path):
+                        success_count += 1
+                    else:
+                        error_count += 1
+                        print(f"  → No attachment found for ID {item_id}")
+                        
+                except Exception as e:
+                    error_count += 1
+                    print(f"Error with ID {item_id}: {e}")
+            
+            print(f"\nSummary: {success_count} attachments grabbed, {error_count} failed")
+            return 0 if error_count == 0 else 1
             
         elif args.list is not None:
             collections = db.list_collections()
@@ -522,10 +601,10 @@ def main():
                             print(f"\nItems in folder '{selected_collection.name}':")
                             if total_count > max_results:
                                 print(f"Showing first {max_results} of {total_count} items:")
-                        display_items(items, max_results)
+                        display_items(items, max_results, show_ids=args.showids)
                         
                         if args.grab:
-                            handle_interactive_mode(db, items, args.grab, config, max_results)
+                            handle_interactive_mode(db, items, args.grab, config, max_results, show_ids=args.showids)
                 else:
                     # Non-interactive mode - display hierarchically
                     if args.list:
@@ -585,10 +664,10 @@ def main():
                 print()
                 
                 # Display grouped items and get flat list for interactive mode
-                all_items = display_grouped_items(grouped_items, max_results)
+                all_items = display_grouped_items(grouped_items, max_results, show_ids=args.showids)
                 
                 if args.interactive:
-                    handle_interactive_mode(db, all_items, args.grab, config, max_results, folder_name, grouped_items)
+                    handle_interactive_mode(db, all_items, args.grab, config, max_results, folder_name, grouped_items, args.showids)
             else:
                 # Single collection - use original display
                 items, total_count = db.get_collection_items(folder_name, max_results, args.only_attachments)
@@ -615,25 +694,52 @@ def main():
                 if duplicates_removed > 0 and args.debug:
                     print(f"({duplicates_removed} duplicates removed)")
                 
-                display_items(items, max_results)  # Don't highlight folder name in item titles
+                display_items(items, max_results, show_ids=args.showids)  # Don't highlight folder name in item titles
                 
                 if args.interactive:
-                    handle_interactive_mode(db, items, args.grab, config, max_results, folder_name)
+                    handle_interactive_mode(db, items, args.grab, config, max_results, folder_name, show_ids=args.showids)
             
             return 0
         
-        elif args.name:
-            # Decide whether to use AND search (multiple keywords) or phrase search
-            if len(args.name) > 1 and not args.exact:
-                # Multiple unquoted keywords: use AND search
-                name_search = args.name  # Pass as list for AND logic
-                search_display = ' AND '.join(args.name)
-            else:
-                # Single keyword or exact match: use phrase search
-                name_search = ' '.join(args.name)
-                search_display = name_search
+        elif args.name or args.author:
+            # Handle combined search (name and/or author)
+            name_search = None
+            author_search = None
+            search_parts = []
+            
+            # Process name search if provided
+            if args.name:
+                if len(args.name) > 1 and not args.exact:
+                    # Multiple unquoted keywords: use AND search
+                    name_search = args.name  # Pass as list for AND logic
+                    search_parts.append(' AND '.join(args.name))
+                else:
+                    # Single keyword or exact match: use phrase search
+                    name_search = ' '.join(args.name)
+                    search_parts.append(name_search)
+            
+            # Process author search if provided
+            if args.author:
+                if len(args.author) > 1 and not args.exact:
+                    # Multiple unquoted keywords: use AND search
+                    author_search = args.author  # Pass as list for AND logic
+                    search_parts.append(f"author:({' AND '.join(args.author)})")
+                else:
+                    # Single keyword or exact match: use phrase search
+                    author_search = ' '.join(args.author)
+                    search_parts.append(f"author:{author_search}")
+            
+            search_display = " + ".join(search_parts)
                 
-            items, total_count = db.search_items_by_name(name_search, max_results, exact_match=args.exact, only_attachments=args.only_attachments)
+            items, total_count = db.search_items_combined(
+                name=name_search, 
+                author=author_search, 
+                max_results=max_results, 
+                exact_match=args.exact, 
+                only_attachments=args.only_attachments,
+                after_year=args.after,
+                before_year=args.before
+            )
             
             if not items:
                 print(f"No items found matching '{search_display}'")
@@ -644,25 +750,39 @@ def main():
             if not args.no_dedupe:
                 items, duplicates_removed = deduplicate_items(db, items, args.debug)
             
+            # Build description with date filters
+            date_filters = []
+            if args.after:
+                date_filters.append(f"after {args.after}")
+            if args.before:
+                date_filters.append(f"before {args.before}")
+            
+            filter_desc = ""
             if args.only_attachments:
-                print(f"Items matching '{search_display}' (with PDF/EPUB attachments):")
-                if len(items) < total_count:
+                filter_desc = " (with PDF/EPUB attachments)"
+            if date_filters:
+                filter_desc += f" ({', '.join(date_filters)})"
+            
+            print(f"Items matching '{search_display}'{filter_desc}:")
+            if len(items) < total_count:
+                if args.only_attachments:
                     item_word = "item" if len(items) == 1 else "items"
                     print(f"Showing {len(items)} {item_word} with attachments from {total_count} total matches:")
-            else:
-                print(f"Items matching '{search_display}':")
-                if total_count > max_results:
+                elif total_count > max_results:
                     print(f"Showing first {max_results} of {total_count} items:")
             
             if duplicates_removed > 0 and args.debug:
                 print(f"({duplicates_removed} duplicates removed)")
             
             # For highlighting: only highlight for phrase searches, not AND searches
-            highlight_term = "" if isinstance(name_search, list) else name_search
-            display_items(items, max_results, highlight_term)
+            highlight_term = ""
+            if args.name and not isinstance(name_search, list):
+                highlight_term = name_search
+            
+            display_items(items, max_results, highlight_term, args.showids)
             
             if args.interactive:
-                handle_interactive_mode(db, items, args.grab, config, max_results, search_display)
+                handle_interactive_mode(db, items, args.grab, config, max_results, search_display, show_ids=args.showids)
             
             return 0
         
