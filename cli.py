@@ -279,6 +279,9 @@ def main():
                     collection_names = [c.name for c in collections]
                     duplicates = set([name for name in collection_names if collection_names.count(name) > 1])
                     
+                    # Sort by full path for better organization
+                    collections.sort(key=lambda c: c.full_path.lower())
+                    
                     for collection in collections:
                         count_info = f" ({collection.item_count} items)" if collection.item_count > 0 else ""
                         
@@ -286,9 +289,8 @@ def main():
                             # Show full path for ambiguous names
                             print(f"{collection.full_path}{count_info}")
                         else:
-                            # Show just the name for unique collections
-                            indent = "  " * collection.depth
-                            print(f"{indent}{collection.name}{count_info}")
+                            # Show just the name for unique collections  
+                            print(f"{collection.name}{count_info}")
                 else:
                     print("Collections and Sub-collections:")
                     
