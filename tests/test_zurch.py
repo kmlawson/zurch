@@ -4,9 +4,9 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from search import ZoteroDatabase, ZoteroItem, ZoteroCollection, DatabaseError, DatabaseLockedError
-from utils import load_config, format_attachment_icon, pad_number, find_zotero_database
-import cli
+from zurch.search import ZoteroDatabase, ZoteroItem, ZoteroCollection, DatabaseError, DatabaseLockedError
+from zurch.utils import load_config, format_attachment_icon, pad_number, find_zotero_database
+import zurch.cli as cli
 
 class TestZoteroDatabase:
     """Test the ZoteroDatabase class."""
@@ -14,7 +14,7 @@ class TestZoteroDatabase:
     @pytest.fixture
     def sample_db_path(self):
         """Return path to sample database."""
-        return Path(__file__).parent / "zotero-database-example" / "zotero.sqlite"
+        return Path(__file__).parent.parent / "zotero-database-example" / "zotero.sqlite"
     
     @pytest.fixture
     def db(self, sample_db_path):
@@ -74,8 +74,9 @@ class TestZoteroDatabase:
                 break
         
         if collection_with_items:
-            items = db.get_collection_items(collection_with_items.name, max_results=5)
+            items, total_count = db.get_collection_items(collection_with_items.name, max_results=5)
             assert isinstance(items, list)
+            assert isinstance(total_count, int)
             assert len(items) <= 5
             
             # Check item structure
@@ -87,18 +88,36 @@ class TestZoteroDatabase:
     
     def test_search_items_by_name(self, db):
         """Test searching items by name."""
-        items = db.search_items_by_name("China", max_results=3)
+        items, total_count = db.search_items_by_name("China", max_results=3)
         assert isinstance(items, list)
+        assert isinstance(total_count, int)
         assert len(items) <= 3
         
         # Verify results contain search term
         for item in items:
             assert "china" in item.title.lower()
     
+    def test_search_items_by_name_exact(self, db):
+        """Test exact search for items by name."""
+        # Test exact search
+        items_exact, total_exact = db.search_items_by_name("China", max_results=10, exact_match=True)
+        assert isinstance(items_exact, list)
+        assert isinstance(total_exact, int)
+        
+        # Test partial search for comparison
+        items_partial, total_partial = db.search_items_by_name("China", max_results=10, exact_match=False)
+        
+        # Exact search should return fewer or equal results than partial search
+        assert total_exact <= total_partial
+        
+        # All exact matches should have the exact title "China"
+        for item in items_exact:
+            assert item.title.lower() == "china"
+    
     def test_get_item_metadata(self, db):
         """Test getting item metadata."""
         # First find an item
-        items = db.search_items_by_name("Heritage", max_results=1)
+        items, total_count = db.search_items_by_name("Heritage", max_results=1)
         
         if items:
             item = items[0]
@@ -115,7 +134,7 @@ class TestUtilityFunctions:
     """Test utility functions."""
     
     def test_format_attachment_icon(self):
-        """Test attachment icon formatting."""
+        """Test attachment icon formatting (legacy function)."""
         # Test PDF
         assert "📘" in format_attachment_icon("pdf")
         
@@ -130,6 +149,40 @@ class TestUtilityFunctions:
         
         # Test unknown type
         assert format_attachment_icon("other") == ""
+    
+    def test_format_item_type_icon(self):
+        """Test item type icon formatting."""
+        from zurch.utils import format_item_type_icon
+        
+        # Test book type
+        assert "📕" in format_item_type_icon("book")
+        
+        # Test journal article type
+        assert "📄" in format_item_type_icon("journalArticle")
+        assert "📄" in format_item_type_icon("journal article")
+        
+        # Test other types
+        assert format_item_type_icon("document") == ""
+        assert format_item_type_icon("thesis") == ""
+    
+    def test_format_attachment_link_icon(self):
+        """Test attachment link icon formatting."""
+        from zurch.utils import format_attachment_link_icon
+        
+        # Test PDF
+        assert "🔗" in format_attachment_link_icon("pdf")
+        
+        # Test EPUB
+        assert "🔗" in format_attachment_link_icon("epub")
+        
+        # Test TXT (should not show link icon)
+        assert format_attachment_link_icon("txt") == ""
+        
+        # Test None
+        assert format_attachment_link_icon(None) == ""
+        
+        # Test unknown type
+        assert format_attachment_link_icon("other") == ""
     
     def test_pad_number(self):
         """Test number padding for alignment."""
@@ -154,9 +207,23 @@ class TestUtilityFunctions:
         assert config['max_results'] == 100
         assert config['debug'] is False
     
+    def test_config_paths(self):
+        """Test config directory paths are OS-appropriate."""
+        from zurch.utils import get_config_dir
+        import platform
+        
+        config_dir = get_config_dir()
+        assert config_dir.exists()
+        
+        if platform.system() == "Windows":
+            assert "AppData" in str(config_dir) and "zurch" in str(config_dir)
+        else:  # macOS, Linux and others
+            assert (".config/zurch" in str(config_dir) or 
+                    "zurch" in str(config_dir))  # XDG_CONFIG_HOME might be set
+    
     def test_highlight_search_term(self):
         """Test search term highlighting."""
-        from utils import highlight_search_term
+        from zurch.utils import highlight_search_term
         
         # Test basic highlighting
         result = highlight_search_term("Japanese History", "japan")
@@ -192,19 +259,20 @@ class TestCLIIntegration:
         help_text = parser.format_help()
         
         # Check for key components
-        assert "clizot" in help_text
+        assert "zurch" in help_text
         assert "--folder" in help_text
         assert "--name" in help_text
         assert "--list" in help_text
         assert "--interactive" in help_text
         assert "--grab" in help_text
+        assert "--exact" in help_text
     
     def test_display_items(self, capsys):
         """Test item display functionality."""
         items = [
             ZoteroItem(1, "Test Book", "book", "pdf"),
             ZoteroItem(2, "Test Article", "journalArticle", None),
-            ZoteroItem(3, "Test Document", "document", "txt")
+            ZoteroItem(3, "Test Document", "document", "epub")
         ]
         
         cli.display_items(items, 3)
@@ -213,10 +281,11 @@ class TestCLIIntegration:
         assert "Test Book" in captured.out
         assert "Test Article" in captured.out
         assert "Test Document" in captured.out
-        assert "📘" in captured.out  # PDF icon
-        assert "📄" in captured.out  # TXT icon
+        assert "📕" in captured.out  # Closed book icon for book
+        assert "📄" in captured.out  # Document icon for journal article
+        assert "🔗" in captured.out  # Link icon for attachments
     
-    @patch('cli.input')
+    @patch('zurch.cli.input')
     def test_interactive_selection(self, mock_input):
         """Test interactive item selection."""
         items = [
@@ -270,7 +339,7 @@ class TestDatabaseIntegrity:
     @pytest.fixture
     def sample_db_path(self):
         """Return path to sample database."""
-        return Path(__file__).parent / "zotero-database-example" / "zotero.sqlite"
+        return Path(__file__).parent.parent / "zotero-database-example" / "zotero.sqlite"
     
     def test_database_version(self, sample_db_path):
         """Test database version detection."""
@@ -288,9 +357,11 @@ class TestDatabaseIntegrity:
             db = ZoteroDatabase(sample_db_path)
             
             # Search for something that shouldn't exist
-            items = db.search_items_by_name("NONEXISTENT_SEARCH_TERM_XYZ123")
+            items, total_count = db.search_items_by_name("NONEXISTENT_SEARCH_TERM_XYZ123")
             assert isinstance(items, list)
+            assert isinstance(total_count, int)
             assert len(items) == 0
+            assert total_count == 0
             
             # Search for nonexistent collection
             collections = db.search_collections("NONEXISTENT_COLLECTION_XYZ123")

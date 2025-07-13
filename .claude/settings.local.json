@@ -11,7 +11,15 @@
       "Bash(uv add:*)",
       "Bash(python:*)",
       "Bash(uv run pytest:*)",
-      "Bash(uv build:*)"
+      "Bash(uv build:*)",
+      "Bash(uv run:*)",
+      "Bash(uv tool install:*)",
+      "Bash(zurch:*)",
+      "Bash(cat:*)",
+      "Bash(uv tool uninstall:*)",
+      "Bash(uv cache clean:*)",
+      "Bash(uv lock:*)",
+      "Bash(true)"
     ],
     "deny": []
   }

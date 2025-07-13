@@ -133,12 +133,17 @@ class ZoteroDatabase:
         
         return matching
     
-    def get_collection_items(self, collection_name: str, max_results: int = 100) -> List[ZoteroItem]:
-        """Get items from collections matching the given name."""
+    def get_collection_items(self, collection_name: str, max_results: int = 100) -> tuple[List[ZoteroItem], int]:
+        """Get items from collections matching the given name. Returns (items, total_count)."""
         collections = self.search_collections(collection_name)
         
         if not collections:
-            return []
+            return [], 0
+        
+        # Get total count first
+        total_count = 0
+        for collection in collections:
+            total_count += self._get_collection_item_count(collection.collection_id)
         
         # Get items from all matching collections, ordered by collection depth
         all_items = []
@@ -150,17 +155,31 @@ class ZoteroDatabase:
             if len(all_items) >= max_results:
                 break
         
-        return all_items[:max_results]
+        return all_items[:max_results], total_count
+    
+    def _get_collection_item_count(self, collection_id: int) -> int:
+        """Get the total number of items in a collection."""
+        query = "SELECT COUNT(*) FROM collectionItems WHERE collectionID = ?"
+        
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (collection_id,))
+                result = cursor.fetchone()
+                return result[0] if result else 0
+        except Exception as e:
+            logger.error(f"Error getting collection item count: {e}")
+            return 0
     
     def _get_items_in_collection(self, collection_id: int, max_results: int) -> List[ZoteroItem]:
         """Get items in a specific collection."""
+        # First get the basic items without attachments
         query = """
         SELECT 
             i.itemID,
             COALESCE(title_data.value, '') as title,
             it.typeName,
-            ia.contentType,
-            ia.path
+            ci.orderIndex
         FROM collectionItems ci
         JOIN items i ON ci.itemID = i.itemID
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
@@ -170,9 +189,8 @@ class ZoteroDatabase:
             JOIN itemDataValues idv ON id.valueID = idv.valueID
             WHERE id.fieldID = 1  -- title field
         ) title_data ON i.itemID = title_data.itemID
-        LEFT JOIN itemAttachments ia ON i.itemID = ia.parentItemID
         WHERE ci.collectionID = ?
-        ORDER BY ci.orderIndex
+        ORDER BY LOWER(COALESCE(title_data.value, ''))
         LIMIT ?
         """
         
@@ -182,57 +200,113 @@ class ZoteroDatabase:
                 cursor.execute(query, (collection_id, max_results))
                 results = cursor.fetchall()
                 
-                return [
-                    ZoteroItem(
-                        item_id=row[0],
-                        title=row[1] or "Untitled",
-                        item_type=row[2],
-                        attachment_type=self._get_attachment_type(row[3]) if row[3] else None,
-                        attachment_path=row[4]
-                    )
-                    for row in results
-                ]
+                items = []
+                for row in results:
+                    item_id, title, item_type, order_index = row
+                    
+                    # Get the first attachment for this item
+                    attachment_query = """
+                    SELECT contentType, path FROM itemAttachments 
+                    WHERE parentItemID = ? OR itemID = ?
+                    LIMIT 1
+                    """
+                    cursor.execute(attachment_query, (item_id, item_id))
+                    attachment_result = cursor.fetchone()
+                    
+                    attachment_type = None
+                    attachment_path = None
+                    if attachment_result:
+                        content_type, path = attachment_result
+                        attachment_type = self._get_attachment_type(content_type)
+                        attachment_path = path
+                    
+                    items.append(ZoteroItem(
+                        item_id=item_id,
+                        title=title or "Untitled",
+                        item_type=item_type,
+                        attachment_type=attachment_type,
+                        attachment_path=attachment_path
+                    ))
+                
+                return items
         except Exception as e:
             raise DatabaseError(f"Error getting collection items: {e}")
     
-    def search_items_by_name(self, name: str, max_results: int = 100) -> List[ZoteroItem]:
-        """Search items by title content."""
-        # Simplified query focusing on title only for better performance
-        query = """
-        SELECT 
-            i.itemID,
-            COALESCE(idv.value, '') as title,
-            it.typeName,
-            ia.contentType,
-            ia.path
+    def search_items_by_name(self, name: str, max_results: int = 100, exact_match: bool = False) -> tuple[List[ZoteroItem], int]:
+        """Search items by title content. Returns (items, total_count)."""
+        if exact_match:
+            search_pattern = name
+            where_clause = "WHERE LOWER(idv.value) = LOWER(?)"
+        else:
+            search_pattern = f"%{name}%"
+            where_clause = "WHERE LOWER(idv.value) LIKE LOWER(?)"
+        
+        # First get the total count
+        count_query = f"""
+        SELECT COUNT(DISTINCT i.itemID)
         FROM items i
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
         LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
         LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
-        LEFT JOIN itemAttachments ia ON i.itemID = ia.parentItemID
-        WHERE LOWER(idv.value) LIKE LOWER(?)
+        {where_clause}
+        """
+        
+        # Then get the actual items (without attachments to avoid duplicates)
+        items_query = f"""
+        SELECT DISTINCT
+            i.itemID,
+            COALESCE(idv.value, '') as title,
+            it.typeName
+        FROM items i
+        JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+        LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
+        LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
+        {where_clause}
         ORDER BY LOWER(idv.value)
         LIMIT ?
         """
         
-        search_pattern = f"%{name}%"
-        
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(query, (search_pattern, max_results))
+                
+                # Get total count
+                cursor.execute(count_query, (search_pattern,))
+                total_count = cursor.fetchone()[0]
+                
+                # Get items
+                cursor.execute(items_query, (search_pattern, max_results))
                 results = cursor.fetchall()
                 
-                return [
-                    ZoteroItem(
-                        item_id=row[0],
-                        title=row[1] or "Untitled",
-                        item_type=row[2],
-                        attachment_type=self._get_attachment_type(row[3]) if row[3] else None,
-                        attachment_path=row[4]
-                    )
-                    for row in results
-                ]
+                items = []
+                for row in results:
+                    item_id, title, item_type = row
+                    
+                    # Get the first attachment for this item
+                    attachment_query = """
+                    SELECT contentType, path FROM itemAttachments 
+                    WHERE parentItemID = ? OR itemID = ?
+                    LIMIT 1
+                    """
+                    cursor.execute(attachment_query, (item_id, item_id))
+                    attachment_result = cursor.fetchone()
+                    
+                    attachment_type = None
+                    attachment_path = None
+                    if attachment_result:
+                        content_type, path = attachment_result
+                        attachment_type = self._get_attachment_type(content_type)
+                        attachment_path = path
+                    
+                    items.append(ZoteroItem(
+                        item_id=item_id,
+                        title=title or "Untitled",
+                        item_type=item_type,
+                        attachment_type=attachment_type,
+                        attachment_path=attachment_path
+                    ))
+                
+                return items, total_count
         except Exception as e:
             raise DatabaseError(f"Error searching items: {e}")
     

@@ -1,4 +1,4 @@
-# clizot - Zotero CLI
+# zurch - Zotero Search CLI
 
 A command-line interface tool to interact with your local Zotero installation and extract information from it.
 
@@ -17,32 +17,32 @@ A command-line interface tool to interact with your local Zotero installation an
 
 ```bash
 # Install with uv (recommended)
-uv add clizot
+uv add zurch
 
 # Or install with pip
-pip install clizot
+pip install zurch
 ```
 
 ## Quick Start
 
 ```bash
 # List all collections
-clizot -l
+zurch -l
 
 # List collections matching a pattern
-clizot -l "*japan*"
+zurch -l "*japan*"
 
 # Browse items in a folder
-clizot -f "Heritage"
+zurch -f "Heritage"
 
 # Search for items by name
-clizot -n "medicine"
+zurch -n "medicine"
 
 # Interactive mode to select and view metadata
-clizot -f "Heritage" -i
+zurch -f "Heritage" -i
 
 # Interactive mode to grab attachments
-clizot -n "China" -i -g
+zurch -n "China" -i -g
 ```
 
 ## Commands
@@ -50,35 +50,35 @@ clizot -n "China" -i -g
 ### List Collections (-l/--list)
 ```bash
 # Show all collections and sub-collections
-clizot -l
+zurch -l
 
 # Filter collections (partial matching by default)
-clizot -l "china"
+zurch -l "china"
 
 # Use % wildcard for more control
-clizot -l "china%"      # starts with "china"
-clizot -l "%history%"   # contains "history"
+zurch -l "china%"      # starts with "china"
+zurch -l "%history%"   # contains "history"
 ```
 
 ### Browse Folder (-f/--folder)
 ```bash
 # List items in a specific folder
-clizot -f "Heritage"
+zurch -f "Heritage"
 
 # Limit results
-clizot -f "Digital Humanities" -x 10
+zurch -f "Digital Humanities" -x 10
 
 # Interactive mode
-clizot -f "Travel" -i
+zurch -f "Travel" -i
 ```
 
 ### Search by Name (-n/--name)
 ```bash
 # Search item titles
-clizot -n "machine learning"
+zurch -n "machine learning"
 
 # Case-insensitive, partial matching
-clizot -n "china"
+zurch -n "china"
 ```
 
 ### Interactive Mode (-i/--interactive)
@@ -90,7 +90,7 @@ When combined with folder or name search, enables interactive selection:
 ### Grab Attachments (-g/--grab)
 ```bash
 # Must be used with interactive mode
-clizot -f "Papers" -i -g
+zurch -f "Papers" -i -g
 
 # Select an item and its attachment will be copied to current directory
 ```
@@ -103,9 +103,12 @@ clizot -f "Papers" -i -g
 
 ## Configuration
 
-clizot automatically discovers your Zotero database. Configuration is stored in:
-- **Windows**: `%APPDATA%\clizot\config.json`
-- **macOS/Linux**: `~/.clizot-config/config.json`
+zurch automatically discovers your Zotero database. Configuration is stored in OS-appropriate locations:
+- **Windows**: `%APPDATA%\zurch\config.json`
+- **macOS**: `~/Library/Application Support/zurch/config.json`
+- **Linux**: `~/.config/zurch/config.json` (or `$XDG_CONFIG_HOME/zurch/config.json`)
+
+**Note**: If you're upgrading from an earlier version, zurch will automatically migrate your config from the old `~/.zurch-config/` location to the new standard location.
 
 Example configuration:
 ```json
@@ -121,36 +124,36 @@ Example configuration:
 ### Academic Research Workflow
 ```bash
 # Find all collections related to your research area
-clizot -l "*digital*"
+zurch -l "*digital*"
 
 # Browse a specific collection
-clizot -f "Digital Humanities"
+zurch -f "Digital Humanities"
 
 # Search for papers on a topic
-clizot -n "network analysis"
+zurch -n "network analysis"
 
 # Interactively review papers and grab PDFs
-clizot -n "social networks" -i -g
+zurch -n "social networks" -i -g
 ```
 
 ### Library Management
 ```bash
 # Get overview of your collection structure
-clizot -l
+zurch -l
 
 # Find items that need attention  
-clizot -f "To Read"
+zurch -f "To Read"
 
 # Search for specific authors or topics
-clizot -n "foucault"
+zurch -n "foucault"
 
 # Find collections by partial name
-clizot -l "digital"
+zurch -l "digital"
 ```
 
 ## Safety and Compatibility
 
-- **Read-Only Access**: clizot never modifies your Zotero database
+- **Read-Only Access**: zurch never modifies your Zotero database
 - **Database Locking**: Handles cases where Zotero is running
 - **Version Compatibility**: Tested with Zotero 7.0
 - **Error Handling**: Graceful handling of database issues
@@ -158,7 +161,7 @@ clizot -l "digital"
 
 ## Development
 
-clizot is built with:
+zurch is built with:
 - **Python 3.8+** for broad compatibility
 - **SQLite** for direct database access
 - **uv** for modern Python package management
@@ -167,7 +170,7 @@ clizot is built with:
 ### Building from Source
 ```bash
 git clone <repository>
-cd clizot
+cd zurch
 uv install
 uv run pytest  # Run tests
 uv build       # Build package
@@ -176,10 +179,10 @@ uv build       # Build package
 ## Troubleshooting
 
 ### Database Not Found
-If clizot can't find your Zotero database:
+If zurch can't find your Zotero database:
 1. Make sure Zotero is installed and has been run at least once
 2. Check the config file and set the correct path
-3. Use `clizot -d` for debug information
+3. Use `zurch -d` for debug information
 
 ### Database Locked
 If you get a "database locked" error:
@@ -190,8 +193,8 @@ If you get a "database locked" error:
 ### No Results Found
 If searches return no results:
 - Check spelling and try partial terms
-- Use wildcards in collection filters: `clizot -l "%term%"`
-- Use `clizot -l` to see all available collections
+- Use wildcards in collection filters: `zurch -l "%term%"`
+- Use `zurch -l` to see all available collections
 - Collection searches use partial matching by default
 
 ## Contributing

@@ -5,13 +5,14 @@ import shutil
 from pathlib import Path
 from typing import List, Optional
 
-from utils import (
-    load_config, save_config, format_attachment_icon, 
+from .utils import (
+    load_config, save_config, format_attachment_icon, format_item_type_icon, format_attachment_link_icon,
     find_zotero_database, pad_number, highlight_search_term
 )
-from search import ZoteroDatabase, ZoteroItem, DatabaseError, DatabaseLockedError
+from .search import ZoteroDatabase, ZoteroItem, DatabaseError, DatabaseLockedError
+from .interactive import interactive_collection_selection
 
-__version__ = "0.1.0"
+__version__ = "0.4.1"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
@@ -22,8 +23,8 @@ def setup_logging(debug=False):
 
 def create_parser():
     parser = argparse.ArgumentParser(
-        description="A CLI tool to interface with Zotero installations",
-        prog="clizot"
+        description="Zurch - A CLI search tool for Zotero installations",
+        prog="zurch"
     )
     
     parser.add_argument(
@@ -60,13 +61,15 @@ def create_parser():
     parser.add_argument(
         "-f", "--folder", 
         type=str,
-        help="List items in the specified folder"
+        nargs='+',
+        help="List items in the specified folder (spaces allowed without quotes)"
     )
     
     parser.add_argument(
         "-n", "--name", 
         type=str,
-        help="Search for items by name/title"
+        nargs='+',
+        help="Search for items by name/title (spaces allowed without quotes)"
     )
     
     parser.add_argument(
@@ -77,15 +80,26 @@ def create_parser():
         help="List all folders and sub-folders, optionally filtered by pattern (supports %% wildcard, partial match by default)"
     )
     
+    parser.add_argument(
+        "-k", "--exact", 
+        action="store_true",
+        help="Use exact search instead of partial matching"
+    )
+    
     return parser
 
 def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "") -> None:
     """Display items with numbering and icons."""
     for i, item in enumerate(items[:max_results], 1):
-        icon = format_attachment_icon(item.attachment_type)
+        # Item type icon (books and journal articles)
+        type_icon = format_item_type_icon(item.item_type)
+        
+        # Link icon for PDF/EPUB attachments
+        attachment_icon = format_attachment_link_icon(item.attachment_type)
+        
         number = pad_number(i, min(len(items), max_results))
         title = highlight_search_term(item.title, search_term) if search_term else item.title
-        print(f"{number}. {title} {icon}")
+        print(f"{number}. {type_icon}{attachment_icon}{title}")
 
 def matches_search_term(text: str, search_term: str) -> bool:
     """Check if text matches the search term (with wildcard support)."""
@@ -105,12 +119,13 @@ def matches_search_term(text: str, search_term: str) -> bool:
         # Default partial matching
         return search_lower in text_lower
 
-def display_hierarchical_search_results(collections: List, search_term: str) -> None:
+def display_hierarchical_search_results(collections: List, search_term: str, max_results: int = None) -> None:
     """Display search results in hierarchical format showing parent structure."""
-    from search import ZoteroCollection
+    from .search import ZoteroCollection
     
     # Build a hierarchy tree from the collections
     hierarchy = {}
+    displayed_count = 0
     
     for collection in collections:
         parts = collection.full_path.split(' > ')
@@ -137,9 +152,14 @@ def display_hierarchical_search_results(collections: List, search_term: str) -> 
     
     # Display the hierarchy
     def print_hierarchy(level_dict, depth=0, parent_shown=False):
+        nonlocal displayed_count
         indent = "  " * depth
         
         for name, data in sorted(level_dict.items()):
+            # Check if we've reached the limit
+            if max_results and displayed_count >= max_results:
+                return
+                
             collection = data['_collection']
             is_match = data['_is_match']
             has_matching_children = has_matches_in_subtree(data['_children'])
@@ -155,6 +175,8 @@ def display_hierarchical_search_results(collections: List, search_term: str) -> 
                     count_info = f" ({collection.item_count} items)" if collection.item_count > 0 else ""
                     highlighted_name = highlight_search_term(name, search_term)
                     print(f"{indent}{highlighted_name}{count_info}")
+                    if is_match:  # Only count actual matches, not parent nodes
+                        displayed_count += 1
                 else:
                     # This is a parent node - show it if it has matching children
                     if has_matching_children:
@@ -162,7 +184,7 @@ def display_hierarchical_search_results(collections: List, search_term: str) -> 
                         print(f"{indent}{highlighted_name}")
                 
                 # Recursively print children
-                if data['_children']:
+                if data['_children'] and (not max_results or displayed_count < max_results):
                     print_hierarchy(data['_children'], depth + 1, True)
     
     def has_matches_in_subtree(subtree):
@@ -198,6 +220,7 @@ def interactive_selection(items: List[ZoteroItem]) -> Optional[ZoteroItem]:
         except EOFError:
             return None
 
+
 def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path) -> bool:
     """Copy attachment file to current directory."""
     attachment_path = db.get_item_attachment_path(item.item_id, zotero_data_dir)
@@ -215,24 +238,32 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
         print(f"Error copying attachment: {e}")
         return False
 
+def format_metadata_field(field_name: str, value: str) -> str:
+    """Format a metadata field with bold label."""
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+    return f"{BOLD}{field_name}:{RESET} {value}"
+
 def show_item_metadata(db: ZoteroDatabase, item: ZoteroItem) -> None:
     """Display full metadata for an item."""
     try:
         metadata = db.get_item_metadata(item.item_id)
         
         print(f"\n--- Metadata for: {item.title} ---")
-        print(f"Item Type: {metadata.get('itemType', 'Unknown')}")
+        print(format_metadata_field("Item Type", metadata.get('itemType', 'Unknown')))
         
         # Display common fields in a nice order
         field_order = ['title', 'abstractNote', 'date', 'language', 'url', 'DOI']
         
         for field in field_order:
             if field in metadata:
-                print(f"{field.title()}: {metadata[field]}")
+                print(format_metadata_field(field.title(), metadata[field]))
         
         # Display creators
         if 'creators' in metadata:
-            print("Creators:")
+            BOLD = '\033[1m'
+            RESET = '\033[0m'
+            print(f"{BOLD}Creators:{RESET}")
             for creator in metadata['creators']:
                 name_parts = []
                 if creator.get('firstName'):
@@ -241,19 +272,21 @@ def show_item_metadata(db: ZoteroDatabase, item: ZoteroItem) -> None:
                     name_parts.append(creator['lastName'])
                 name = ' '.join(name_parts) if name_parts else 'Unknown'
                 creator_type = creator.get('creatorType', 'Unknown')
-                print(f"  {creator_type}: {name}")
+                print(f"  {BOLD}{creator_type}:{RESET} {name}")
         
         # Display other fields
         skip_fields = set(field_order + ['itemType', 'creators', 'dateAdded', 'dateModified'])
         other_fields = {k: v for k, v in metadata.items() if k not in skip_fields}
         
         if other_fields:
-            print("Other fields:")
+            BOLD = '\033[1m'
+            RESET = '\033[0m'
+            print(f"{BOLD}Other fields:{RESET}")
             for field, value in sorted(other_fields.items()):
-                print(f"  {field}: {value}")
+                print(f"  {BOLD}{field}:{RESET} {value}")
         
-        print(f"Date Added: {metadata.get('dateAdded', 'Unknown')}")
-        print(f"Date Modified: {metadata.get('dateModified', 'Unknown')}")
+        print(format_metadata_field("Date Added", metadata.get('dateAdded', 'Unknown')))
+        print(format_metadata_field("Date Modified", metadata.get('dateModified', 'Unknown')))
         
     except Exception as e:
         print(f"Error getting metadata: {e}")
@@ -337,53 +370,69 @@ def main():
                 filtered_collections = []
                 search_term = args.list.lower()
                 
-                # Check if partial matching is enabled (default)
-                partial_match = config.get('partial_collection_match', True)
+                # Check if exact matching is requested via -k flag
+                exact_match = args.exact
                 
                 for collection in collections:
                     collection_name = collection.name.lower()
                     
-                    # Handle % wildcard (convert to SQL LIKE pattern)
-                    if '%' in search_term:
-                        # Convert % wildcard to SQL LIKE pattern
+                    if exact_match:
+                        # Exact matching only when -k flag is present
+                        if search_term == collection_name:
+                            filtered_collections.append(collection)
+                    elif '%' in search_term:
+                        # Handle % wildcard (convert to SQL LIKE pattern)
                         like_pattern = search_term.replace('%', '*')
                         import fnmatch
                         if fnmatch.fnmatch(collection_name, like_pattern):
                             filtered_collections.append(collection)
-                    elif partial_match:
+                    else:
                         # Default partial matching
                         if search_term in collection_name:
                             filtered_collections.append(collection)
-                    else:
-                        # Exact matching only
-                        if search_term == collection_name:
-                            filtered_collections.append(collection)
+                    
                 
                 collections = filtered_collections
             
             if collections:
-                if args.list:
-                    print(f"Collections matching '{args.list}':")
-                    display_hierarchical_search_results(collections, args.list)
+                if args.interactive:
+                    # Interactive mode for collection selection
+                    selected_collection = interactive_collection_selection(collections[:max_results])
+                    if selected_collection:
+                        # Run -f on the selected collection
+                        items, total_count = db.get_collection_items(selected_collection.name, max_results)
+                        print(f"\nItems in folder '{selected_collection.name}':")
+                        if total_count > max_results:
+                            print(f"Showing first {max_results} of {total_count} items:")
+                        display_items(items, max_results)
+                        
+                        if args.grab:
+                            handle_interactive_mode(db, items, args.grab, config)
                 else:
-                    print("Collections and Sub-collections:")
-                    
-                    for collection in collections:
-                        indent = "  " * collection.depth
-                        count_info = f" ({collection.item_count} items)" if collection.item_count > 0 else ""
-                        print(f"{indent}{collection.name}{count_info}")
+                    # Non-interactive mode - display hierarchically
+                    if args.list:
+                        print(f"Collections matching '{args.list}':")
+                        if len(collections) > max_results:
+                            print(f"Showing first {max_results} of {len(collections)} matches:")
+                        display_hierarchical_search_results(collections, args.list, max_results)
+                    else:
+                        print("Collections and Sub-collections:")
+                        if len(collections) > max_results:
+                            print(f"Showing first {max_results} of {len(collections)} matches:")
+                        display_hierarchical_search_results(collections, "", max_results)
             else:
                 print(f"No collections found matching '{args.list}'")
             
             return 0
         
         elif args.folder:
-            items = db.get_collection_items(args.folder, max_results)
+            folder_name = ' '.join(args.folder)
+            items, total_count = db.get_collection_items(folder_name, max_results)
             
             if not items:
                 # No exact matches, show suggestions
-                similar = db.find_similar_collections(args.folder, 5)
-                print(f"No items found in folder '{args.folder}'")
+                similar = db.find_similar_collections(folder_name, 5)
+                print(f"No items found in folder '{folder_name}'")
                 
                 if similar:
                     print("\nSimilar folder names:")
@@ -391,8 +440,10 @@ def main():
                         print(f"  {collection.name}")
                 return 1
             
-            print(f"Items in folder '{args.folder}':")
-            display_items(items, max_results, args.folder)
+            print(f"Items in folder '{folder_name}':")
+            if total_count > max_results:
+                print(f"Showing first {max_results} of {total_count} items:")
+            display_items(items, max_results)  # Don't highlight folder name in item titles
             
             if args.interactive:
                 handle_interactive_mode(db, items, args.grab, config)
@@ -400,14 +451,17 @@ def main():
             return 0
         
         elif args.name:
-            items = db.search_items_by_name(args.name, max_results)
+            name_search = ' '.join(args.name)
+            items, total_count = db.search_items_by_name(name_search, max_results, exact_match=args.exact)
             
             if not items:
-                print(f"No items found matching '{args.name}'")
+                print(f"No items found matching '{name_search}'")
                 return 1
             
-            print(f"Items matching '{args.name}':")
-            display_items(items, max_results, args.name)
+            print(f"Items matching '{name_search}':")
+            if total_count > max_results:
+                print(f"Showing first {max_results} of {total_count} items:")
+            display_items(items, max_results, name_search)
             
             if args.interactive:
                 handle_interactive_mode(db, items, args.grab, config)

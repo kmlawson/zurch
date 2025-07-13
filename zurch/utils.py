@@ -5,16 +5,56 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 def get_config_dir() -> Path:
-    """Get the appropriate config directory for the OS."""
+    """Get the appropriate config directory for the OS using standard paths."""
     if platform.system() == "Windows":
-        config_dir = Path(os.environ.get("APPDATA", "")) / "clizot"
-    elif platform.system() == "Darwin":  # macOS
-        config_dir = Path.home() / ".clizot-config"
-    else:  # Linux and others
-        config_dir = Path.home() / ".clizot-config"
+        # Use APPDATA on Windows
+        config_dir = Path(os.environ.get("APPDATA", "")) / "zurch"
+    else:  # macOS, Linux and others
+        # Use XDG Base Directory specification
+        xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
+        if xdg_config_home:
+            config_dir = Path(xdg_config_home) / "zurch"
+        else:
+            config_dir = Path.home() / ".config" / "zurch"
     
-    config_dir.mkdir(exist_ok=True)
+    config_dir.mkdir(parents=True, exist_ok=True)
     return config_dir
+
+def get_legacy_config_dir() -> Path:
+    """Get the old config directory location for migration."""
+    if platform.system() == "Darwin":  # macOS
+        return Path.home() / ".zurch-config"
+    else:  # Linux and others
+        return Path.home() / ".zurch-config"
+
+def migrate_config_if_needed() -> None:
+    """Migrate config from old location to new location if needed."""
+    legacy_dir = get_legacy_config_dir()
+    legacy_config = legacy_dir / "config.json"
+    
+    new_dir = get_config_dir()
+    new_config = new_dir / "config.json"
+    
+    # Only migrate if legacy config exists and new config doesn't
+    if legacy_config.exists() and not new_config.exists():
+        try:
+            import shutil
+            # Copy the config file to new location
+            shutil.copy2(legacy_config, new_config)
+            print(f"Migrated config from {legacy_config} to {new_config}")
+            
+            # Optionally remove the old config file after successful migration
+            legacy_config.unlink()
+            
+            # Try to remove the old directory if it's empty
+            try:
+                legacy_dir.rmdir()
+            except OSError:
+                # Directory not empty, that's okay
+                pass
+                
+        except Exception as e:
+            print(f"Warning: Could not migrate config file: {e}")
 
 def get_config_file() -> Path:
     """Get the config file path."""
@@ -22,6 +62,9 @@ def get_config_file() -> Path:
 
 def load_config() -> Dict[str, Any]:
     """Load configuration from file."""
+    # Try to migrate config from old location first
+    migrate_config_if_needed()
+    
     config_file = get_config_file()
     
     # For development, use the sample database
@@ -60,7 +103,7 @@ def save_config(config: Dict[str, Any]) -> None:
         print(f"Error saving config: {e}")
 
 def format_attachment_icon(attachment_type: Optional[str]) -> str:
-    """Return colored icon based on attachment type."""
+    """Return colored icon based on attachment type (DEPRECATED - use format_attachment_document_icon)."""
     if not attachment_type:
         return ""
     
@@ -71,6 +114,27 @@ def format_attachment_icon(attachment_type: Optional[str]) -> str:
         return "\033[32m📗\033[0m"  # Green book for EPUB
     elif attachment_type in ["txt", "text"]:
         return "\033[90m📄\033[0m"  # Grey document for TXT
+    else:
+        return ""
+
+def format_item_type_icon(item_type: str) -> str:
+    """Return icon that goes before the title based on item type."""
+    item_type_lower = item_type.lower()
+    if item_type_lower == "book":
+        return "📕 "  # Closed book icon for books
+    elif item_type_lower in ["journalarticle", "journal article"]:
+        return "📄 "  # Document icon for journal articles
+    else:
+        return ""  # No icon for other types
+
+def format_attachment_link_icon(attachment_type: Optional[str]) -> str:
+    """Return link icon when PDF/EPUB attachments are available."""
+    if not attachment_type:
+        return ""
+    
+    attachment_type = attachment_type.lower()
+    if attachment_type in ["pdf", "epub"]:
+        return "🔗 "  # Link icon for PDF/EPUB attachments (space after)
     else:
         return ""
 
