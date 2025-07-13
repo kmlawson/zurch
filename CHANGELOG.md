@@ -5,10 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2025-07-13
+
+### Fixed
+- **CLI Help Functionality**: Resolved issue where `--help` was not recognized due to `add_help=False` in `ArgumentParser` and conflicting manual help checks. The CLI now correctly displays help messages.
+- **Tag Search Failures**: Corrected `search_items_combined` logic to properly handle tag-only searches. Updated `test_tags.py` to use existing tags in the sample database and adjusted assertions to reflect actual data.
+- **SQL ESCAPE Error**: Fixed `sqlite3.OperationalError: ESCAPE expression must be a single character` by removing the explicit `ESCAPE '\\'` clause from `LIKE` conditions in SQL queries. The `escape_sql_like_pattern` function now handles escaping correctly without this clause.
+- **Test `total_count` for Tag Filters**: Adjusted `get_collection_items` to calculate `total_count` based on the number of items after tag filtering, ensuring consistency between returned items and total count.
+
 ## [0.6.1] - 2025-07-13
 
 ### Fixed
 - **Max Results (-x flag) Behavior**: The `-x` flag now correctly applies the limit as the final operation after all other processing (including deduplication) is complete. This ensures that the specified number of results are returned from the final processed set, as per the `GEMINI.md` specification.
+
+## [0.6.2] - 2025-07-13
+
+### Fixed
+- **CLI Help Functionality**: Resolved issue where `--help` was not recognized due to `add_help=False` in `ArgumentParser` and conflicting manual help checks. The CLI now correctly displays help messages.
+- **Tag Search Failures**: Corrected `search_items_combined` logic to properly handle tag-only searches. Updated `test_tags.py` to use existing tags in the sample database and adjusted assertions to reflect actual data.
+- **SQL ESCAPE Error**: Fixed `sqlite3.OperationalError: ESCAPE expression must be a single character` by removing the explicit `ESCAPE '\\'` clause from `LIKE` conditions in SQL queries. The `escape_sql_like_pattern` function now handles escaping correctly without this clause.
+- **Test `total_count` for Tag Filters**: Adjusted `get_collection_items` to calculate `total_count` based on the number of items after tag filtering, ensuring consistency between returned items and total count.
 
 ## [0.6.1] - 2025-07-13
 
