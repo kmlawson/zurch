@@ -133,7 +133,7 @@ class ZoteroDatabase:
         
         return matching
     
-    def get_collection_items(self, collection_name: str, max_results: int = 100) -> tuple[List[ZoteroItem], int]:
+    def get_collection_items(self, collection_name: str, max_results: int = 100, only_attachments: bool = False) -> tuple[List[ZoteroItem], int]:
         """Get items from collections matching the given name. Returns (items, total_count)."""
         collections = self.search_collections(collection_name)
         
@@ -149,11 +149,15 @@ class ZoteroDatabase:
         all_items = []
         
         for collection in collections:
-            items = self._get_items_in_collection(collection.collection_id, max_results)
+            items = self._get_items_in_collection(collection.collection_id, max_results, only_attachments)
             all_items.extend(items)
             
             if len(all_items) >= max_results:
                 break
+        
+        # Filter again if needed (since we're combining from multiple collections)
+        if only_attachments:
+            all_items = [item for item in all_items if item.attachment_type in ["pdf", "epub"]]
         
         return all_items[:max_results], total_count
     
@@ -171,7 +175,7 @@ class ZoteroDatabase:
             logger.error(f"Error getting collection item count: {e}")
             return 0
     
-    def _get_items_in_collection(self, collection_id: int, max_results: int) -> List[ZoteroItem]:
+    def _get_items_in_collection(self, collection_id: int, max_results: int, only_attachments: bool = False) -> List[ZoteroItem]:
         """Get items in a specific collection."""
         # First get the basic items without attachments
         query = """
@@ -220,26 +224,37 @@ class ZoteroDatabase:
                         attachment_type = self._get_attachment_type(content_type)
                         attachment_path = path
                     
-                    items.append(ZoteroItem(
+                    item = ZoteroItem(
                         item_id=item_id,
                         title=title or "Untitled",
                         item_type=item_type,
                         attachment_type=attachment_type,
                         attachment_path=attachment_path
-                    ))
+                    )
+                    
+                    # Filter by attachments if requested
+                    if only_attachments:
+                        if attachment_type in ["pdf", "epub"]:
+                            items.append(item)
+                    else:
+                        items.append(item)
                 
                 return items
         except Exception as e:
             raise DatabaseError(f"Error getting collection items: {e}")
     
-    def search_items_by_name(self, name: str, max_results: int = 100, exact_match: bool = False) -> tuple[List[ZoteroItem], int]:
+    def search_items_by_name(self, name: str, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False) -> tuple[List[ZoteroItem], int]:
         """Search items by title content. Returns (items, total_count)."""
         if exact_match:
             search_pattern = name
             where_clause = "WHERE LOWER(idv.value) = LOWER(?)"
         else:
-            search_pattern = f"%{name}%"
-            where_clause = "WHERE LOWER(idv.value) LIKE LOWER(?)"
+            # Import escape function
+            from .utils import escape_sql_like_pattern
+            # Escape SQL LIKE wildcards in user input
+            escaped_name = escape_sql_like_pattern(name)
+            search_pattern = f"%{escaped_name}%"
+            where_clause = "WHERE LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'"
         
         # First get the total count
         count_query = f"""
@@ -298,13 +313,20 @@ class ZoteroDatabase:
                         attachment_type = self._get_attachment_type(content_type)
                         attachment_path = path
                     
-                    items.append(ZoteroItem(
+                    item = ZoteroItem(
                         item_id=item_id,
                         title=title or "Untitled",
                         item_type=item_type,
                         attachment_type=attachment_type,
                         attachment_path=attachment_path
-                    ))
+                    )
+                    
+                    # Filter by attachments if requested
+                    if only_attachments:
+                        if attachment_type in ["pdf", "epub"]:
+                            items.append(item)
+                    else:
+                        items.append(item)
                 
                 return items, total_count
         except Exception as e:

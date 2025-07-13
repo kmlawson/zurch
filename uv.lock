@@ -184,15 +184,15 @@ wheels = [
 ]
 
 [[package]]
-name = "zearch"
-version = "0.4.0"
+name = "zurch"
+version = "0.4.1"
 source = { editable = "." }
 
 [package.dev-dependencies]
 dev = [
     { name = "pytest", version = "8.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "pytest", version = "8.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
-    { name = "zearch" },
+    { name = "zurch" },
 ]
 
 [package.metadata]
@@ -200,5 +200,5 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "pytest", specifier = ">=6.0" },
-    { name = "zearch", editable = "." },
+    { name = "zurch", editable = "." },
 ]

@@ -43,6 +43,13 @@ zurch -f "Heritage" -i
 
 # Interactive mode to grab attachments
 zurch -n "China" -i -g
+
+# Show only items with PDF/EPUB attachments
+zurch -f "Heritage" -o
+
+# Interactive grab with number suffix
+zurch -f "Papers" -i
+# Then type: 5g (to grab attachment from item 5)
 ```
 
 ## Commands
@@ -118,6 +125,38 @@ Example configuration:
   "debug": false
 }
 ```
+
+## Advanced Features
+
+### Interactive Grab with Number Suffix
+In interactive mode (`-i`), you can append 'g' to any item number to immediately grab its attachment:
+
+```bash
+zurch -f "Papers" -i
+# Output shows numbered list:
+# 1. Some Paper Title 📕 🔗
+# 2. Another Article 📄 🔗  
+# 3. Document Without Attachment 📄
+
+# Type "2g" to grab the attachment from item 2
+# Type "1" to just view metadata for item 1
+```
+
+This works for both `-f` (folder) and `-n` (name) searches with `-i`.
+
+### Filter by Attachments Only (-o)
+Show only items that have PDF or EPUB attachments:
+
+```bash
+# Only show papers with downloadable files
+zurch -f "Reading List" -o
+zurch -n "machine learning" -o
+
+# Combine with interactive mode
+zurch -f "Papers" -o -i  # Browse only items with attachments
+```
+
+The `-o` flag filters results to include only items with PDF or EPUB attachments, making it easy to find papers you can actually read.
 
 ## Examples
 
@@ -196,6 +235,44 @@ If searches return no results:
 - Use wildcards in collection filters: `zurch -l "%term%"`
 - Use `zurch -l` to see all available collections
 - Collection searches use partial matching by default
+
+## Handling Special Characters
+
+When searching for terms containing special shell characters like apostrophes, quotes, or symbols, wrap the search term in quotes:
+
+```bash
+# Good - quoted search terms
+zurch -n "China's Revolution"
+zurch -f "Books & Articles" 
+zurch -n "Smith (2020)"
+
+# Will cause shell errors - unquoted special chars
+zurch -n China's Revolution    # Shell sees unmatched quote
+zurch -f Books & Articles      # Shell interprets & as background process
+```
+
+**Special characters that need quoting:** `'` `"` `$` `` ` `` `\` `(` `)` `[` `]` `{` `}` `|` `&` `;` `<` `>` `*` `?`
+
+## Unicode and International Character Support
+
+Zurch fully supports Unicode characters in search terms, including:
+
+```bash
+# Chinese characters
+zurch -n 中国
+
+# Japanese characters  
+zurch -n 日本
+
+# Korean characters
+zurch -n 한국
+
+# Unicode punctuation and symbols
+zurch -n "–"
+zurch -n "café"
+```
+
+No special escaping is needed for Unicode characters - they work seamlessly in searches.
 
 ## Contributing
 

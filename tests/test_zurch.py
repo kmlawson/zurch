@@ -114,6 +114,32 @@ class TestZoteroDatabase:
         for item in items_exact:
             assert item.title.lower() == "china"
     
+    def test_search_items_unicode(self, db):
+        """Test searching with Unicode characters (Chinese, Japanese, Korean, etc.)."""
+        # Test Chinese characters
+        items_cn, total_cn = db.search_items_by_name("中国", max_results=5)
+        assert isinstance(items_cn, list)
+        assert isinstance(total_cn, int)
+        
+        # Test Japanese characters  
+        items_jp, total_jp = db.search_items_by_name("日本", max_results=5)
+        assert isinstance(items_jp, list)
+        assert isinstance(total_jp, int)
+        
+        # Test Korean characters
+        items_kr, total_kr = db.search_items_by_name("한국", max_results=5)
+        assert isinstance(items_kr, list)
+        assert isinstance(total_kr, int)
+        
+        # Test Unicode punctuation (em dash)
+        items_dash, total_dash = db.search_items_by_name("–", max_results=5)
+        assert isinstance(items_dash, list)
+        assert isinstance(total_dash, int)
+        
+        # Verify Chinese results contain the search term if any found
+        for item in items_cn:
+            assert "中国" in item.title
+    
     def test_get_item_metadata(self, db):
         """Test getting item metadata."""
         # First find an item
@@ -132,6 +158,28 @@ class TestZoteroDatabase:
 
 class TestUtilityFunctions:
     """Test utility functions."""
+    
+    def test_escape_sql_like_pattern(self):
+        """Test SQL LIKE pattern escaping."""
+        from zurch.utils import escape_sql_like_pattern
+        
+        # Test escaping % wildcard
+        assert escape_sql_like_pattern("50%") == "50\\%"
+        assert escape_sql_like_pattern("%test%") == "\\%test\\%"
+        
+        # Test escaping _ wildcard
+        assert escape_sql_like_pattern("test_name") == "test\\_name"
+        assert escape_sql_like_pattern("_underscore_") == "\\_underscore\\_"
+        
+        # Test escaping backslash
+        assert escape_sql_like_pattern("path\\to\\file") == "path\\\\to\\\\file"
+        
+        # Test combined escaping
+        assert escape_sql_like_pattern("test_%\\") == "test\\_\\%\\\\"
+        
+        # Test normal strings remain unchanged
+        assert escape_sql_like_pattern("normal text") == "normal text"
+        assert escape_sql_like_pattern("O'Brien") == "O'Brien"  # Single quotes handled by parameterized queries
     
     def test_format_attachment_icon(self):
         """Test attachment icon formatting (legacy function)."""

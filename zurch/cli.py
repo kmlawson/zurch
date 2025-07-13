@@ -62,14 +62,14 @@ def create_parser():
         "-f", "--folder", 
         type=str,
         nargs='+',
-        help="List items in the specified folder (spaces allowed without quotes)"
+        help="List items in the specified folder (spaces allowed without quotes, use quotes for special chars: ' \" $ ` \\ ( ) [ ] { } | & ; < > * ?)"
     )
     
     parser.add_argument(
         "-n", "--name", 
         type=str,
         nargs='+',
-        help="Search for items by name/title (spaces allowed without quotes)"
+        help="Search for items by name/title (spaces allowed without quotes, use quotes for special chars: ' \" $ ` \\ ( ) [ ] { } | & ; < > * ?)"
     )
     
     parser.add_argument(
@@ -84,6 +84,12 @@ def create_parser():
         "-k", "--exact", 
         action="store_true",
         help="Use exact search instead of partial matching"
+    )
+    
+    parser.add_argument(
+        "-o", "--only-attachments", 
+        action="store_true",
+        help="Show only items that have PDF or EPUB attachments"
     )
     
     return parser
@@ -198,27 +204,36 @@ def display_hierarchical_search_results(collections: List, search_term: str, max
     
     print_hierarchy(hierarchy)
 
-def interactive_selection(items: List[ZoteroItem]) -> Optional[ZoteroItem]:
-    """Handle interactive item selection."""
+def interactive_selection(items: List[ZoteroItem]) -> tuple[Optional[ZoteroItem], bool]:
+    """Handle interactive item selection.
+    
+    Returns (item, should_grab) tuple.
+    User can append 'g' to number to grab attachment: "3g"
+    """
     if not items:
-        return None
+        return None, False
     
     while True:
         try:
-            choice = input(f"\nSelect item number (1-{len(items)}, 0 to cancel): ").strip()
+            choice = input(f"\nSelect item number (1-{len(items)}, 0 to cancel, add 'g' to grab: 3g): ").strip()
             if choice == "0":
-                return None
+                return None, False
+            
+            # Check for 'g' suffix
+            should_grab = choice.lower().endswith('g')
+            if should_grab:
+                choice = choice[:-1]  # Remove 'g'
             
             idx = int(choice) - 1
             if 0 <= idx < len(items):
-                return items[idx]
+                return items[idx], should_grab
             else:
                 print(f"Please enter a number between 1 and {len(items)}")
         except (ValueError, KeyboardInterrupt):
             print("\nCancelled")
-            return None
+            return None, False
         except EOFError:
-            return None
+            return None, False
 
 
 def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path) -> bool:
@@ -296,13 +311,15 @@ def handle_interactive_mode(db: ZoteroDatabase, items: List[ZoteroItem], grab_mo
     zotero_data_dir = Path(config['zotero_database_path']).parent
     
     while True:
-        selected = interactive_selection(items)
+        selected, should_grab = interactive_selection(items)
         if not selected:
             break
         
-        if grab_mode:
+        # Check if user wants to grab (either via -g flag or 'g' suffix)
+        if grab_mode or should_grab:
             grab_attachment(db, selected, zotero_data_dir)
-            break
+            if grab_mode:  # If -g flag was used, exit after grab
+                break
         else:
             show_item_metadata(db, selected)
 
@@ -400,7 +417,7 @@ def main():
                     selected_collection = interactive_collection_selection(collections[:max_results])
                     if selected_collection:
                         # Run -f on the selected collection
-                        items, total_count = db.get_collection_items(selected_collection.name, max_results)
+                        items, total_count = db.get_collection_items(selected_collection.name, max_results, args.only_attachments)
                         print(f"\nItems in folder '{selected_collection.name}':")
                         if total_count > max_results:
                             print(f"Showing first {max_results} of {total_count} items:")
@@ -427,7 +444,7 @@ def main():
         
         elif args.folder:
             folder_name = ' '.join(args.folder)
-            items, total_count = db.get_collection_items(folder_name, max_results)
+            items, total_count = db.get_collection_items(folder_name, max_results, args.only_attachments)
             
             if not items:
                 # No exact matches, show suggestions
@@ -452,7 +469,7 @@ def main():
         
         elif args.name:
             name_search = ' '.join(args.name)
-            items, total_count = db.search_items_by_name(name_search, max_results, exact_match=args.exact)
+            items, total_count = db.search_items_by_name(name_search, max_results, exact_match=args.exact, only_attachments=args.only_attachments)
             
             if not items:
                 print(f"No items found matching '{name_search}'")

@@ -103,6 +103,7 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
 - `-l/--list [pattern]`: List collections (hierarchical display)
 - `-i/--interactive`: Interactive selection mode
 - `-g/--grab`: Copy attachments (requires -i)
+- `-o/--only-attachments`: Show only items with PDF/EPUB attachments
 - `-k/--exact`: Exact matching instead of partial
 - `-x/--max-results N`: Limit results (default 100)
 - `-d/--debug`: Debug logging
@@ -115,10 +116,16 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
    - Select by number to run `-f` on that collection
    - Can combine with `-g` to grab attachments
 
-2. **Item Selection** (`zurch -f folder -i`):
+2. **Item Selection** (`zurch -f folder -i` or `zurch -n term -i`):
    - Numbered list of items
    - Select to view full metadata
    - With `-g`, copies attachment to current directory
+   - **NEW**: Append 'g' to item number for immediate grab (e.g., "3g")
+
+3. **Attachment Filtering** (`-o` flag):
+   - Show only items with PDF or EPUB attachments
+   - Works with `-f`, `-n`, and `-l -i` modes
+   - Useful for finding readable papers
 
 ### Code Style Guidelines
 - Type hints for function parameters and returns
@@ -146,11 +153,21 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
    - Update tests in test_zurch.py
    - Document in README.md
 
+### Security and Input Handling
+- **SQL Injection Protection**: All database queries use parameterized statements
+- **SQL LIKE Escaping**: User input is properly escaped for LIKE queries using `escape_sql_like_pattern()`
+- **Unicode Support**: Full Unicode support for all languages (Chinese: 中国, Japanese: 日本, Korean: 한국, etc.)
+- **Shell Character Handling**: Users must quote search terms containing shell special characters
+  - Special chars requiring quotes: `'` `"` `$` `` ` `` `\` `(` `)` `[` `]` `{` `}` `|` `&` `;` `<` `>` `*` `?`
+  - Example: `zurch -n "China's Revolution"` not `zurch -n China's Revolution`
+  - Unicode characters work without escaping: `zurch -n 中国`
+
 ### Known Issues and Future Enhancements
 1. Full arrow key navigation (requires curses/termios)
 2. Export functionality for search results
 3. Integration with Zotero API for remote access
 4. Caching for improved performance on large databases
+5. Shell argument pre-processing to auto-escape common characters
 
 ### Git Workflow
 ```bash

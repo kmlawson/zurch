@@ -174,6 +174,18 @@ def pad_number(num: int, total: int) -> str:
     max_width = len(str(total))
     return f"{num:>{max_width}}"
 
+def escape_sql_like_pattern(pattern: str) -> str:
+    """Escape special characters in SQL LIKE patterns.
+    
+    Escapes % and _ characters that have special meaning in SQL LIKE.
+    Also escapes the escape character itself (backslash).
+    """
+    # Escape backslash first, then % and _
+    pattern = pattern.replace('\\', '\\\\')
+    pattern = pattern.replace('%', '\\%')
+    pattern = pattern.replace('_', '\\_')
+    return pattern
+
 def highlight_search_term(text: str, search_term: str) -> str:
     """Highlight search term in text with bold formatting."""
     if not search_term or not text:
