@@ -128,7 +128,7 @@ def create_parser():
         "--getbyid", 
         type=int,
         nargs='+',
-        help="Grab attachments for specific item IDs (space-separated). Use with -g flag."
+        help="Grab attachments for specific item IDs (space-separated)."
     )
     
     parser.add_argument(
@@ -478,8 +478,8 @@ def main():
         parser.print_help()
         return 1
     
-    if args.grab and not args.interactive and not args.getbyid:
-        print("Error: --grab (-g) flag requires --interactive (-i) flag or --getbyid")
+    if args.grab and not args.interactive:
+        print("Error: --grab (-g) flag requires --interactive (-i) flag")
         return 1
     
     # Get database connection
@@ -517,10 +517,6 @@ def main():
             
         elif args.getbyid:
             # Handle --getbyid flag - grab attachments for specific item IDs
-            if not args.grab:
-                print("Error: --getbyid requires --grab (-g) flag")
-                return 1
-            
             config_path = Path(config['zotero_database_path']).parent
             success_count = 0
             error_count = 0
