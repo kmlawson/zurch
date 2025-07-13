@@ -5,6 +5,96 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2025-07-13
+
+### Added
+- **Debug Mode Purple Duplicates**: When `-d` flag is used, all duplicate items are displayed in purple color
+  - Selected (best) items remain in normal colors for easy identification
+  - Duplicates show purple icons and purple text
+  - Maintains full duplicate detection and logging information
+
+### Enhanced
+- **Visual Improvements**: 
+  - Changed book icon from 📕 (red book) to 📗 (green book) for better visual distinction
+  - Enhanced color coding system for duplicate identification
+  - Improved visual hierarchy in debug mode output
+
+### Technical
+- Added `is_duplicate` flag to `ZoteroItem` dataclass
+- New `format_duplicate_title()` function for purple text formatting
+- Updated `format_item_type_icon()` to support purple color for duplicates
+- Modified deduplication logic to include marked duplicates in debug mode
+
+## [0.5.0] - 2025-07-13
+
+### Added
+- **Automatic Duplicate Detection and Removal**: Major new feature that intelligently removes duplicates
+  - Matches items based on title, author names, and publication year
+  - Prioritizes items with PDF/EPUB attachments over those without
+  - Falls back to most recent modification date for tie-breaking
+  - Works automatically with both `-n` (name search) and `-f` (folder search)
+  - Reduces clutter and shows only the best version of each item
+
+- **Duplicate Control Options**:
+  - `--no-dedupe` flag to disable automatic deduplication
+  - Debug logging shows detailed duplicate detection process
+  - Comprehensive logging for troubleshooting duplicate issues
+
+### Enhanced
+- **Search Results**: 
+  - Example: "World History in People's Republic" reduced from 8 duplicates to 2 unique items
+  - "AHR Conversation" searches reduced from 17 duplicates to 6 unique items
+  - Maintains all existing functionality while providing cleaner results
+
+### Technical
+- New `duplicates.py` module with `DuplicateKey` class for consistent identification
+- Smart selection algorithm in `select_best_duplicate()` function
+- Maintains original ordering and collection grouping after deduplication
+- Comprehensive debug logging for duplicate detection process
+
+## [0.4.4] - 2025-01-13
+
+### Added
+- **Grouped Folder Display with Separations**: Enhanced `-f` command for multiple matching folders
+  - Clear visual separations between different collections
+  - Collection headers show full hierarchical paths and item counts
+  - Continuous numbering across folders for interactive mode compatibility
+  - Maintains alphabetical sorting within each folder
+
+### Enhanced
+- **Multi-Folder Search Results**: 
+  - Example output format: `=== World History (13 items) ===` followed by items
+  - Then `=== 0 Journals > J of World History (24 items) ===` with its items
+  - Provides clear context about which folder each item belongs to
+
+### Technical
+- New `get_collection_items_grouped()` method for maintaining collection separation
+- Enhanced `display_grouped_items()` function with hierarchical headers
+- Improved organization for searches that match multiple collections
+
+## [0.4.3] - 2025-01-13
+
+### Added
+- **Item ID Lookup**: New `--id` flag to display metadata for specific item IDs
+  - Usage: `zurch --id 12345` shows complete metadata for item 12345
+  - Useful for investigating specific items found in search results
+  - Includes error handling for invalid item IDs
+
+- **Collection Membership Display**: Enhanced metadata views show item collections
+  - All metadata displays now include "Collections:" section
+  - Shows full hierarchical collection paths where items are stored
+  - Works in both `--id` flag usage and interactive mode (`-i`)
+  - Helps understand item organization within Zotero library
+
+### Enhanced
+- **Metadata Views**: Both interactive selection and direct ID lookup show collection membership
+- **Navigation**: Easier to understand relationships between items and their storage locations
+
+### Technical
+- New `get_item_collections()` method with recursive CTE for hierarchical paths
+- Enhanced `show_item_metadata()` function to include collection information
+- Updated CLI argument parsing and main logic for `--id` flag support
+
 ## [0.4.1] - 2025-01-13
 
 ### Added

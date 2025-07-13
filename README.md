@@ -8,7 +8,7 @@ A command-line interface tool to interact with your local Zotero installation an
 - 🔍 **Search Items**: Find items by title or browse specific folders  
 - 🎯 **Interactive Mode**: Select items interactively to view metadata or grab attachments
 - 📎 **Attachment Management**: Copy PDF, EPUB, and text attachments to your current directory
-- 🎨 **Visual Indicators**: Colored icons show attachment types (📘 PDF, 📗 EPUB, 📄 TXT)
+- 🎨 **Visual Indicators**: Icons show item types (📗 books, 📄 articles) and attachments (🔗 PDF/EPUB available)
 - ⚡ **Fast Performance**: Optimized SQLite queries for quick results
 - 🔒 **Safe Access**: Read-only database access prevents corruption
 - 🖥️ **Cross-Platform**: Works on Windows, macOS, and Linux
@@ -50,6 +50,15 @@ zurch -f "Heritage" -o
 # Interactive grab with number suffix
 zurch -f "Papers" -i
 # Then type: 5g (to grab attachment from item 5)
+
+# Debug mode shows duplicates in purple
+zurch -n "World History" -d
+
+# Look up specific item by ID
+zurch --id 12345
+
+# Disable duplicate removal to see all database entries
+zurch -n "duplicate article" --no-dedupe
 ```
 
 ## Commands
@@ -104,9 +113,20 @@ zurch -f "Papers" -i -g
 
 ### Options
 - `-x/--max-results N`: Limit number of results (default: 100)
-- `-d/--debug`: Enable detailed logging
+- `-d/--debug`: Enable detailed logging and show purple duplicates
 - `-v/--version`: Show version information
 - `-h/--help`: Show help message
+- `--id ID`: Show metadata for a specific item ID
+- `--no-dedupe`: Disable automatic duplicate removal
+
+### Duplicate Detection
+zurch automatically removes duplicate items based on title, author, and year matching:
+- **Prioritizes items with attachments** (PDF/EPUB) over those without
+- **Selects most recently modified** items when attachments are equal
+- **Debug mode (`-d`)** shows all duplicates in purple for investigation
+- **`--no-dedupe`** flag disables deduplication to see raw database contents
+
+Example: Search for "World History" reduces 8 duplicate items to 2 unique results.
 
 ## Configuration
 
