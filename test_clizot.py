@@ -1,0 +1,274 @@
+import pytest
+import tempfile
+import shutil
+from pathlib import Path
+from unittest.mock import patch, MagicMock
+
+from search import ZoteroDatabase, ZoteroItem, ZoteroCollection, DatabaseError, DatabaseLockedError
+from utils import load_config, format_attachment_icon, pad_number, find_zotero_database
+import cli
+
+class TestZoteroDatabase:
+    """Test the ZoteroDatabase class."""
+    
+    @pytest.fixture
+    def sample_db_path(self):
+        """Return path to sample database."""
+        return Path(__file__).parent / "zotero-database-example" / "zotero.sqlite"
+    
+    @pytest.fixture
+    def db(self, sample_db_path):
+        """Create a ZoteroDatabase instance with sample data."""
+        if sample_db_path.exists():
+            return ZoteroDatabase(sample_db_path)
+        else:
+            pytest.skip("Sample database not found")
+    
+    def test_database_initialization(self, sample_db_path):
+        """Test database initialization."""
+        if sample_db_path.exists():
+            db = ZoteroDatabase(sample_db_path)
+            assert db.db_path == sample_db_path
+        else:
+            pytest.skip("Sample database not found")
+    
+    def test_database_not_found(self):
+        """Test error when database file doesn't exist."""
+        nonexistent_path = Path("/nonexistent/database.sqlite")
+        with pytest.raises(DatabaseError, match="Database not found"):
+            ZoteroDatabase(nonexistent_path)
+    
+    def test_list_collections(self, db):
+        """Test listing collections."""
+        collections = db.list_collections()
+        assert isinstance(collections, list)
+        assert len(collections) > 0
+        
+        # Check that collections have required attributes
+        for collection in collections:
+            assert isinstance(collection, ZoteroCollection)
+            assert hasattr(collection, 'collection_id')
+            assert hasattr(collection, 'name')
+            assert hasattr(collection, 'depth')
+    
+    def test_search_collections(self, db):
+        """Test searching collections by name."""
+        # Search for 'Heritage' which should exist in sample data
+        results = db.search_collections("Heritage")
+        assert isinstance(results, list)
+        
+        if results:
+            # Verify all results contain the search term
+            for collection in results:
+                assert "heritage" in collection.name.lower()
+    
+    def test_get_collection_items(self, db):
+        """Test getting items from a collection."""
+        # First get a collection that has items
+        collections = db.list_collections()
+        collection_with_items = None
+        
+        for collection in collections:
+            if collection.item_count > 0:
+                collection_with_items = collection
+                break
+        
+        if collection_with_items:
+            items = db.get_collection_items(collection_with_items.name, max_results=5)
+            assert isinstance(items, list)
+            assert len(items) <= 5
+            
+            # Check item structure
+            for item in items:
+                assert isinstance(item, ZoteroItem)
+                assert hasattr(item, 'item_id')
+                assert hasattr(item, 'title')
+                assert hasattr(item, 'item_type')
+    
+    def test_search_items_by_name(self, db):
+        """Test searching items by name."""
+        items = db.search_items_by_name("China", max_results=3)
+        assert isinstance(items, list)
+        assert len(items) <= 3
+        
+        # Verify results contain search term
+        for item in items:
+            assert "china" in item.title.lower()
+    
+    def test_get_item_metadata(self, db):
+        """Test getting item metadata."""
+        # First find an item
+        items = db.search_items_by_name("Heritage", max_results=1)
+        
+        if items:
+            item = items[0]
+            metadata = db.get_item_metadata(item.item_id)
+            
+            assert isinstance(metadata, dict)
+            assert 'itemType' in metadata
+            # Common fields that should exist
+            expected_fields = ['dateAdded', 'dateModified']
+            for field in expected_fields:
+                assert field in metadata
+
+class TestUtilityFunctions:
+    """Test utility functions."""
+    
+    def test_format_attachment_icon(self):
+        """Test attachment icon formatting."""
+        # Test PDF
+        assert "📘" in format_attachment_icon("pdf")
+        
+        # Test EPUB
+        assert "📗" in format_attachment_icon("epub")
+        
+        # Test TXT
+        assert "📄" in format_attachment_icon("txt")
+        
+        # Test None
+        assert format_attachment_icon(None) == ""
+        
+        # Test unknown type
+        assert format_attachment_icon("other") == ""
+    
+    def test_pad_number(self):
+        """Test number padding for alignment."""
+        assert pad_number(1, 100) == "  1"
+        assert pad_number(10, 100) == " 10"
+        assert pad_number(100, 100) == "100"
+        
+        assert pad_number(1, 10) == " 1"
+        assert pad_number(5, 10) == " 5"
+    
+    def test_load_config(self):
+        """Test configuration loading."""
+        config = load_config()
+        assert isinstance(config, dict)
+        
+        # Check for required keys
+        assert 'max_results' in config
+        assert 'debug' in config
+        assert 'zotero_database_path' in config
+        
+        # Check default values
+        assert config['max_results'] == 100
+        assert config['debug'] is False
+
+class TestCLIIntegration:
+    """Test CLI integration."""
+    
+    def test_cli_help(self):
+        """Test CLI help output."""
+        parser = cli.create_parser()
+        help_text = parser.format_help()
+        
+        # Check for key components
+        assert "clizot" in help_text
+        assert "--folder" in help_text
+        assert "--name" in help_text
+        assert "--list" in help_text
+        assert "--interactive" in help_text
+        assert "--grab" in help_text
+    
+    def test_display_items(self, capsys):
+        """Test item display functionality."""
+        items = [
+            ZoteroItem(1, "Test Book", "book", "pdf"),
+            ZoteroItem(2, "Test Article", "journalArticle", None),
+            ZoteroItem(3, "Test Document", "document", "txt")
+        ]
+        
+        cli.display_items(items, 3)
+        captured = capsys.readouterr()
+        
+        assert "Test Book" in captured.out
+        assert "Test Article" in captured.out
+        assert "Test Document" in captured.out
+        assert "📘" in captured.out  # PDF icon
+        assert "📄" in captured.out  # TXT icon
+    
+    @patch('cli.input')
+    def test_interactive_selection(self, mock_input):
+        """Test interactive item selection."""
+        items = [
+            ZoteroItem(1, "Test Item 1", "book"),
+            ZoteroItem(2, "Test Item 2", "article")
+        ]
+        
+        # Test valid selection
+        mock_input.return_value = "1"
+        selected = cli.interactive_selection(items)
+        assert selected == items[0]
+        
+        # Test cancel
+        mock_input.return_value = "0"
+        selected = cli.interactive_selection(items)
+        assert selected is None
+        
+        # Test KeyboardInterrupt (Ctrl+C)
+        mock_input.side_effect = KeyboardInterrupt()
+        selected = cli.interactive_selection(items)
+        assert selected is None
+
+class TestFilterFunctionality:
+    """Test filtering capabilities."""
+    
+    def test_collection_filtering(self):
+        """Test collection name filtering with % wildcards."""
+        import fnmatch
+        
+        collections = ["China", "Chinese History", "Japan", "Korea", "Burma"]
+        
+        # Test partial matching (default behavior)
+        filtered = [c for c in collections if "china" in c.lower()]
+        assert "China" in filtered
+        
+        # Test % wildcard patterns (converted to fnmatch)
+        pattern = "chin%".replace('%', '*')
+        filtered = [c for c in collections if fnmatch.fnmatch(c.lower(), pattern)]
+        assert "China" in filtered
+        assert "Chinese History" in filtered
+        
+        # Test contains pattern with % 
+        pattern = "%ese%".replace('%', '*')
+        filtered = [c for c in collections if fnmatch.fnmatch(c.lower(), pattern)]
+        assert "Chinese History" in filtered
+
+# Test data integrity
+class TestDatabaseIntegrity:
+    """Test database integrity and error handling."""
+    
+    @pytest.fixture
+    def sample_db_path(self):
+        """Return path to sample database."""
+        return Path(__file__).parent / "zotero-database-example" / "zotero.sqlite"
+    
+    def test_database_version(self, sample_db_path):
+        """Test database version detection."""
+        if sample_db_path.exists():
+            db = ZoteroDatabase(sample_db_path)
+            version = db.get_database_version()
+            assert isinstance(version, str)
+            assert len(version) > 0
+        else:
+            pytest.skip("Sample database not found")
+    
+    def test_empty_search_results(self, sample_db_path):
+        """Test handling of empty search results."""
+        if sample_db_path.exists():
+            db = ZoteroDatabase(sample_db_path)
+            
+            # Search for something that shouldn't exist
+            items = db.search_items_by_name("NONEXISTENT_SEARCH_TERM_XYZ123")
+            assert isinstance(items, list)
+            assert len(items) == 0
+            
+            # Search for nonexistent collection
+            collections = db.search_collections("NONEXISTENT_COLLECTION_XYZ123")
+            assert isinstance(collections, list)
+            assert len(collections) == 0
+        else:
+            pytest.skip("Sample database not found")
+
+if __name__ == "__main__":
+    pytest.main([__file__])
