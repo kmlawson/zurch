@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from utils import (
     load_config, save_config, format_attachment_icon, 
-    find_zotero_database, pad_number
+    find_zotero_database, pad_number, highlight_search_term
 )
 from search import ZoteroDatabase, ZoteroItem, DatabaseError, DatabaseLockedError
 
@@ -79,12 +79,13 @@ def create_parser():
     
     return parser
 
-def display_items(items: List[ZoteroItem], max_results: int) -> None:
+def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "") -> None:
     """Display items with numbering and icons."""
     for i, item in enumerate(items[:max_results], 1):
         icon = format_attachment_icon(item.attachment_type)
         number = pad_number(i, min(len(items), max_results))
-        print(f"{number}. {item.title} {icon}")
+        title = highlight_search_term(item.title, search_term) if search_term else item.title
+        print(f"{number}. {title} {icon}")
 
 def interactive_selection(items: List[ZoteroItem]) -> Optional[ZoteroItem]:
     """Handle interactive item selection."""
@@ -287,10 +288,12 @@ def main():
                         
                         if collection.name in duplicates:
                             # Show full path for ambiguous names
-                            print(f"{collection.full_path}{count_info}")
+                            highlighted_path = highlight_search_term(collection.full_path, args.list)
+                            print(f"{highlighted_path}{count_info}")
                         else:
                             # Show just the name for unique collections  
-                            print(f"{collection.name}{count_info}")
+                            highlighted_name = highlight_search_term(collection.name, args.list)
+                            print(f"{highlighted_name}{count_info}")
                 else:
                     print("Collections and Sub-collections:")
                     
@@ -318,7 +321,7 @@ def main():
                 return 1
             
             print(f"Items in folder '{args.folder}':")
-            display_items(items, max_results)
+            display_items(items, max_results, args.folder)
             
             if args.interactive:
                 handle_interactive_mode(db, items, args.grab, config)
@@ -333,7 +336,7 @@ def main():
                 return 1
             
             print(f"Items matching '{args.name}':")
-            display_items(items, max_results)
+            display_items(items, max_results, args.name)
             
             if args.interactive:
                 handle_interactive_mode(db, items, args.grab, config)

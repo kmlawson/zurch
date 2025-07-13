@@ -109,3 +109,26 @@ def pad_number(num: int, total: int) -> str:
     """Pad a number with spaces for alignment."""
     max_width = len(str(total))
     return f"{num:>{max_width}}"
+
+def highlight_search_term(text: str, search_term: str) -> str:
+    """Highlight search term in text with bold formatting."""
+    if not search_term or not text:
+        return text
+    
+    # ANSI escape codes for bold
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+    
+    # Handle % wildcards by converting to simple contains matching
+    clean_term = search_term.replace('%', '')
+    if not clean_term:
+        return text
+    
+    # Case-insensitive highlighting
+    import re
+    # Escape special regex characters except our search term
+    escaped_term = re.escape(clean_term)
+    # Use case-insensitive replacement
+    highlighted = re.sub(f'({escaped_term})', f'{BOLD}\\1{RESET}', text, flags=re.IGNORECASE)
+    
+    return highlighted

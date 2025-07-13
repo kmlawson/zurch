@@ -153,6 +153,35 @@ class TestUtilityFunctions:
         # Check default values
         assert config['max_results'] == 100
         assert config['debug'] is False
+    
+    def test_highlight_search_term(self):
+        """Test search term highlighting."""
+        from utils import highlight_search_term
+        
+        # Test basic highlighting
+        result = highlight_search_term("Japanese History", "japan")
+        assert "\033[1m" in result  # Contains bold formatting
+        assert "Japan" in result
+        
+        # Test case insensitive
+        result = highlight_search_term("JAPANESE HISTORY", "japan")
+        assert "\033[1m" in result
+        
+        # Test with wildcard
+        result = highlight_search_term("Japanese History", "japan%")
+        assert "\033[1m" in result
+        assert "Japan" in result
+        
+        # Test no match
+        result = highlight_search_term("Chinese History", "japan")
+        assert "\033[1m" not in result
+        
+        # Test empty inputs
+        result = highlight_search_term("", "japan")
+        assert result == ""
+        
+        result = highlight_search_term("Japanese History", "")
+        assert result == "Japanese History"
 
 class TestCLIIntegration:
     """Test CLI integration."""
