@@ -46,3 +46,6 @@ dev-dependencies = [
 
 [tool.uv.sources]
 zurch = { workspace = true }
+
+[tool.pytest.ini_options]
+pythonpath = "."

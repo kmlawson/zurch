@@ -5,7 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.1] - 2025-07-13
+## [0.6.1] - 2025-07-13
+
+### Fixed
+- **Max Results (-x flag) Behavior**: The `-x` flag now correctly applies the limit as the final operation after all other processing (including deduplication) is complete. This ensures that the specified number of results are returned from the final processed set, as per the `GEMINI.md` specification.
+
+## [0.6.0] - 2025-07-13
 
 ### Added
 - **Debug Mode Purple Duplicates**: When `-d` flag is used, all duplicate items are displayed in purple color

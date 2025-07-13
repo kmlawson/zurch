@@ -137,7 +137,7 @@ zurch -f "Papers" -i -g
 - `-k/--exact`: Use exact matching instead of partial matching
 
 ### Other Options
-- `-x/--max-results N`: Limit number of results (default: 100) - **Applied as final step after all filtering and deduplication**
+- `-x/--max-results N`: Limit number of results (default: 100) - **Applied as final step after all filtering and deduplication** - **Applied as final step after all filtering and deduplication**
 - `-d/--debug`: Enable detailed logging and show purple duplicates
 - `-v/--version`: Show version information
 - `-h/--help`: Show help message

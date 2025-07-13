@@ -4,9 +4,13 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from zurch.search import ZoteroDatabase, ZoteroItem, ZoteroCollection, DatabaseError, DatabaseLockedError
+from zurch.search import ZoteroDatabase
+from zurch.models import ZoteroItem, ZoteroCollection
+from zurch.database import DatabaseError, DatabaseLockedError
 from zurch.utils import load_config, format_attachment_icon, pad_number, find_zotero_database
-import zurch.cli as cli
+from zurch import cli
+from zurch.display import display_items
+from zurch.handlers import interactive_selection
 
 class TestZoteroDatabase:
     """Test the ZoteroDatabase class."""
@@ -74,10 +78,10 @@ class TestZoteroDatabase:
                 break
         
         if collection_with_items:
-            items, total_count = db.get_collection_items(collection_with_items.name, max_results=5)
+            items, total_count = db.get_collection_items(collection_with_items.name)
             assert isinstance(items, list)
             assert isinstance(total_count, int)
-            assert len(items) <= 5
+            assert len(items) > 0
             
             # Check item structure
             for item in items:
@@ -88,10 +92,10 @@ class TestZoteroDatabase:
     
     def test_search_items_by_name(self, db):
         """Test searching items by name."""
-        items, total_count = db.search_items_by_name("China", max_results=3)
+        items, total_count = db.search_items_by_name("China")
         assert isinstance(items, list)
         assert isinstance(total_count, int)
-        assert len(items) <= 3
+        assert len(items) > 0
         
         # Verify results contain search term
         for item in items:
@@ -100,12 +104,12 @@ class TestZoteroDatabase:
     def test_search_items_by_name_exact(self, db):
         """Test exact search for items by name."""
         # Test exact search
-        items_exact, total_exact = db.search_items_by_name("China", max_results=10, exact_match=True)
+        items_exact, total_exact = db.search_items_by_name("China", exact_match=True)
         assert isinstance(items_exact, list)
         assert isinstance(total_exact, int)
         
         # Test partial search for comparison
-        items_partial, total_partial = db.search_items_by_name("China", max_results=10, exact_match=False)
+        items_partial, total_partial = db.search_items_by_name("China", exact_match=False)
         
         # Exact search should return fewer or equal results than partial search
         assert total_exact <= total_partial
@@ -117,22 +121,22 @@ class TestZoteroDatabase:
     def test_search_items_unicode(self, db):
         """Test searching with Unicode characters (Chinese, Japanese, Korean, etc.)."""
         # Test Chinese characters
-        items_cn, total_cn = db.search_items_by_name("中国", max_results=5)
+        items_cn, total_cn = db.search_items_by_name("中国")
         assert isinstance(items_cn, list)
         assert isinstance(total_cn, int)
         
         # Test Japanese characters  
-        items_jp, total_jp = db.search_items_by_name("日本", max_results=5)
+        items_jp, total_jp = db.search_items_by_name("日本")
         assert isinstance(items_jp, list)
         assert isinstance(total_jp, int)
         
         # Test Korean characters
-        items_kr, total_kr = db.search_items_by_name("한국", max_results=5)
+        items_kr, total_kr = db.search_items_by_name("한국")
         assert isinstance(items_kr, list)
         assert isinstance(total_kr, int)
         
         # Test Unicode punctuation (em dash)
-        items_dash, total_dash = db.search_items_by_name("–", max_results=5)
+        items_dash, total_dash = db.search_items_by_name("–")
         assert isinstance(items_dash, list)
         assert isinstance(total_dash, int)
         
@@ -144,7 +148,7 @@ class TestZoteroDatabase:
         """Test AND search with multiple keywords."""
         # Test AND search with multiple keywords (list input)
         keywords = ["world", "history"]
-        items_and, total_and = db.search_items_by_name(keywords, max_results=10)
+        items_and, total_and = db.search_items_by_name(keywords)
         assert isinstance(items_and, list)
         assert isinstance(total_and, int)
         
@@ -156,7 +160,7 @@ class TestZoteroDatabase:
         
         # Test phrase search (string input) 
         phrase = "world history"
-        items_phrase, total_phrase = db.search_items_by_name(phrase, max_results=10)
+        items_phrase, total_phrase = db.search_items_by_name(phrase)
         assert isinstance(items_phrase, list)
         assert isinstance(total_phrase, int)
         
@@ -172,7 +176,7 @@ class TestZoteroDatabase:
     def test_search_items_wildcards(self, db):
         """Test wildcard patterns in search."""
         # Test prefix wildcard - should find items with "world" patterns
-        items_prefix, total_prefix = db.search_items_by_name("world%", max_results=5)
+        items_prefix, total_prefix = db.search_items_by_name("world%")
         assert isinstance(items_prefix, list)
         assert isinstance(total_prefix, int)
         
@@ -182,7 +186,7 @@ class TestZoteroDatabase:
             assert "world" in title_lower, f"Item '{item.title}' doesn't contain 'world'"
         
         # Test suffix wildcard - should find words ending with "history" anywhere in title
-        items_suffix, total_suffix = db.search_items_by_name("%history", max_results=5)
+        items_suffix, total_suffix = db.search_items_by_name("%history")
         assert isinstance(items_suffix, list)
         assert isinstance(total_suffix, int)
         
@@ -192,7 +196,7 @@ class TestZoteroDatabase:
             assert "history" in title_lower, f"Item '{item.title}' doesn't contain 'history'"
         
         # Test contains wildcard (anywhere)
-        items_contains, total_contains = db.search_items_by_name("%world%", max_results=5)
+        items_contains, total_contains = db.search_items_by_name("%world%")
         assert isinstance(items_contains, list)
         assert isinstance(total_contains, int)
         
@@ -204,7 +208,7 @@ class TestZoteroDatabase:
     def test_get_item_metadata(self, db):
         """Test getting item metadata."""
         # First find an item
-        items, total_count = db.search_items_by_name("Heritage", max_results=1)
+        items, total_count = db.search_items_by_name("Heritage")
         
         if items:
             item = items[0]
@@ -384,7 +388,7 @@ class TestCLIIntegration:
             ZoteroItem(3, "Test Document", "document", "epub")
         ]
         
-        cli.display_items(items, 3)
+        display_items(items, 3)
         captured = capsys.readouterr()
         
         assert "Test Book" in captured.out
@@ -394,7 +398,7 @@ class TestCLIIntegration:
         assert "📄" in captured.out  # Document icon for journal article
         assert "🔗" in captured.out  # Link icon for attachments
     
-    @patch('zurch.cli.input')
+    @patch('zurch.handlers.input')
     def test_interactive_selection(self, mock_input):
         """Test interactive item selection."""
         items = [
@@ -404,19 +408,19 @@ class TestCLIIntegration:
         
         # Test valid selection
         mock_input.return_value = "1"
-        selected, should_grab = cli.interactive_selection(items)
+        selected, should_grab = interactive_selection(items)
         assert selected == items[0]
         assert should_grab == False
         
         # Test cancel
         mock_input.return_value = "0"
-        selected, should_grab = cli.interactive_selection(items)
+        selected, should_grab = interactive_selection(items)
         assert selected is None
         assert should_grab == False
         
         # Test KeyboardInterrupt (Ctrl+C)
         mock_input.side_effect = KeyboardInterrupt()
-        selected, should_grab = cli.interactive_selection(items)
+        selected, should_grab = interactive_selection(items)
         assert selected is None
         assert should_grab == False
 

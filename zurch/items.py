@@ -1,0 +1,140 @@
+from typing import List, Tuple, Optional
+from .database import DatabaseConnection, get_attachment_type
+from .queries import (
+    build_collection_items_query, build_name_search_query, build_author_search_query,
+    build_attachment_query
+)
+from .models import ZoteroItem
+
+class ItemService:
+    """Service for handling item operations."""
+    
+    def __init__(self, db_connection: DatabaseConnection):
+        self.db = db_connection
+    
+    def get_items_in_collection(self, collection_id: int, 
+                              only_attachments: bool = False, after_year: int = None, 
+                              before_year: int = None, only_books: bool = False, 
+                              only_articles: bool = False) -> List[ZoteroItem]:
+        """Get items in a specific collection."""
+        query, params = build_collection_items_query(
+            collection_id, only_attachments, after_year, before_year, only_books, only_articles
+        )
+        
+        results = self.db.execute_query(query, params)
+        items = []
+        
+        for row in results:
+            item_id, title, item_type, order_index, content_type, attachment_path = row
+            
+            # Process attachment data directly from query
+            attachment_type = get_attachment_type(content_type) if content_type else None
+            
+            item = ZoteroItem(
+                item_id=item_id,
+                title=title or "Untitled",
+                item_type=item_type,
+                attachment_type=attachment_type,
+                attachment_path=attachment_path
+            )
+            
+            items.append(item)
+        
+        return items
+    
+    def search_items_by_name(self, name, exact_match: bool = False, 
+                           only_attachments: bool = False, after_year: int = None, 
+                           before_year: int = None, only_books: bool = False, 
+                           only_articles: bool = False) -> Tuple[List[ZoteroItem], int]:
+        """Search items by title content. Returns (items, total_count)."""
+        count_query, items_query, search_params = build_name_search_query(
+            name, exact_match, only_attachments, after_year, before_year, only_books, only_articles
+        )
+        
+        # Get total count
+        count_result = self.db.execute_single_query(count_query, search_params)
+        total_count = count_result[0] if count_result else 0
+        
+        # Get all items
+        results = self.db.execute_query(items_query, search_params)
+        items = []
+        
+        for row in results:
+            item_id, title, item_type, content_type, attachment_path = row
+            
+            # Process attachment data directly from query
+            attachment_type = get_attachment_type(content_type) if content_type else None
+            
+            item = ZoteroItem(
+                item_id=item_id,
+                title=title or "Untitled",
+                item_type=item_type,
+                attachment_type=attachment_type,
+                attachment_path=attachment_path
+            )
+            
+            items.append(item)
+        
+        return items, total_count
+    
+    def search_items_by_author(self, author, exact_match: bool = False,
+                             only_attachments: bool = False, after_year: int = None,
+                             before_year: int = None, only_books: bool = False,
+                             only_articles: bool = False) -> Tuple[List[ZoteroItem], int]:
+        """Search items by author name. Returns (items, total_count)."""
+        count_query, items_query, search_params = build_author_search_query(
+            author, exact_match, only_attachments, after_year, before_year, only_books, only_articles
+        )
+        
+        # Get total count
+        count_result = self.db.execute_single_query(count_query, search_params)
+        total_count = count_result[0] if count_result else 0
+        
+        # Get all items
+        results = self.db.execute_query(items_query, search_params)
+        items = []
+        
+        for row in results:
+            item_id, title, item_type, content_type, attachment_path = row
+            
+            # Process attachment data directly from query
+            attachment_type = get_attachment_type(content_type) if content_type else None
+            
+            item = ZoteroItem(
+                item_id=item_id,
+                title=title or "Untitled",
+                item_type=item_type,
+                attachment_type=attachment_type,
+                attachment_path=attachment_path
+            )
+            
+            items.append(item)
+        
+        return items, total_count
+    
+    def search_items_combined(self, name=None, author=None,
+                            exact_match: bool = False, only_attachments: bool = False,
+                            after_year: int = None, before_year: int = None,
+                            only_books: bool = False, only_articles: bool = False) -> Tuple[List[ZoteroItem], int]:
+        """Search items by combined criteria (title and/or author). Returns (items, total_count)."""
+        if name and author:
+            # For now, do name search and filter by author (simplified approach)
+            # This could be improved with a proper combined query
+            items, total_count = self.search_items_by_name(
+                name, exact_match, only_attachments,
+                after_year, before_year, only_books, only_articles
+            )
+            # TODO: This is a simplified implementation - needs author filtering
+            return items, total_count
+        elif name:
+            return self.search_items_by_name(
+                name, exact_match, only_attachments,
+                after_year, before_year, only_books, only_articles
+            )
+        elif author:
+            return self.search_items_by_author(
+                author, exact_match, only_attachments,
+                after_year, before_year, only_books, only_articles
+            )
+        else:
+            return [], 0

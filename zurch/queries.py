@@ -1,0 +1,436 @@
+from typing import List, Optional, Tuple
+
+def build_collection_tree_query() -> str:
+    """Build the recursive CTE query for collection hierarchy."""
+    return """
+    WITH RECURSIVE collection_tree AS (
+        SELECT 
+            collectionID,
+            collectionName,
+            parentCollectionID,
+            0 as depth,
+            collectionName as path
+        FROM collections 
+        WHERE parentCollectionID IS NULL
+        
+        UNION ALL
+        
+        SELECT 
+            c.collectionID,
+            c.collectionName,
+            c.parentCollectionID,
+            ct.depth + 1,
+            ct.path || ' > ' || c.collectionName
+        FROM collections c
+        JOIN collection_tree ct ON c.parentCollectionID = ct.collectionID
+    )
+    SELECT 
+        ct.collectionID,
+        ct.collectionName,
+        ct.parentCollectionID,
+        ct.depth,
+        COUNT(ci.itemID) as item_count,
+        ct.path
+    FROM collection_tree ct
+    LEFT JOIN collectionItems ci ON ct.collectionID = ci.collectionID
+    GROUP BY ct.collectionID, ct.collectionName, ct.parentCollectionID, ct.depth, ct.path
+    ORDER BY ct.depth, ct.collectionName
+    """
+
+def build_collection_items_query(collection_id: int, only_attachments: bool = False, 
+                                after_year: int = None, before_year: int = None, 
+                                only_books: bool = False, only_articles: bool = False) -> Tuple[str, List]:
+    """Build query for items in a specific collection with filters and attachment data."""
+    # Build date filtering conditions
+    date_conditions = []
+    query_params = [collection_id]
+    
+    if after_year is not None:
+        date_conditions.append("CAST(SUBSTR(date_data.value, 1, 4) AS INTEGER) >= ?")
+        query_params.append(after_year)
+    if before_year is not None:
+        date_conditions.append("CAST(SUBSTR(date_data.value, 1, 4) AS INTEGER) <= ?")
+        query_params.append(before_year)
+    
+    # Build item type filtering conditions
+    type_conditions = []
+    if only_books:
+        type_conditions.append("it.typeName = 'book'")
+    elif only_articles:
+        type_conditions.append("it.typeName = 'journalArticle'")
+    
+    # Add attachment filtering
+    attachment_join = ""
+    attachment_conditions = []
+    if only_attachments:
+        attachment_join = "JOIN itemAttachments ia_filter ON (i.itemID = ia_filter.parentItemID OR i.itemID = ia_filter.itemID)"
+        attachment_conditions.append("ia_filter.contentType IN ('application/pdf', 'application/epub+zip')")
+    
+    # Combine all conditions
+    where_conditions = ["ci.collectionID = ?"]
+    if date_conditions:
+        where_conditions.extend(date_conditions)
+    if type_conditions:
+        where_conditions.extend(type_conditions)
+    if attachment_conditions:
+        where_conditions.extend(attachment_conditions)
+    
+    where_clause = "WHERE " + " AND ".join(where_conditions)
+    
+    query = f"""
+    SELECT 
+        i.itemID,
+        COALESCE(title_data.value, '') as title,
+        it.typeName,
+        ci.orderIndex,
+        ia.contentType,
+        ia.path
+    FROM collectionItems ci
+    JOIN items i ON ci.itemID = i.itemID
+    JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+    {attachment_join}
+    LEFT JOIN (
+        SELECT id.itemID, idv.value
+        FROM itemData id
+        JOIN itemDataValues idv ON id.valueID = idv.valueID
+        WHERE id.fieldID = 1  -- title field
+    ) title_data ON i.itemID = title_data.itemID
+    LEFT JOIN (
+        SELECT id.itemID, idv.value
+        FROM itemData id
+        JOIN itemDataValues idv ON id.valueID = idv.valueID
+        WHERE id.fieldID = 14  -- date field
+    ) date_data ON i.itemID = date_data.itemID
+    LEFT JOIN (
+        SELECT DISTINCT parentItemID as itemID, contentType, path
+        FROM itemAttachments 
+        WHERE contentType IN ('application/pdf', 'application/epub+zip', 'text/plain')
+        UNION
+        SELECT DISTINCT itemID, contentType, path
+        FROM itemAttachments 
+        WHERE contentType IN ('application/pdf', 'application/epub+zip', 'text/plain')
+    ) ia ON i.itemID = ia.itemID
+    {where_clause}
+    ORDER BY LOWER(COALESCE(title_data.value, ''))
+    """
+    
+    return query, query_params
+
+def build_search_conditions(search_terms, exact_match: bool = False) -> Tuple[List[str], List]:
+    """Build search conditions for title or author searches."""
+    search_conditions = []
+    search_params = []
+    
+    if isinstance(search_terms, list) and len(search_terms) > 1 and not exact_match:
+        # Multiple keywords - each must be present (AND logic)
+        for keyword in search_terms:
+            if '%' in keyword or '_' in keyword:
+                # User provided wildcards
+                if not keyword.startswith('%'):
+                    keyword = '%' + keyword
+                if not keyword.endswith('%'):
+                    keyword = keyword + '%'
+                search_conditions.append("LOWER(idv.value) LIKE LOWER(?)")
+                search_params.append(keyword)
+            else:
+                # Import escape function
+                from .utils import escape_sql_like_pattern
+                escaped_keyword = escape_sql_like_pattern(keyword)
+                search_conditions.append("LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'")
+                search_params.append(f"%{escaped_keyword}%")
+    else:
+        # Single keyword or phrase search
+        if isinstance(search_terms, list):
+            search_terms = ' '.join(search_terms)
+            
+        if exact_match:
+            search_conditions.append("LOWER(idv.value) = LOWER(?)")
+            search_params.append(search_terms)
+        else:
+            if '%' in search_terms or '_' in search_terms:
+                # User provided wildcards
+                if not search_terms.startswith('%'):
+                    search_terms = '%' + search_terms
+                if not search_terms.endswith('%'):
+                    search_terms = search_terms + '%'
+                search_conditions.append("LOWER(idv.value) LIKE LOWER(?)")
+                search_params.append(search_terms)
+            else:
+                from .utils import escape_sql_like_pattern
+                escaped_terms = escape_sql_like_pattern(search_terms)
+                search_conditions.append("LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'")
+                search_params.append(f"%{escaped_terms}%")
+    
+    return search_conditions, search_params
+
+def build_author_search_conditions(author_terms, exact_match: bool = False) -> Tuple[List[str], List]:
+    """Build search conditions for author searches."""
+    search_conditions = []
+    search_params = []
+    
+    if isinstance(author_terms, list) and len(author_terms) > 1 and not exact_match:
+        # Multiple keywords - each must be present in author names (AND logic)
+        for keyword in author_terms:
+            if '%' in keyword or '_' in keyword:
+                # User provided wildcards
+                if not keyword.startswith('%'):
+                    keyword = '%' + keyword
+                if not keyword.endswith('%'):
+                    keyword = keyword + '%'
+                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
+                search_params.extend([keyword, keyword])
+            else:
+                from .utils import escape_sql_like_pattern
+                escaped_keyword = escape_sql_like_pattern(keyword)
+                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) ESCAPE '\\' OR LOWER(c.lastName) LIKE LOWER(?) ESCAPE '\\')")
+                search_params.extend([f"%{escaped_keyword}%", f"%{escaped_keyword}%"])
+    else:
+        # Single keyword or phrase search
+        if isinstance(author_terms, list):
+            author_terms = ' '.join(author_terms)
+            
+        if exact_match:
+            search_conditions.append("(LOWER(c.firstName) = LOWER(?) OR LOWER(c.lastName) = LOWER(?))")
+            search_params.extend([author_terms, author_terms])
+        else:
+            if '%' in author_terms or '_' in author_terms:
+                # User provided wildcards
+                if not author_terms.startswith('%'):
+                    author_terms = '%' + author_terms
+                if not author_terms.endswith('%'):
+                    author_terms = author_terms + '%'
+                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
+                search_params.extend([author_terms, author_terms])
+            else:
+                from .utils import escape_sql_like_pattern
+                escaped_author = escape_sql_like_pattern(author_terms)
+                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) ESCAPE '\\' OR LOWER(c.lastName) LIKE LOWER(?) ESCAPE '\\')")
+                search_params.extend([f"%{escaped_author}%", f"%{escaped_author}%"])
+    
+    return search_conditions, search_params
+
+def build_name_search_query(name, exact_match: bool = False, only_attachments: bool = False,
+                          after_year: int = None, before_year: int = None, 
+                          only_books: bool = False, only_articles: bool = False) -> Tuple[str, str, List]:
+    """Build title search query with all filters and attachment data."""
+    search_conditions, search_params = build_search_conditions(name, exact_match)
+    where_clause = "WHERE " + " AND ".join(search_conditions)
+    
+    # Add date filtering if specified
+    if after_year is not None:
+        where_clause += " AND CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?"
+        search_params.append(after_year)
+    if before_year is not None:
+        where_clause += " AND CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) <= ?"
+        search_params.append(before_year)
+    
+    # Add item type filtering if specified
+    if only_books:
+        where_clause += " AND it.typeName = 'book'"
+    elif only_articles:
+        where_clause += " AND it.typeName = 'journalArticle'"
+    
+    # Add attachment filtering if specified
+    attachment_join = ""
+    if only_attachments:
+        attachment_join = """
+        JOIN itemAttachments ia_filter ON (i.itemID = ia_filter.parentItemID OR i.itemID = ia_filter.itemID)
+        """
+        where_clause += " AND ia_filter.contentType IN ('application/pdf', 'application/epub+zip')"
+    
+    # Count query
+    count_query = f"""
+    SELECT COUNT(DISTINCT i.itemID)
+    FROM items i
+    JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+    {attachment_join}
+    LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
+    LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+    LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
+    {where_clause}
+    """
+    
+    # Items query with attachment data
+    items_query = f"""
+    SELECT DISTINCT
+        i.itemID,
+        COALESCE(idv.value, '') as title,
+        it.typeName,
+        ia.contentType,
+        ia.path
+    FROM items i
+    JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+    {attachment_join}
+    LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
+    LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+    LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
+    LEFT JOIN (
+        SELECT DISTINCT parentItemID as itemID, contentType, path
+        FROM itemAttachments 
+        WHERE contentType IN ('application/pdf', 'application/epub+zip', 'text/plain')
+        UNION
+        SELECT DISTINCT itemID, contentType, path
+        FROM itemAttachments 
+        WHERE contentType IN ('application/pdf', 'application/epub+zip', 'text/plain')
+    ) ia ON i.itemID = ia.itemID
+    {where_clause}
+    ORDER BY LOWER(idv.value)
+    """
+    
+    return count_query, items_query, search_params
+
+def build_author_search_query(author, exact_match: bool = False, only_attachments: bool = False,
+                            after_year: int = None, before_year: int = None,
+                            only_books: bool = False, only_articles: bool = False) -> Tuple[str, str, List]:
+    """Build author search query with all filters and attachment data."""
+    author_conditions, search_params = build_author_search_conditions(author, exact_match)
+    
+    # Add date filtering if specified
+    date_conditions = []
+    if after_year is not None:
+        date_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?")
+        search_params.append(after_year)
+    if before_year is not None:
+        date_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) <= ?")
+        search_params.append(before_year)
+    
+    # Combine conditions
+    where_conditions = [f"({' AND '.join(author_conditions)})"]
+    if date_conditions:
+        where_conditions.extend(date_conditions)
+    
+    # Add item type filtering if specified
+    if only_books:
+        where_conditions.append("it.typeName = 'book'")
+    elif only_articles:
+        where_conditions.append("it.typeName = 'journalArticle'")
+    
+    # Add attachment filtering if specified
+    attachment_join = ""
+    if only_attachments:
+        attachment_join = """
+        JOIN itemAttachments ia_filter ON (i.itemID = ia_filter.parentItemID OR i.itemID = ia_filter.itemID)
+        """
+        where_conditions.append("ia_filter.contentType IN ('application/pdf', 'application/epub+zip')")
+    
+    where_clause = "WHERE " + " AND ".join(where_conditions)
+    
+    # Count query
+    count_query = f"""
+    SELECT COUNT(DISTINCT i.itemID)
+    FROM items i
+    JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+    JOIN itemCreators ic ON i.itemID = ic.itemID
+    JOIN creators c ON ic.creatorID = c.creatorID
+    {attachment_join}
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+    LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
+    {where_clause}
+    """
+    
+    # Items query with attachment data
+    items_query = f"""
+    SELECT DISTINCT
+        i.itemID,
+        COALESCE(idv_title.value, '') as title,
+        it.typeName,
+        ia.contentType,
+        ia.path
+    FROM items i
+    JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+    JOIN itemCreators ic ON i.itemID = ic.itemID
+    JOIN creators c ON ic.creatorID = c.creatorID
+    {attachment_join}
+    LEFT JOIN itemData id_title ON i.itemID = id_title.itemID AND id_title.fieldID = 1  -- title field
+    LEFT JOIN itemDataValues idv_title ON id_title.valueID = idv_title.valueID
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+    LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
+    LEFT JOIN (
+        SELECT DISTINCT parentItemID as itemID, contentType, path
+        FROM itemAttachments 
+        WHERE contentType IN ('application/pdf', 'application/epub+zip', 'text/plain')
+        UNION
+        SELECT DISTINCT itemID, contentType, path
+        FROM itemAttachments 
+        WHERE contentType IN ('application/pdf', 'application/epub+zip', 'text/plain')
+    ) ia ON i.itemID = ia.itemID
+    {where_clause}
+    ORDER BY LOWER(idv_title.value)
+    """
+    
+    return count_query, items_query, search_params
+
+def build_item_metadata_query() -> str:
+    """Build query for item metadata."""
+    return """
+    SELECT 
+        f.fieldName,
+        idv.value
+    FROM itemData id
+    JOIN fields f ON id.fieldID = f.fieldID
+    JOIN itemDataValues idv ON id.valueID = idv.valueID
+    WHERE id.itemID = ?
+    ORDER BY f.fieldName
+    """
+
+def build_item_creators_query() -> str:
+    """Build query for item creators."""
+    return """
+    SELECT ct.creatorType, c.firstName, c.lastName
+    FROM itemCreators ic
+    JOIN creators c ON ic.creatorID = c.creatorID
+    JOIN creatorTypes ct ON ic.creatorTypeID = ct.creatorTypeID
+    WHERE ic.itemID = ?
+    ORDER BY ic.orderIndex
+    """
+
+def build_item_collections_query() -> str:
+    """Build query for item collections."""
+    return """
+    WITH RECURSIVE collection_tree AS (
+        SELECT 
+            collectionID,
+            collectionName,
+            parentCollectionID,
+            0 as depth,
+            collectionName as path
+        FROM collections 
+        WHERE parentCollectionID IS NULL
+        
+        UNION ALL
+        
+        SELECT 
+            c.collectionID,
+            c.collectionName,
+            c.parentCollectionID,
+            ct.depth + 1,
+            ct.path || ' > ' || c.collectionName
+        FROM collections c
+        JOIN collection_tree ct ON c.parentCollectionID = ct.collectionID
+    )
+    SELECT ct.path
+    FROM collection_tree ct
+    JOIN collectionItems ci ON ct.collectionID = ci.collectionID
+    WHERE ci.itemID = ?
+    ORDER BY ct.path
+    """
+
+def build_attachment_query() -> str:
+    """Build query for item attachments."""
+    return """
+    SELECT contentType, path FROM itemAttachments 
+    WHERE parentItemID = ? OR itemID = ?
+    LIMIT 1
+    """
+
+def build_attachment_path_query() -> str:
+    """Build query for attachment file paths."""
+    return """
+    SELECT ia.path, i.key
+    FROM itemAttachments ia
+    JOIN items i ON ia.itemID = i.itemID
+    WHERE ia.parentItemID = ? OR ia.itemID = ?
+    LIMIT 1
+    """

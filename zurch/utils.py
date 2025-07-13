@@ -1,8 +1,11 @@
 import json
 import os
 import platform
+import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 def get_config_dir() -> Path:
     """Get the appropriate config directory for the OS using standard paths."""
@@ -41,7 +44,7 @@ def migrate_config_if_needed() -> None:
             import shutil
             # Copy the config file to new location
             shutil.copy2(legacy_config, new_config)
-            print(f"Migrated config from {legacy_config} to {new_config}")
+            logger.info(f"Migrated config from {legacy_config} to {new_config}")
             
             # Optionally remove the old config file after successful migration
             legacy_config.unlink()
@@ -54,7 +57,7 @@ def migrate_config_if_needed() -> None:
                 pass
                 
         except Exception as e:
-            print(f"Warning: Could not migrate config file: {e}")
+            logger.warning(f"Could not migrate config file: {e}")
 
 def get_config_file() -> Path:
     """Get the config file path."""
@@ -90,7 +93,7 @@ def load_config() -> Dict[str, Any]:
                 config[key] = value
         return config
     except (json.JSONDecodeError, IOError) as e:
-        print(f"Error loading config: {e}")
+        logger.error(f"Error loading config: {e}")
         return default_config
 
 def save_config(config: Dict[str, Any]) -> None:
@@ -100,7 +103,7 @@ def save_config(config: Dict[str, Any]) -> None:
         with open(config_file, 'w') as f:
             json.dump(config, f, indent=2)
     except IOError as e:
-        print(f"Error saving config: {e}")
+        logger.error(f"Error saving config: {e}")
 
 def format_attachment_icon(attachment_type: Optional[str]) -> str:
     """Return colored icon based on attachment type (DEPRECATED - use format_attachment_document_icon)."""
@@ -224,3 +227,9 @@ def format_duplicate_title(title: str, is_duplicate: bool = False) -> str:
         RESET = '\033[0m'
         return f"{PURPLE}{title}{RESET}"
     return title
+
+def format_metadata_field(field_name: str, value: str) -> str:
+    """Format a metadata field with bold label."""
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+    return f"{BOLD}{field_name}:{RESET} {value}"

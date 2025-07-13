@@ -23,7 +23,19 @@
       "Bash(gh repo create:*)",
       "Bash(gh repo view:*)",
       "Bash(PYTHONPATH=/Users/kml8/shell/current/zurch uv run pytest tests/ -v)",
-      "Bash(PYTHONPATH=/Users/kml8/shell/current/zurch uv run pytest tests/test_zurch.py::TestZoteroDatabase::test_search_items_wildcards -v)"
+      "Bash(PYTHONPATH=/Users/kml8/shell/current/zurch uv run pytest tests/test_zurch.py::TestZoteroDatabase::test_search_items_wildcards -v)",
+      "Bash(grep:*)",
+      "Bash(awk:*)",
+      "Bash(uv pip install:*)",
+      "Bash(PYTHONPATH=. python -m pytest tests/test_zurch.py -v)",
+      "Bash(PYTHONPATH=/Users/kml8/shell/current/zurch uv run pytest tests/test_zurch.py -v)",
+      "Bash(PYTHONPATH=/Users/kml8/shell/current/zurch uv run pytest tests/test_zurch.py::TestZoteroDatabase::test_search_items_by_name -v)",
+      "Bash(PYTHONPATH=/Users/kml8/shell/current/zurch uv run pytest tests/test_zurch.py::TestCLIIntegration::test_interactive_selection -v)",
+      "Bash(PYTHONPATH=/Users/kml8/shell/current/zurch python -m pytest tests/test_handlers.py -v)",
+      "Bash(PYTHONPATH=. uv run pytest tests/test_handlers.py -v)",
+      "Bash(PYTHONPATH=. uv run pytest tests/test_database.py tests/test_collections.py tests/test_items.py -v)",
+      "Bash(PYTHONPATH=. uv run pytest tests/test_database.py::TestDatabaseConnection::test_invalid_database_error tests/test_database.py::TestDatabaseConnection::test_database_locked_error tests/test_items.py::TestItemService::test_search_with_filters tests/test_items.py::TestItemServiceMocked::test_search_items_by_name_with_mock -v)",
+      "Bash(PYTHONPATH=. uv run pytest tests/test_database.py::TestDatabaseConnection::test_invalid_database_error tests/test_database.py::TestDatabaseConnection::test_database_locked_error -v)"
     ],
     "deny": []
   }
