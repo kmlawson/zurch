@@ -19,7 +19,9 @@
       "Bash(uv tool uninstall:*)",
       "Bash(uv cache clean:*)",
       "Bash(uv lock:*)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(gh repo create:*)",
+      "Bash(gh repo view:*)"
     ],
     "deny": []
   }

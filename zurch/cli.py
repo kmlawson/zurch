@@ -12,7 +12,7 @@ from .utils import (
 from .search import ZoteroDatabase, ZoteroItem, DatabaseError, DatabaseLockedError
 from .interactive import interactive_collection_selection
 
-__version__ = "0.4.1"
+__version__ = "0.4.3"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
@@ -90,6 +90,12 @@ def create_parser():
         "-o", "--only-attachments", 
         action="store_true",
         help="Show only items that have PDF or EPUB attachments"
+    )
+    
+    parser.add_argument(
+        "--id", 
+        type=int,
+        help="Show metadata for a specific item ID"
     )
     
     return parser
@@ -289,6 +295,15 @@ def show_item_metadata(db: ZoteroDatabase, item: ZoteroItem) -> None:
                 creator_type = creator.get('creatorType', 'Unknown')
                 print(f"  {BOLD}{creator_type}:{RESET} {name}")
         
+        # Display collections this item belongs to
+        collections = db.get_item_collections(item.item_id)
+        if collections:
+            BOLD = '\033[1m'
+            RESET = '\033[0m'
+            print(f"{BOLD}Collections:{RESET}")
+            for collection in collections:
+                print(f"  {collection}")
+        
         # Display other fields
         skip_fields = set(field_order + ['itemType', 'creators', 'dateAdded', 'dateModified'])
         other_fields = {k: v for k, v in metadata.items() if k not in skip_fields}
@@ -365,7 +380,7 @@ def main():
     # Override max_results from command line
     max_results = args.max_results or config.get('max_results', 100)
     
-    if not any([args.folder, args.name, args.list is not None]):
+    if not any([args.folder, args.name, args.list is not None, args.id]):
         parser.print_help()
         return 1
     
@@ -379,7 +394,34 @@ def main():
         return 1
     
     try:
-        if args.list is not None:
+        if args.id:
+            # Handle --id flag - show metadata for specific item
+            try:
+                # Create a dummy ZoteroItem to get basic info first
+                metadata = db.get_item_metadata(args.id)
+                
+                # Get the item's title and type for display
+                title = metadata.get('title', 'Untitled')
+                item_type = metadata.get('itemType', 'Unknown')
+                
+                print(f"Item ID {args.id}: {title}")
+                print("=" * 60)
+                
+                # Show all metadata using the existing function
+                dummy_item = ZoteroItem(
+                    item_id=args.id,
+                    title=title,
+                    item_type=item_type
+                )
+                show_item_metadata(db, dummy_item)
+                
+            except Exception as e:
+                print(f"Error: Could not find item with ID {args.id}: {e}")
+                return 1
+            
+            return 0
+            
+        elif args.list is not None:
             collections = db.list_collections()
             
             # Apply filter if provided

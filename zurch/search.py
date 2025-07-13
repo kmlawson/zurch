@@ -247,7 +247,7 @@ class ZoteroDatabase:
         """Search items by title content. Returns (items, total_count)."""
         if exact_match:
             search_pattern = name
-            where_clause = "WHERE LOWER(title_data.value) = LOWER(?)"
+            where_clause = "WHERE LOWER(idv.value) = LOWER(?)"
         else:
             # Import escape function
             from .utils import escape_sql_like_pattern
@@ -261,31 +261,23 @@ class ZoteroDatabase:
         SELECT COUNT(DISTINCT i.itemID)
         FROM items i
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
-        LEFT JOIN (
-            SELECT id.itemID, idv.value
-            FROM itemData id
-            JOIN itemDataValues idv ON id.valueID = idv.valueID
-            WHERE id.fieldID = 1  -- title field
-        ) title_data ON i.itemID = title_data.itemID
-        {where_clause.replace('idv.value', 'title_data.value')}
+        LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
+        LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
+        {where_clause}
         """
         
         # Then get the actual items (without attachments to avoid duplicates)
         items_query = f"""
-        SELECT 
+        SELECT DISTINCT
             i.itemID,
-            COALESCE(title_data.value, '') as title,
+            COALESCE(idv.value, '') as title,
             it.typeName
         FROM items i
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
-        LEFT JOIN (
-            SELECT id.itemID, idv.value
-            FROM itemData id
-            JOIN itemDataValues idv ON id.valueID = idv.valueID
-            WHERE id.fieldID = 1  -- title field
-        ) title_data ON i.itemID = title_data.itemID
-        {where_clause.replace('idv.value', 'title_data.value')}
-        ORDER BY LOWER(title_data.value)
+        LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
+        LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
+        {where_clause}
+        ORDER BY LOWER(idv.value)
         LIMIT ?
         """
         
@@ -468,6 +460,47 @@ class ZoteroDatabase:
         
         return similar[:limit]
     
+    def get_item_collections(self, item_id: int) -> List[str]:
+        """Get list of collection names that contain this item."""
+        query = """
+        WITH RECURSIVE collection_tree AS (
+            SELECT 
+                collectionID,
+                collectionName,
+                parentCollectionID,
+                0 as depth,
+                collectionName as path
+            FROM collections 
+            WHERE parentCollectionID IS NULL
+            
+            UNION ALL
+            
+            SELECT 
+                c.collectionID,
+                c.collectionName,
+                c.parentCollectionID,
+                ct.depth + 1,
+                ct.path || ' > ' || c.collectionName
+            FROM collections c
+            JOIN collection_tree ct ON c.parentCollectionID = ct.collectionID
+        )
+        SELECT ct.path
+        FROM collection_tree ct
+        JOIN collectionItems ci ON ct.collectionID = ci.collectionID
+        WHERE ci.itemID = ?
+        ORDER BY ct.path
+        """
+        
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, (item_id,))
+                results = cursor.fetchall()
+                return [row[0] for row in results]
+        except Exception as e:
+            logger.error(f"Error getting item collections: {e}")
+            return []
+
     @staticmethod
     def _get_attachment_type(content_type: str) -> str:
         """Convert MIME type to attachment type for icon display."""
