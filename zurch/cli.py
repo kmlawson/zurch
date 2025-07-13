@@ -418,9 +418,14 @@ def main():
                     if selected_collection:
                         # Run -f on the selected collection
                         items, total_count = db.get_collection_items(selected_collection.name, max_results, args.only_attachments)
-                        print(f"\nItems in folder '{selected_collection.name}':")
-                        if total_count > max_results:
-                            print(f"Showing first {max_results} of {total_count} items:")
+                        if args.only_attachments:
+                            print(f"\nItems in folder '{selected_collection.name}' (with PDF/EPUB attachments):")
+                            if len(items) < total_count:
+                                print(f"Showing {len(items)} items with attachments from {total_count} total matches:")
+                        else:
+                            print(f"\nItems in folder '{selected_collection.name}':")
+                            if total_count > max_results:
+                                print(f"Showing first {max_results} of {total_count} items:")
                         display_items(items, max_results)
                         
                         if args.grab:
@@ -457,9 +462,15 @@ def main():
                         print(f"  {collection.name}")
                 return 1
             
-            print(f"Items in folder '{folder_name}':")
-            if total_count > max_results:
-                print(f"Showing first {max_results} of {total_count} items:")
+            if args.only_attachments:
+                print(f"Items in folder '{folder_name}' (with PDF/EPUB attachments):")
+                if len(items) < total_count:
+                    item_word = "item" if len(items) == 1 else "items"
+                    print(f"Showing {len(items)} {item_word} with attachments from {total_count} total matches:")
+            else:
+                print(f"Items in folder '{folder_name}':")
+                if total_count > max_results:
+                    print(f"Showing first {max_results} of {total_count} items:")
             display_items(items, max_results)  # Don't highlight folder name in item titles
             
             if args.interactive:
@@ -475,9 +486,15 @@ def main():
                 print(f"No items found matching '{name_search}'")
                 return 1
             
-            print(f"Items matching '{name_search}':")
-            if total_count > max_results:
-                print(f"Showing first {max_results} of {total_count} items:")
+            if args.only_attachments:
+                print(f"Items matching '{name_search}' (with PDF/EPUB attachments):")
+                if len(items) < total_count:
+                    item_word = "item" if len(items) == 1 else "items"
+                    print(f"Showing {len(items)} {item_word} with attachments from {total_count} total matches:")
+            else:
+                print(f"Items matching '{name_search}':")
+                if total_count > max_results:
+                    print(f"Showing first {max_results} of {total_count} items:")
             display_items(items, max_results, name_search)
             
             if args.interactive:
