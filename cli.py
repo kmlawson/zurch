@@ -87,6 +87,95 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
         title = highlight_search_term(item.title, search_term) if search_term else item.title
         print(f"{number}. {title} {icon}")
 
+def matches_search_term(text: str, search_term: str) -> bool:
+    """Check if text matches the search term (with wildcard support)."""
+    if not search_term or not text:
+        return False
+    
+    text_lower = text.lower()
+    search_lower = search_term.lower()
+    
+    # Handle % wildcards
+    if '%' in search_lower:
+        # Convert % wildcard to simple pattern matching
+        import fnmatch
+        pattern = search_lower.replace('%', '*')
+        return fnmatch.fnmatch(text_lower, pattern)
+    else:
+        # Default partial matching
+        return search_lower in text_lower
+
+def display_hierarchical_search_results(collections: List, search_term: str) -> None:
+    """Display search results in hierarchical format showing parent structure."""
+    from search import ZoteroCollection
+    
+    # Build a hierarchy tree from the collections
+    hierarchy = {}
+    
+    for collection in collections:
+        parts = collection.full_path.split(' > ')
+        current_level = hierarchy
+        
+        # Build the nested structure
+        for i, part in enumerate(parts):
+            if part not in current_level:
+                current_level[part] = {
+                    '_children': {},
+                    '_collection': None,
+                    '_is_match': False
+                }
+            
+            # Check if this part matches our search
+            if matches_search_term(part, search_term):
+                current_level[part]['_is_match'] = True
+            
+            # If this is the final part, store the collection info
+            if i == len(parts) - 1:
+                current_level[part]['_collection'] = collection
+            
+            current_level = current_level[part]['_children']
+    
+    # Display the hierarchy
+    def print_hierarchy(level_dict, depth=0, parent_shown=False):
+        indent = "  " * depth
+        
+        for name, data in sorted(level_dict.items()):
+            collection = data['_collection']
+            is_match = data['_is_match']
+            has_matching_children = has_matches_in_subtree(data['_children'])
+            
+            # Show this level if:
+            # 1. It's a direct match, OR
+            # 2. It has matching children and we need to show the path
+            should_show = is_match or has_matching_children
+            
+            if should_show:
+                if collection:
+                    # This is a leaf node (actual collection)
+                    count_info = f" ({collection.item_count} items)" if collection.item_count > 0 else ""
+                    highlighted_name = highlight_search_term(name, search_term)
+                    print(f"{indent}{highlighted_name}{count_info}")
+                else:
+                    # This is a parent node - show it if it has matching children
+                    if has_matching_children:
+                        highlighted_name = highlight_search_term(name, search_term)
+                        print(f"{indent}{highlighted_name}")
+                
+                # Recursively print children
+                if data['_children']:
+                    print_hierarchy(data['_children'], depth + 1, True)
+    
+    def has_matches_in_subtree(subtree):
+        """Check if any node in the subtree is a match or has matching descendants."""
+        for name, data in subtree.items():
+            if data['_is_match']:
+                return True
+            if has_matches_in_subtree(data['_children']):
+                return True
+        return False
+    
+    print_hierarchy(hierarchy)
+
 def interactive_selection(items: List[ZoteroItem]) -> Optional[ZoteroItem]:
     """Handle interactive item selection."""
     if not items:
@@ -275,25 +364,7 @@ def main():
             if collections:
                 if args.list:
                     print(f"Collections matching '{args.list}':")
-                    
-                    # Check if we need to show full paths (multiple collections with same name)
-                    collection_names = [c.name for c in collections]
-                    duplicates = set([name for name in collection_names if collection_names.count(name) > 1])
-                    
-                    # Sort by full path for better organization
-                    collections.sort(key=lambda c: c.full_path.lower())
-                    
-                    for collection in collections:
-                        count_info = f" ({collection.item_count} items)" if collection.item_count > 0 else ""
-                        
-                        if collection.name in duplicates:
-                            # Show full path for ambiguous names
-                            highlighted_path = highlight_search_term(collection.full_path, args.list)
-                            print(f"{highlighted_path}{count_info}")
-                        else:
-                            # Show just the name for unique collections  
-                            highlighted_name = highlight_search_term(collection.name, args.list)
-                            print(f"{highlighted_name}{count_info}")
+                    display_hierarchical_search_results(collections, args.list)
                 else:
                     print("Collections and Sub-collections:")
                     
