@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Max Results (-x flag) Behavior**: The `-x` flag now correctly applies the limit as the final operation after all other processing (including deduplication) is complete. This ensures that the specified number of results are returned from the final processed set, as per the `GEMINI.md` specification.
 
-## [0.6.0] - 2025-07-13
+## [0.6.1] - 2025-07-13
 
 ### Added
 - **Debug Mode Purple Duplicates**: When `-d` flag is used, all duplicate items are displayed in purple color

@@ -1,6 +1,6 @@
 """zurch - A CLI search tool for Zotero installations."""
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 
 from .cli import main
 from .search import ZoteroDatabase

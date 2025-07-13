@@ -5,7 +5,7 @@ def add_basic_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "-v", "--version", 
         action="version", 
-        version=f"%(prog)s 0.6.0"
+        version=f"%(prog)s 0.6.1"
     )
     
     parser.add_argument(
@@ -131,11 +131,14 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
         help="Show item ID numbers in search results"
     )
 
-def create_parser() -> argparse.ArgumentParser:
-    """Create and configure the argument parser."""
+from . import __version__
+
+def create_parser():
     parser = argparse.ArgumentParser(
-        description="Zurch - A CLI search tool for Zotero installations",
-        prog="zurch"
+        description="Zurch - Zotero Search CLI",
+        formatter_class=argparse.RawTextHelpFormatter,
+        add_help=False,
+        version=f"%(prog)s {__version__}"
     )
     
     # Add argument groups
