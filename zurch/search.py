@@ -277,18 +277,44 @@ class ZoteroDatabase:
         except Exception as e:
             raise DatabaseError(f"Error getting collection items: {e}")
     
-    def search_items_by_name(self, name: str, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False) -> tuple[List[ZoteroItem], int]:
-        """Search items by title content. Returns (items, total_count)."""
-        if exact_match:
-            search_pattern = name
-            where_clause = "WHERE LOWER(idv.value) = LOWER(?)"
-        else:
-            # Import escape function
+    def search_items_by_name(self, name, max_results: int = 100, exact_match: bool = False, only_attachments: bool = False) -> tuple[List[ZoteroItem], int]:
+        """Search items by title content. Returns (items, total_count).
+        
+        Args:
+            name: Can be a string (phrase search) or list of strings (AND search for multiple keywords)
+            max_results: Maximum number of results to return
+            exact_match: If True, use exact matching
+            only_attachments: If True, only return items with PDF/EPUB attachments
+        """
+        # Handle multiple keywords (AND search) vs single phrase search
+        if isinstance(name, list) and len(name) > 1 and not exact_match:
+            # Multiple keywords - each must be present in title (AND logic)
             from .utils import escape_sql_like_pattern
-            # Escape SQL LIKE wildcards in user input
-            escaped_name = escape_sql_like_pattern(name)
-            search_pattern = f"%{escaped_name}%"
-            where_clause = "WHERE LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'"
+            search_conditions = []
+            search_params = []
+            
+            for keyword in name:
+                escaped_keyword = escape_sql_like_pattern(keyword)
+                search_conditions.append("LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'")
+                search_params.append(f"%{escaped_keyword}%")
+            
+            where_clause = "WHERE " + " AND ".join(search_conditions)
+            
+        else:
+            # Single keyword or phrase search (or exact match)
+            if isinstance(name, list):
+                name = ' '.join(name)  # Join list into single string
+                
+            if exact_match:
+                search_params = [name]
+                where_clause = "WHERE LOWER(idv.value) = LOWER(?)"
+            else:
+                # Import escape function
+                from .utils import escape_sql_like_pattern
+                # Escape SQL LIKE wildcards in user input
+                escaped_name = escape_sql_like_pattern(name)
+                search_params = [f"%{escaped_name}%"]
+                where_clause = "WHERE LOWER(idv.value) LIKE LOWER(?) ESCAPE '\\'"
         
         # First get the total count
         count_query = f"""
@@ -320,11 +346,11 @@ class ZoteroDatabase:
                 cursor = conn.cursor()
                 
                 # Get total count
-                cursor.execute(count_query, (search_pattern,))
+                cursor.execute(count_query, search_params)
                 total_count = cursor.fetchone()[0]
                 
                 # Get items
-                cursor.execute(items_query, (search_pattern, max_results))
+                cursor.execute(items_query, search_params + [max_results])
                 results = cursor.fetchall()
                 
                 items = []

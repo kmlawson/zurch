@@ -140,6 +140,35 @@ class TestZoteroDatabase:
         for item in items_cn:
             assert "中国" in item.title
     
+    def test_search_items_multiple_keywords(self, db):
+        """Test AND search with multiple keywords."""
+        # Test AND search with multiple keywords (list input)
+        keywords = ["world", "history"]
+        items_and, total_and = db.search_items_by_name(keywords, max_results=10)
+        assert isinstance(items_and, list)
+        assert isinstance(total_and, int)
+        
+        # All results should contain both keywords
+        for item in items_and:
+            title_lower = item.title.lower()
+            assert "world" in title_lower, f"Item '{item.title}' missing 'world'"
+            assert "history" in title_lower, f"Item '{item.title}' missing 'history'"
+        
+        # Test phrase search (string input) 
+        phrase = "world history"
+        items_phrase, total_phrase = db.search_items_by_name(phrase, max_results=10)
+        assert isinstance(items_phrase, list)
+        assert isinstance(total_phrase, int)
+        
+        # Phrase search results should contain the exact phrase
+        for item in items_phrase:
+            title_lower = item.title.lower()
+            assert "world history" in title_lower, f"Item '{item.title}' missing phrase 'world history'"
+        
+        # AND search typically returns more results than phrase search
+        # (items with "world" and "history" separately vs "world history" together)
+        assert total_and >= total_phrase, "AND search should find more or equal items than phrase search"
+    
     def test_get_item_metadata(self, db):
         """Test getting item metadata."""
         # First find an item
@@ -203,7 +232,7 @@ class TestUtilityFunctions:
         from zurch.utils import format_item_type_icon
         
         # Test book type
-        assert "📕" in format_item_type_icon("book")
+        assert "📗" in format_item_type_icon("book")
         
         # Test journal article type
         assert "📄" in format_item_type_icon("journalArticle")
@@ -329,7 +358,7 @@ class TestCLIIntegration:
         assert "Test Book" in captured.out
         assert "Test Article" in captured.out
         assert "Test Document" in captured.out
-        assert "📕" in captured.out  # Closed book icon for book
+        assert "📗" in captured.out  # Green book icon for book
         assert "📄" in captured.out  # Document icon for journal article
         assert "🔗" in captured.out  # Link icon for attachments
     
@@ -343,18 +372,21 @@ class TestCLIIntegration:
         
         # Test valid selection
         mock_input.return_value = "1"
-        selected = cli.interactive_selection(items)
+        selected, should_grab = cli.interactive_selection(items)
         assert selected == items[0]
+        assert should_grab == False
         
         # Test cancel
         mock_input.return_value = "0"
-        selected = cli.interactive_selection(items)
+        selected, should_grab = cli.interactive_selection(items)
         assert selected is None
+        assert should_grab == False
         
         # Test KeyboardInterrupt (Ctrl+C)
         mock_input.side_effect = KeyboardInterrupt()
-        selected = cli.interactive_selection(items)
+        selected, should_grab = cli.interactive_selection(items)
         assert selected is None
+        assert should_grab == False
 
 class TestFilterFunctionality:
     """Test filtering capabilities."""

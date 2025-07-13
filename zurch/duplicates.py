@@ -177,7 +177,8 @@ def deduplicate_items(db: ZoteroDatabase, items: List[ZoteroItem], debug_mode: b
     result_items.sort(key=lambda item: original_positions.get(item.item_id, float('inf')))
     
     final_count = len([item for item in result_items if not item.is_duplicate])
-    logger.info(f"Deduplication: {len(items)} -> {final_count} items ({total_duplicates_removed} duplicates removed)")
+    if debug_mode:
+        logger.info(f"Deduplication: {len(items)} -> {final_count} items ({total_duplicates_removed} duplicates removed)")
     
     return result_items, total_duplicates_removed
 

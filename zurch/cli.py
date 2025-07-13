@@ -70,7 +70,7 @@ def create_parser():
         "-n", "--name", 
         type=str,
         nargs='+',
-        help="Search for items by name/title (spaces allowed without quotes, use quotes for special chars: ' \" $ ` \\ ( ) [ ] { } | & ; < > * ?)"
+        help="Search for items by name/title. Multiple words = AND search (each word must be present). Quoted text = phrase search (exact phrase). Use quotes for special chars: ' \" $ ` \\ ( ) [ ] { } | & ; < > * ?"
     )
     
     parser.add_argument(
@@ -255,20 +255,29 @@ def display_hierarchical_search_results(collections: List, search_term: str, max
     
     print_hierarchy(hierarchy)
 
-def interactive_selection(items: List[ZoteroItem]) -> tuple[Optional[ZoteroItem], bool]:
+def interactive_selection(items: List[ZoteroItem], max_results: int = 100, search_term: str = "", grouped_items: List[tuple] = None) -> tuple[Optional[ZoteroItem], bool]:
     """Handle interactive item selection.
     
     Returns (item, should_grab) tuple.
     User can append 'g' to number to grab attachment: "3g"
+    User can type 'l' to re-list all items
     """
     if not items:
         return None, False
     
     while True:
         try:
-            choice = input(f"\nSelect item number (1-{len(items)}, 0 to cancel, add 'g' to grab: 3g): ").strip()
+            choice = input(f"\nSelect item number (1-{len(items)}, 0 to cancel, 'l' to list, add 'g' to grab: 3g): ").strip()
             if choice == "0":
                 return None, False
+            elif choice.lower() == "l":
+                # Re-display the items
+                print()
+                if grouped_items:
+                    display_grouped_items(grouped_items, max_results, search_term)
+                else:
+                    display_items(items, max_results, search_term)
+                continue
             
             # Check for 'g' suffix
             should_grab = choice.lower().endswith('g')
@@ -366,12 +375,12 @@ def show_item_metadata(db: ZoteroDatabase, item: ZoteroItem) -> None:
     except Exception as e:
         print(f"Error getting metadata: {e}")
 
-def handle_interactive_mode(db: ZoteroDatabase, items: List[ZoteroItem], grab_mode: bool, config: dict) -> None:
+def handle_interactive_mode(db: ZoteroDatabase, items: List[ZoteroItem], grab_mode: bool, config: dict, max_results: int = 100, search_term: str = "", grouped_items: List[tuple] = None) -> None:
     """Handle interactive item selection and actions."""
     zotero_data_dir = Path(config['zotero_database_path']).parent
     
     while True:
-        selected, should_grab = interactive_selection(items)
+        selected, should_grab = interactive_selection(items, max_results, search_term, grouped_items)
         if not selected:
             break
         
@@ -516,7 +525,7 @@ def main():
                         display_items(items, max_results)
                         
                         if args.grab:
-                            handle_interactive_mode(db, items, args.grab, config)
+                            handle_interactive_mode(db, items, args.grab, config, max_results)
                 else:
                     # Non-interactive mode - display hierarchically
                     if args.list:
@@ -579,7 +588,7 @@ def main():
                 all_items = display_grouped_items(grouped_items, max_results)
                 
                 if args.interactive:
-                    handle_interactive_mode(db, all_items, args.grab, config)
+                    handle_interactive_mode(db, all_items, args.grab, config, max_results, folder_name, grouped_items)
             else:
                 # Single collection - use original display
                 items, total_count = db.get_collection_items(folder_name, max_results, args.only_attachments)
@@ -609,16 +618,25 @@ def main():
                 display_items(items, max_results)  # Don't highlight folder name in item titles
                 
                 if args.interactive:
-                    handle_interactive_mode(db, items, args.grab, config)
+                    handle_interactive_mode(db, items, args.grab, config, max_results, folder_name)
             
             return 0
         
         elif args.name:
-            name_search = ' '.join(args.name)
+            # Decide whether to use AND search (multiple keywords) or phrase search
+            if len(args.name) > 1 and not args.exact:
+                # Multiple unquoted keywords: use AND search
+                name_search = args.name  # Pass as list for AND logic
+                search_display = ' AND '.join(args.name)
+            else:
+                # Single keyword or exact match: use phrase search
+                name_search = ' '.join(args.name)
+                search_display = name_search
+                
             items, total_count = db.search_items_by_name(name_search, max_results, exact_match=args.exact, only_attachments=args.only_attachments)
             
             if not items:
-                print(f"No items found matching '{name_search}'")
+                print(f"No items found matching '{search_display}'")
                 return 1
             
             # Apply deduplication if enabled
@@ -627,22 +645,24 @@ def main():
                 items, duplicates_removed = deduplicate_items(db, items, args.debug)
             
             if args.only_attachments:
-                print(f"Items matching '{name_search}' (with PDF/EPUB attachments):")
+                print(f"Items matching '{search_display}' (with PDF/EPUB attachments):")
                 if len(items) < total_count:
                     item_word = "item" if len(items) == 1 else "items"
                     print(f"Showing {len(items)} {item_word} with attachments from {total_count} total matches:")
             else:
-                print(f"Items matching '{name_search}':")
+                print(f"Items matching '{search_display}':")
                 if total_count > max_results:
                     print(f"Showing first {max_results} of {total_count} items:")
             
             if duplicates_removed > 0 and args.debug:
                 print(f"({duplicates_removed} duplicates removed)")
             
-            display_items(items, max_results, name_search)
+            # For highlighting: only highlight for phrase searches, not AND searches
+            highlight_term = "" if isinstance(name_search, list) else name_search
+            display_items(items, max_results, highlight_term)
             
             if args.interactive:
-                handle_interactive_mode(db, items, args.grab, config)
+                handle_interactive_mode(db, items, args.grab, config, max_results, search_display)
             
             return 0
         
