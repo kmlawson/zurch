@@ -113,8 +113,13 @@ def select_best_duplicate(db: ZoteroDatabase, duplicates: List[ZoteroItem]) -> Z
     
     return selected
 
-def deduplicate_items(db: ZoteroDatabase, items: List[ZoteroItem]) -> Tuple[List[ZoteroItem], int]:
+def deduplicate_items(db: ZoteroDatabase, items: List[ZoteroItem], debug_mode: bool = False) -> Tuple[List[ZoteroItem], int]:
     """Remove duplicates from a list of items.
+    
+    Args:
+        db: Database connection
+        items: List of items to deduplicate
+        debug_mode: If True, include duplicates marked as such in the output
     
     Returns:
         Tuple of (deduplicated_items, number_of_duplicates_removed)
@@ -139,8 +144,8 @@ def deduplicate_items(db: ZoteroDatabase, items: List[ZoteroItem]) -> Tuple[List
                 duplicate_groups[fallback_key] = []
             duplicate_groups[fallback_key].append(item)
     
-    # Select best item from each group
-    deduplicated = []
+    # Select best item from each group and optionally include duplicates
+    result_items = []
     total_duplicates_removed = 0
     
     for key, group in duplicate_groups.items():
@@ -149,21 +154,42 @@ def deduplicate_items(db: ZoteroDatabase, items: List[ZoteroItem]) -> Tuple[List
             logger.debug(f"Found {len(group)} duplicates for: {key.title}")
         
         best_item = select_best_duplicate(db, group)
-        deduplicated.append(best_item)
+        result_items.append(best_item)
+        
+        # In debug mode, also include the duplicates marked as such
+        if debug_mode and len(group) > 1:
+            for item in group:
+                if item.item_id != best_item.item_id:
+                    # Create a copy and mark as duplicate
+                    duplicate_item = ZoteroItem(
+                        item_id=item.item_id,
+                        title=item.title,
+                        item_type=item.item_type,
+                        attachment_type=item.attachment_type,
+                        attachment_path=item.attachment_path,
+                        is_duplicate=True
+                    )
+                    result_items.append(duplicate_item)
     
     # Maintain original order as much as possible
     # Create a mapping of item_id to original position
     original_positions = {item.item_id: i for i, item in enumerate(items)}
-    deduplicated.sort(key=lambda item: original_positions.get(item.item_id, float('inf')))
+    result_items.sort(key=lambda item: original_positions.get(item.item_id, float('inf')))
     
-    logger.info(f"Deduplication: {len(items)} -> {len(deduplicated)} items ({total_duplicates_removed} duplicates removed)")
+    final_count = len([item for item in result_items if not item.is_duplicate])
+    logger.info(f"Deduplication: {len(items)} -> {final_count} items ({total_duplicates_removed} duplicates removed)")
     
-    return deduplicated, total_duplicates_removed
+    return result_items, total_duplicates_removed
 
-def deduplicate_grouped_items(db: ZoteroDatabase, grouped_items: List[Tuple]) -> Tuple[List[Tuple], int]:
+def deduplicate_grouped_items(db: ZoteroDatabase, grouped_items: List[Tuple], debug_mode: bool = False) -> Tuple[List[Tuple], int]:
     """Deduplicate items within grouped collections.
     
     This deduplicates within each collection separately to maintain collection grouping.
+    
+    Args:
+        db: Database connection
+        grouped_items: List of (collection, items) tuples
+        debug_mode: If True, include duplicates marked as such in the output
     """
     if not grouped_items:
         return [], 0
@@ -172,7 +198,7 @@ def deduplicate_grouped_items(db: ZoteroDatabase, grouped_items: List[Tuple]) ->
     total_duplicates_removed = 0
     
     for collection, items in grouped_items:
-        deduplicated_items, duplicates_removed = deduplicate_items(db, items)
+        deduplicated_items, duplicates_removed = deduplicate_items(db, items, debug_mode)
         total_duplicates_removed += duplicates_removed
         
         if deduplicated_items:  # Only include groups with items

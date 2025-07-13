@@ -117,15 +117,23 @@ def format_attachment_icon(attachment_type: Optional[str]) -> str:
     else:
         return ""
 
-def format_item_type_icon(item_type: str) -> str:
+def format_item_type_icon(item_type: str, is_duplicate: bool = False) -> str:
     """Return icon that goes before the title based on item type."""
     item_type_lower = item_type.lower()
     if item_type_lower == "book":
-        return "📕 "  # Closed book icon for books
+        icon = "📗 "  # Green book icon for books
     elif item_type_lower in ["journalarticle", "journal article"]:
-        return "📄 "  # Document icon for journal articles
+        icon = "📄 "  # Document icon for journal articles
     else:
-        return ""  # No icon for other types
+        icon = ""  # No icon for other types
+    
+    # Apply purple color to duplicates
+    if is_duplicate and icon:
+        PURPLE = '\033[35m'
+        RESET = '\033[0m'
+        return f"{PURPLE}{icon}{RESET}"
+    
+    return icon
 
 def format_attachment_link_icon(attachment_type: Optional[str]) -> str:
     """Return link icon when PDF/EPUB attachments are available."""
@@ -208,3 +216,11 @@ def highlight_search_term(text: str, search_term: str) -> str:
     highlighted = re.sub(f'({escaped_term})', f'{BOLD}\\1{RESET}', text, flags=re.IGNORECASE)
     
     return highlighted
+
+def format_duplicate_title(title: str, is_duplicate: bool = False) -> str:
+    """Format title with purple color if it's a duplicate."""
+    if is_duplicate:
+        PURPLE = '\033[35m'
+        RESET = '\033[0m'
+        return f"{PURPLE}{title}{RESET}"
+    return title

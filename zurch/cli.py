@@ -7,13 +7,13 @@ from typing import List, Optional
 
 from .utils import (
     load_config, save_config, format_attachment_icon, format_item_type_icon, format_attachment_link_icon,
-    find_zotero_database, pad_number, highlight_search_term
+    find_zotero_database, pad_number, highlight_search_term, format_duplicate_title
 )
 from .search import ZoteroDatabase, ZoteroItem, DatabaseError, DatabaseLockedError
 from .interactive import interactive_collection_selection
 from .duplicates import deduplicate_items, deduplicate_grouped_items
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
@@ -111,13 +111,14 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
     """Display items with numbering and icons."""
     for i, item in enumerate(items[:max_results], 1):
         # Item type icon (books and journal articles)
-        type_icon = format_item_type_icon(item.item_type)
+        type_icon = format_item_type_icon(item.item_type, item.is_duplicate)
         
         # Link icon for PDF/EPUB attachments
         attachment_icon = format_attachment_link_icon(item.attachment_type)
         
         number = pad_number(i, min(len(items), max_results))
         title = highlight_search_term(item.title, search_term) if search_term else item.title
+        title = format_duplicate_title(title, item.is_duplicate)
         print(f"{number}. {type_icon}{attachment_icon}{title}")
 
 def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "") -> List[ZoteroItem]:
@@ -142,13 +143,14 @@ def display_grouped_items(grouped_items: List[tuple], max_results: int, search_t
                 break
                 
             # Item type icon (books and journal articles)
-            type_icon = format_item_type_icon(item.item_type)
+            type_icon = format_item_type_icon(item.item_type, item.is_duplicate)
             
             # Link icon for PDF/EPUB attachments
             attachment_icon = format_attachment_link_icon(item.attachment_type)
             
             number = pad_number(item_counter, max_results)
             title = highlight_search_term(item.title, search_term) if search_term else item.title
+            title = format_duplicate_title(title, item.is_duplicate)
             print(f"{number}. {type_icon}{attachment_icon}{title}")
             
             all_items.append(item)
@@ -560,7 +562,7 @@ def main():
                 # Apply deduplication if enabled
                 duplicates_removed = 0
                 if not args.no_dedupe:
-                    grouped_items, duplicates_removed = deduplicate_grouped_items(db, grouped_items)
+                    grouped_items, duplicates_removed = deduplicate_grouped_items(db, grouped_items, args.debug)
                 
                 if args.only_attachments:
                     print(f"Items in folders matching '{folder_name}' (with PDF/EPUB attachments):")
@@ -589,7 +591,7 @@ def main():
                 # Apply deduplication if enabled
                 duplicates_removed = 0
                 if not args.no_dedupe:
-                    items, duplicates_removed = deduplicate_items(db, items)
+                    items, duplicates_removed = deduplicate_items(db, items, args.debug)
                 
                 if args.only_attachments:
                     print(f"Items in folder '{folder_name}' (with PDF/EPUB attachments):")
@@ -622,7 +624,7 @@ def main():
             # Apply deduplication if enabled
             duplicates_removed = 0
             if not args.no_dedupe:
-                items, duplicates_removed = deduplicate_items(db, items)
+                items, duplicates_removed = deduplicate_items(db, items, args.debug)
             
             if args.only_attachments:
                 print(f"Items matching '{name_search}' (with PDF/EPUB attachments):")

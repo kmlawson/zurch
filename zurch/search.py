@@ -13,6 +13,7 @@ class ZoteroItem:
     item_type: str
     attachment_type: Optional[str] = None
     attachment_path: Optional[str] = None
+    is_duplicate: bool = False
 
 @dataclass
 class ZoteroCollection:
