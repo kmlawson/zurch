@@ -247,7 +247,7 @@ class ZoteroDatabase:
         """Search items by title content. Returns (items, total_count)."""
         if exact_match:
             search_pattern = name
-            where_clause = "WHERE LOWER(idv.value) = LOWER(?)"
+            where_clause = "WHERE LOWER(title_data.value) = LOWER(?)"
         else:
             # Import escape function
             from .utils import escape_sql_like_pattern
@@ -261,23 +261,31 @@ class ZoteroDatabase:
         SELECT COUNT(DISTINCT i.itemID)
         FROM items i
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
-        LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
-        LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
-        {where_clause}
+        LEFT JOIN (
+            SELECT id.itemID, idv.value
+            FROM itemData id
+            JOIN itemDataValues idv ON id.valueID = idv.valueID
+            WHERE id.fieldID = 1  -- title field
+        ) title_data ON i.itemID = title_data.itemID
+        {where_clause.replace('idv.value', 'title_data.value')}
         """
         
         # Then get the actual items (without attachments to avoid duplicates)
         items_query = f"""
-        SELECT DISTINCT
+        SELECT 
             i.itemID,
-            COALESCE(idv.value, '') as title,
+            COALESCE(title_data.value, '') as title,
             it.typeName
         FROM items i
         JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
-        LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
-        LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
-        {where_clause}
-        ORDER BY LOWER(idv.value)
+        LEFT JOIN (
+            SELECT id.itemID, idv.value
+            FROM itemData id
+            JOIN itemDataValues idv ON id.valueID = idv.valueID
+            WHERE id.fieldID = 1  -- title field
+        ) title_data ON i.itemID = title_data.itemID
+        {where_clause.replace('idv.value', 'title_data.value')}
+        ORDER BY LOWER(title_data.value)
         LIMIT ?
         """
         
