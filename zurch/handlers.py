@@ -543,6 +543,116 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
     
     return 0
 
+def handle_single_collection_with_subcollections(db: ZoteroDatabase, selected_collection: ZoteroCollection, args, max_results: int, config: dict) -> int:
+    """Handle folder/ command for a single selected collection and its sub-collections."""
+    import sys
+    import threading
+    import time
+    
+    # Show spinner while loading
+    spinner_chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+    spinner_running = True
+    
+    def show_spinner():
+        i = 0
+        while spinner_running:
+            sys.stdout.write(f'\r{spinner_chars[i % len(spinner_chars)]} Loading collections and sub-collections...')
+            sys.stdout.flush()
+            time.sleep(0.1)
+            i += 1
+    
+    # Start spinner
+    spinner_thread = threading.Thread(target=show_spinner)
+    spinner_thread.daemon = True
+    spinner_thread.start()
+    
+    try:
+        # Get all collections for filtering
+        all_collections = db.list_collections()
+        
+        # Filter to include sub-collections of the selected collection
+        filtered_collections = []
+        for collection in all_collections:
+            # Check if this collection is the selected collection or a child of it
+            if (collection.collection_id == selected_collection.collection_id or
+                collection.full_path.startswith(selected_collection.full_path + " > ")):
+                filtered_collections.append(collection)
+        
+        # Stop spinner
+        spinner_running = False
+        spinner_thread.join()
+        sys.stdout.write('\r' + ' ' * 50 + '\r')  # Clear spinner line
+        sys.stdout.flush()
+        
+        logger.debug(f"Found {len(filtered_collections)} collections (including sub-collections)")
+        
+        # Show progress while loading items
+        print(f"Loading items from {len(filtered_collections)} collections...")
+        
+        all_items = []
+        total_count = 0
+        
+        for i, collection in enumerate(filtered_collections, 1):
+            print(f"\rProcessing collection {i}/{len(filtered_collections)}: {collection.name}", end='', flush=True)
+            
+            items, count = db.get_collection_items(
+                collection.name, args.only_attachments, 
+                args.after, args.before, args.books, args.articles, args.tag
+            )
+            all_items.extend(items)
+            total_count += count
+        
+        print()  # New line after progress
+        
+        if not all_items:
+            print(f"No items found in folder '{selected_collection.name}' and its sub-collections")
+            return 1
+        
+        # Apply deduplication if enabled (important since we may have items in multiple collections)
+        duplicates_removed = 0
+        if not args.no_dedupe:
+            print("Removing duplicates...")
+            all_items, duplicates_removed = deduplicate_items(db, all_items, args.debug)
+        
+        # Apply limit
+        items_before_limit = len(all_items)
+        all_items = all_items[:max_results]
+        items_final = len(all_items)
+        
+        # Display results
+        if args.only_attachments:
+            print(f"Items in folder '{selected_collection.name}' and sub-collections (with PDF/EPUB attachments):")
+        else:
+            print(f"Items in folder '{selected_collection.name}' and sub-collections:")
+        
+        # Show clear count information
+        if items_final < items_before_limit:
+            if duplicates_removed > 0:
+                print(f"Showing {items_final} of {items_before_limit} items ({duplicates_removed} duplicates removed, {total_count} total found):")
+            else:
+                print(f"Showing first {items_final} of {items_before_limit} items:")
+        elif duplicates_removed > 0:
+            print(f"Showing {items_final} items ({duplicates_removed} duplicates removed from {total_count} total found):")
+        
+        display_items(all_items, max_results, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, db=db)
+        
+        # Handle export if requested
+        if args.export:
+            export_items(all_items, db, args.export, args.file, f"{selected_collection.name} and sub-collections")
+        
+        if args.interactive:
+            handle_interactive_mode(db, all_items, config, max_results, f"{selected_collection.name} and sub-collections", show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor)
+        
+        return 0
+    
+    except Exception as e:
+        # Make sure spinner is stopped in case of error
+        spinner_running = False
+        spinner_thread.join()
+        sys.stdout.write('\r' + ' ' * 50 + '\r')
+        sys.stdout.flush()
+        raise e
+
 def handle_multiple_collections_with_subcollections(db: ZoteroDatabase, folder_name: str, collections: List[ZoteroCollection], args, max_results: int, config: dict) -> int:
     """Handle folder command when including sub-collections (/ suffix used)."""
     logger.debug(f"Processing {len(collections)} collections for sub-collection search")
@@ -629,40 +739,39 @@ def handle_folder_command(db: ZoteroDatabase, args, max_results: int, config: di
     if show_subcolls:
         logger.debug("Processing sub-collections...")
         
-        # For better performance, only expand exact matches, not partial matches
-        # Find exact matches first
-        exact_matches = [col for col in collections if col.name.lower() == folder_name.lower()]
+        # If multiple collections match, use interactive selection for better performance
+        if len(collections) > 1:
+            print(f"Multiple collections found matching '{folder_name}':")
+            print("Select a collection to show items from it and all its sub-collections:")
+            
+            # Show collections with item counts
+            for i, collection in enumerate(collections, 1):
+                print(f"{i:2d}. {collection.full_path} ({collection.item_count} items)")
+            
+            while True:
+                try:
+                    choice = input(f"\nSelect collection number (1-{len(collections)}, 0 to cancel): ").strip()
+                    if choice == "0":
+                        return 0
+                    
+                    idx = int(choice) - 1
+                    if 0 <= idx < len(collections):
+                        selected_collection = collections[idx]
+                        break
+                    else:
+                        print(f"Please enter a number between 1 and {len(collections)}")
+                except (ValueError, KeyboardInterrupt):
+                    print("\nCancelled")
+                    return 0
+                except EOFError:
+                    return 0
+            
+            # Now process the selected collection and its sub-collections
+            return handle_single_collection_with_subcollections(db, selected_collection, args, max_results, config)
         
-        if not exact_matches:
-            # If no exact matches, fall back to regular multiple collection handling
-            logger.debug("No exact matches found, falling back to regular multiple collection handling")
-            return handle_multiple_collections(db, folder_name, args, max_results, config)
-        
-        logger.debug(f"Found {len(exact_matches)} exact matches: {[col.full_path for col in exact_matches]}")
-        
-        # Get all collections for filtering
-        all_collections = db.list_collections()
-        logger.debug(f"Total collections in database: {len(all_collections)}")
-        
-        # Filter to include sub-collections of ALL exact matched collections
-        filtered_collections = []
-        for collection in all_collections:
-            for exact_match in exact_matches:
-                # Check if this collection is the exact match or a child of it
-                if (collection.collection_id == exact_match.collection_id or
-                    collection.full_path.startswith(exact_match.full_path + " > ")):
-                    filtered_collections.append(collection)
-                    break
-        
-        logger.debug(f"Filtered to {len(filtered_collections)} collections (including sub-collections)")
-        
-        # Remove duplicates while preserving order
-        seen = set()
-        filtered_collections = [col for col in filtered_collections if col.collection_id not in seen and not seen.add(col.collection_id)]
-        
-        logger.debug(f"After deduplication: {len(filtered_collections)} collections")
-        
-        return handle_multiple_collections_with_subcollections(db, folder_name, filtered_collections, args, max_results, config)
+        # Single collection - process normally
+        selected_collection = collections[0]
+        return handle_single_collection_with_subcollections(db, selected_collection, args, max_results, config)
     
     # Route to appropriate handler based on number of matches
     if len(collections) > 1:
