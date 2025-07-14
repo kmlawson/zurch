@@ -57,7 +57,7 @@ def add_search_arguments(parser: argparse.ArgumentParser) -> None:
         type=str,
         nargs='?',
         const='',
-        help="List all folders and sub-folders, optionally filtered by pattern (supports %% wildcard, partial match by default)"
+        help="List all folders and sub-folders, optionally filtered by pattern (supports %% wildcard, partial match by default). Add '/' suffix to show all sub-collections of matching collections."
     )
     
     parser.add_argument(

@@ -519,3 +519,94 @@ def build_attachment_path_query() -> str:
     WHERE ia.parentItemID = ? OR ia.itemID = ?
     LIMIT 1
     """
+
+def build_combined_search_query(name=None, author=None, exact_match: bool = False, 
+                               only_attachments: bool = False, after_year: int = None, 
+                               before_year: int = None, only_books: bool = False, 
+                               only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[str, str, List]:
+    """Build combined name and author search query with all filters and attachment data."""
+    
+    # Build conditions
+    all_conditions = []
+    search_params = []
+    
+    # Add name search conditions
+    if name:
+        name_conditions, name_params = build_search_conditions(name, exact_match)
+        all_conditions.extend(name_conditions)
+        search_params.extend(name_params)
+    
+    # Add author search conditions
+    if author:
+        author_conditions, author_params = build_author_search_conditions(author, exact_match)
+        all_conditions.extend(author_conditions)
+        search_params.extend(author_params)
+    
+    # Add tag filtering
+    if tags:
+        tag_conditions, tag_params = build_tag_conditions(tags)
+        all_conditions.extend(tag_conditions)
+        search_params.extend(tag_params)
+    
+    # Build WHERE clause
+    where_clause = "WHERE " + " AND ".join(all_conditions) if all_conditions else ""
+    
+    # Add date filtering if specified
+    if after_year is not None:
+        where_clause += " AND " if where_clause else "WHERE "
+        where_clause += "CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?"
+        search_params.append(after_year)
+    if before_year is not None:
+        where_clause += " AND " if where_clause else "WHERE "
+        where_clause += "CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) <= ?"
+        search_params.append(before_year)
+    
+    # Add type filtering
+    if only_books:
+        where_clause += " AND " if where_clause else "WHERE "
+        where_clause += "i.itemTypeID = (SELECT itemTypeID FROM itemTypes WHERE typeName = 'book')"
+    elif only_articles:
+        where_clause += " AND " if where_clause else "WHERE "
+        where_clause += "i.itemTypeID IN (SELECT itemTypeID FROM itemTypes WHERE typeName IN ('journalArticle', 'article'))"
+    
+    # Add attachment filtering
+    if only_attachments:
+        where_clause += " AND " if where_clause else "WHERE "
+        where_clause += "ia.itemID IS NOT NULL"
+    
+    # Build count query
+    count_query = f"""
+    SELECT COUNT(DISTINCT i.itemID) 
+    FROM items i
+    LEFT JOIN itemData id ON i.itemID = id.itemID
+    LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID AND id.fieldID = 1
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14
+    LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
+    LEFT JOIN itemCreators ic ON i.itemID = ic.itemID
+    LEFT JOIN creators c ON ic.creatorID = c.creatorID
+    LEFT JOIN itemAttachments ia ON i.itemID = ia.parentItemID
+    {where_clause}
+    """
+    
+    # Build main query
+    main_query = f"""
+    SELECT DISTINCT 
+        i.itemID,
+        COALESCE(idv.value, '') as title,
+        it.typeName,
+        ia.contentType,
+        ia.path as attachment_path
+    FROM items i
+    LEFT JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+    LEFT JOIN itemData id ON i.itemID = id.itemID
+    LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID AND id.fieldID = 1
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14
+    LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
+    LEFT JOIN itemCreators ic ON i.itemID = ic.itemID
+    LEFT JOIN creators c ON ic.creatorID = c.creatorID
+    LEFT JOIN itemAttachments ia ON i.itemID = ia.parentItemID
+    {where_clause}
+    ORDER BY LOWER(COALESCE(idv.value, ''))
+    """
+    
+    return count_query, main_query, search_params

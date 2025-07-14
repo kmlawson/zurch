@@ -135,11 +135,19 @@ class TestTagSearch:
             item_service.search_items_by_name.reset_mock()
             item_service.search_items_by_author.reset_mock()
 
-            # Test name, author, and tags (simplified path)
+            # Test name, author, and tags (uses combined query)
+            # Mock the database calls needed for combined query
+            mock_db = MagicMock()
+            mock_db.execute_single_query.return_value = (1,)
+            mock_db.execute_query.return_value = [(1, "Test Combined", "book", None, None)]
+            item_service.db = mock_db
+            
             items, total = item_service.search_items_combined(name="test", author="test", tags=["tag3"])
             assert len(items) == 1
-            item_service.search_items_by_name.assert_called_once_with(
-                "test", False, False, None, None, False, False, ["tag3"]
-            )
+            assert total == 1
+            assert items[0].title == "Test Combined"
+            # Note: This now uses the combined query, so neither individual method should be called
+            item_service.search_items_by_name.assert_not_called()
+            item_service.search_items_by_author.assert_not_called()
 
 

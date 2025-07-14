@@ -114,6 +114,22 @@ zurch -a "john smith"# Find items by author with exact name "john smith"
 zurch -a benjamin    # Finds Benjamin Franklin, Benjamin Netanyahu, etc.
 ```
 
+### Filter by Tags (-t/--tag)
+```bash
+# Search by tag alone (case-insensitive)
+zurch -t methodology  # Find all items tagged with "methodology"
+zurch -t china japan  # Find items tagged with BOTH "china" AND "japan"
+zurch -t "digital humanities"  # Find items tagged with exact phrase
+
+# Combine with other searches for more specific results
+zurch -n "machine learning" -t "data science"  # Items about ML tagged with data science
+zurch -f "Research" -t "to-read"  # Items in Research folder tagged as to-read
+zurch -a smith -t china  # Items by Smith tagged with china
+
+# Multiple tags = AND logic (item must have ALL tags)
+zurch -t "important" "methodology" "python"  # Items with all three tags
+```
+
 ### Interactive Mode (-i/--interactive)
 When combined with folder or name search, enables interactive selection:
 - View detailed metadata for any item
@@ -134,6 +150,7 @@ zurch -f "Papers" -i -g
 - `--articles`: Show only journal article items in search results
 - `--after YEAR`: Show only items published after this year (inclusive)
 - `--before YEAR`: Show only items published before this year (inclusive)
+- `-t/--tag TAG [TAG...]`: Filter by tags (case-insensitive, multiple tags = AND logic)
 - `-k/--exact`: Use exact matching instead of partial matching
 
 ### Other Options
@@ -231,6 +248,9 @@ zurch -f "Digital Humanities"
 # Search for papers on a topic
 zurch -n "network analysis"
 
+# Filter by tags to find specific types of papers
+zurch -n "social networks" -t "methodology"
+
 # Interactively review papers and grab PDFs
 zurch -n "social networks" -i -g
 ```
@@ -245,6 +265,9 @@ zurch -f "To Read"
 
 # Search for specific authors or topics
 zurch -n "foucault"
+
+# Find items by tags
+zurch -t "important" -t "methodology"
 
 # Find collections by partial name
 zurch -l "digital"

@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2025-07-14
+
+### Fixed
+- **Combined Search Functionality**: Fixed major bug in `search_items_combined` function where combined name and author searches (`-n` + `-a`) were only performing name searches and completely ignoring author filters. Now properly applies AND logic across all search parameters.
+- **Standalone Tag Search**: Fixed CLI validation to allow standalone tag searches (`-t` without other search commands) by adding `args.tag` to the list of valid standalone commands.
+
+### Added
+- **Proper Combined Query Implementation**: Added `build_combined_search_query()` function that creates proper SQL queries combining name, author, and tag search conditions with correct JOIN logic.
+- **Comprehensive Test Suite**: Added `test_combined_search.py` with 9 test cases covering all combinations of name, author, and tag searches to ensure correct behavior.
+
+### Enhanced
+- **Search Result Accuracy**: Combined searches now return precise results that match all specified criteria instead of returning overly broad results from partial implementations.
+
+## [0.6.3] - 2025-07-14
+
+### Fixed
+- **List Command Without Argument**: Fixed `-l` command when no argument is provided to correctly display all collections instead of showing them as "matches". The display now properly shows "collections" instead of "matches" when no filter is applied.
+- **Empty Search Term Handling**: Fixed `matches_search_term` function to return True for empty search terms, allowing proper display of all collections when no filter is specified.
+- **Year Filter with Folder Command**: Fixed `--after` and `--before` year filters not working correctly with `-f` folder command. The total count now reflects the filtered items rather than all items in the collection.
+
 ## [0.6.2] - 2025-07-13
 
 ### Fixed

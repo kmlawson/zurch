@@ -14,15 +14,40 @@ zurch/
 ├── README.md          # User documentation
 ├── LICENSE            # MIT License (Konrad M. Lawson, 2025)
 ├── DEVELOPMENT.md     # This file
+├── TODO.md            # Current todo items
+├── KEYFILES.md        # Key files reference
+├── GEMINI.md          # Additional project notes
+├── info/              # Documentation directory
+│   ├── DEVNOTES.md    # Development notes
+│   └── DATABASE_STRUCTURE.md # Database structure docs
 ├── zurch/             # Main package directory
 │   ├── __init__.py    # Package initialization
 │   ├── __main__.py    # Entry point for python -m zurch
 │   ├── cli.py         # Command line interface
-│   ├── search.py      # Database queries and models
+│   ├── parser.py      # Argument parsing
+│   ├── handlers.py    # Command handlers
+│   ├── search.py      # Main database interface
+│   ├── database.py    # Database connection
+│   ├── collections.py # Collection queries
+│   ├── items.py       # Item queries
+│   ├── metadata.py    # Metadata queries
+│   ├── models.py      # Data models
+│   ├── duplicates.py  # Duplicate detection
+│   ├── display.py     # Output formatting
+│   ├── interactive.py # Interactive mode
+│   ├── config.py      # Configuration management
 │   ├── utils.py       # Utility functions
-│   └── interactive.py # Interactive mode functionality
+│   └── queries.py     # SQL queries
 └── tests/             # Test suite
-    └── test_zurch.py  # Main test file
+    ├── test_zurch.py      # Main test file
+    ├── test_collections.py # Collection tests
+    ├── test_database.py   # Database tests
+    ├── test_display.py    # Display tests
+    ├── test_duplicates.py # Duplicate tests
+    ├── test_handlers.py   # Handler tests
+    ├── test_interactive.py # Interactive tests
+    ├── test_items.py      # Item tests
+    └── test_tags.py       # Tag tests
 
 ```
 
@@ -93,14 +118,18 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
 ```
 
 ### Icon System
-- 📕 = Books (`item_type == "book"`)
+- 📗 = Books (`item_type == "book"`)
 - 📄 = Journal articles (`item_type in ["journalarticle", "journal article"]`)
 - 🔗 = PDF/EPUB attachments available
+- 📚 = Other item types (default)
+- Purple icons = Duplicate items (debug mode only)
 
 ### Command Line Arguments
 - `-f/--folder [name]`: List items in folder (supports spaces without quotes)
 - `-n/--name [term]`: Search items by title
 - `-l/--list [pattern]`: List collections (hierarchical display)
+- `-a/--author [name]`: Search items by author
+- `-t/--tag [tag]`: Filter by tags (case-insensitive)
 - `-i/--interactive`: Interactive selection mode
 - `-g/--grab`: Copy attachments (requires -i)
 - `-o/--only-attachments`: Show only items with PDF/EPUB attachments
@@ -109,6 +138,14 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
 - `-d/--debug`: Debug logging
 - `-v/--version`: Show version
 - `-h/--help`: Show help
+- `--after YEAR`: Show items published after year
+- `--before YEAR`: Show items published before year
+- `--books`: Show only book items
+- `--articles`: Show only article items
+- `--id ID`: Show metadata for specific item ID
+- `--getbyid ID [ID...]`: Grab attachments for specific item IDs
+- `--showids`: Show item ID numbers in results
+- `--no-dedupe`: Disable automatic duplicate removal
 
 ### Interactive Mode Features
 1. **Collection Selection** (`zurch -l -i`):

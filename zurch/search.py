@@ -63,13 +63,9 @@ class ZoteroDatabase:
         if not collections:
             return [], 0
         
-        # Get total count first
-        total_count = 0
-        for collection in collections:
-            total_count += self.collections.get_collection_item_count(collection.collection_id)
-        
         # Get items from each collection separately, maintaining grouping
         grouped_items = []
+        total_count = 0
         
         for collection in collections:
             items = self.items.get_items_in_collection(
@@ -79,6 +75,7 @@ class ZoteroDatabase:
             
             if items:  # Only add if there are items
                 grouped_items.append((collection, items))
+                total_count += len(items)
         
         return grouped_items, total_count
     

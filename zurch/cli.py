@@ -11,7 +11,7 @@ from .handlers import (
     handle_folder_command, handle_search_command
 )
 
-__version__ = "0.6.2"
+__version__ = "0.6.4"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
@@ -73,7 +73,7 @@ def main():
     # Override max_results from command line
     max_results = args.max_results or config.get('max_results', 100)
     
-    if not any([args.folder, args.name, args.list is not None, args.id, args.author, args.getbyid]):
+    if not any([args.folder, args.name, args.list is not None, args.id, args.author, args.getbyid, args.tag]):
         parser.print_help()
         return 1
     
@@ -103,7 +103,7 @@ def main():
         elif args.folder:
             return handle_folder_command(db, args, max_results, config)
         
-        elif args.name or args.author:
+        elif args.name or args.author or args.tag:
             return handle_search_command(db, args, max_results, config)
         
     except KeyboardInterrupt:

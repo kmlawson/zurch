@@ -119,13 +119,37 @@ class ItemService:
                             tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
         """Search items by combined criteria (title and/or author). Returns (items, total_count)."""
         if name and author:
-            # For now, do name search and filter by author (simplified approach)
-            # This could be improved with a proper combined query
-            items, total_count = self.search_items_by_name(
-                name, exact_match, only_attachments,
+            # Use proper combined query
+            from .queries import build_combined_search_query
+            count_query, main_query, params = build_combined_search_query(
+                name, author, exact_match, only_attachments,
                 after_year, before_year, only_books, only_articles, tags
             )
-            # TODO: This is a simplified implementation - needs author filtering
+            
+            # Get count
+            count_result = self.db.execute_single_query(count_query, params)
+            total_count = count_result[0] if count_result else 0
+            
+            # Get items
+            rows = self.db.execute_query(main_query, params)
+            items = []
+            
+            for row in rows:
+                item_id, title, item_type, content_type, attachment_path = row
+                
+                # Process attachment data directly from query
+                attachment_type = get_attachment_type(content_type) if content_type else None
+                
+                item = ZoteroItem(
+                    item_id=item_id,
+                    title=title or "Untitled",
+                    item_type=item_type,
+                    attachment_type=attachment_type,
+                    attachment_path=attachment_path
+                )
+                
+                items.append(item)
+            
             return items, total_count
         elif name:
             return self.search_items_by_name(

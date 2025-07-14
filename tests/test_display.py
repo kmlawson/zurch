@@ -182,9 +182,9 @@ class TestMatchesSearchTerm:
     def test_matches_search_term_edge_cases(self):
         """Test edge cases."""
         assert not matches_search_term("", "search")
-        assert not matches_search_term("text", "")
+        assert matches_search_term("text", "")  # Empty search term should match everything
         assert not matches_search_term(None, "search")
-        assert not matches_search_term("text", None)
+        assert matches_search_term("text", None)  # None search term should match everything
 
 
 class TestDisplayHierarchicalSearchResults:

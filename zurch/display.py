@@ -67,7 +67,9 @@ def display_grouped_items(grouped_items: List[tuple], max_results: int, search_t
 
 def matches_search_term(text: str, search_term: str) -> bool:
     """Check if text matches the search term (with wildcard support)."""
-    if not search_term or not text:
+    if not search_term:
+        return True  # Empty or None search term matches everything
+    if not text:
         return False
     
     text_lower = text.lower()

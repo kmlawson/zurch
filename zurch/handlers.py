@@ -154,70 +154,159 @@ def filter_collections(collections: List[ZoteroCollection], search_term: str, ex
     if not search_term:
         return collections
     
+    # Handle "/" suffix for showing sub-collections
+    show_subcolls = search_term.endswith('/')
+    if show_subcolls:
+        search_term = search_term[:-1]  # Remove the trailing "/"
+    
     filtered_collections = []
     search_term_lower = search_term.lower()
     
+    # First, find collections that match the search term
+    matching_collections = []
     for collection in collections:
         collection_name = collection.name.lower()
         
         if exact_match:
             if search_term_lower == collection_name:
-                filtered_collections.append(collection)
+                matching_collections.append(collection)
         elif '%' in search_term:
             # Handle % wildcard (convert to SQL LIKE pattern)
             like_pattern = search_term.replace('%', '*')
             import fnmatch
             if fnmatch.fnmatch(collection_name, like_pattern):
-                filtered_collections.append(collection)
+                matching_collections.append(collection)
         else:
             # Default partial matching
             if search_term_lower in collection_name:
-                filtered_collections.append(collection)
+                matching_collections.append(collection)
+    
+    if show_subcolls:
+        # First include the parent collections themselves
+        filtered_collections.extend(matching_collections)
+        
+        # Then find sub-collections of matching collections
+        for collection in collections:
+            for matched_collection in matching_collections:
+                # Check if this collection is a child of the matched collection
+                # The full_path already includes the collection name, so child paths will start with parent_path + " > "
+                parent_path_prefix = matched_collection.full_path + " > "
+                if collection.full_path.startswith(parent_path_prefix):
+                    filtered_collections.append(collection)
+                        
+        # Remove duplicates while preserving order
+        seen = set()
+        filtered_collections = [col for col in filtered_collections if col.collection_id not in seen and not seen.add(col.collection_id)]
+    else:
+        filtered_collections = matching_collections
     
     return filtered_collections
 
-def handle_interactive_list_mode(db: ZoteroDatabase, collections: List[ZoteroCollection], args, max_results: int) -> None:
-    """Handle interactive collection selection from list command."""
-    selected_collection = interactive_collection_selection(collections[:max_results])
-    if not selected_collection:
-        return
-    
-    # Get items from selected collection
-    items, total_count = db.get_collection_items(
-        selected_collection.name, args.only_attachments, 
-        args.after, args.before, args.books, args.articles, args.tag
-    )
-    
-    # Display results
-    if args.only_attachments:
-        print(f"\nItems in folder '{selected_collection.name}' (with PDF/EPUB attachments):")
-        if len(items) < total_count:
-            print(f"Showing {len(items)} items with attachments from {total_count} total matches:")
-    else:
-        print(f"\nItems in folder '{selected_collection.name}':")
-        if total_count > max_results:
-            print(f"Showing first {max_results} of {total_count} items:")
-    
-    display_items(items, max_results, show_ids=args.showids)
-    
-    if args.grab:
-        handle_interactive_mode(
-            db, items, args.grab, 
-            {'zotero_database_path': str(db.db_path)}, 
-            max_results, show_ids=args.showids
-        )
+def handle_interactive_list_mode(db: ZoteroDatabase, collections: List[ZoteroCollection], args, max_results: int, display_search_term: str = "") -> None:
+    """Handle interactive collection selection from list command with enhanced browsing."""
+    interactive_collection_browser(db, collections, args, max_results, display_search_term)
 
-def handle_non_interactive_list_mode(collections: List[ZoteroCollection], search_term: str, max_results: int) -> None:
+def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroCollection], args, max_results: int, display_search_term: str = "") -> None:
+    """Enhanced interactive collection browser with item selection and navigation."""
+    zotero_data_dir = Path(args.zotero_database_path if hasattr(args, 'zotero_database_path') else str(db.db_path)).parent
+    
+    while True:
+        # Select collection
+        selected_collection = interactive_collection_selection(collections[:max_results])
+        if not selected_collection:
+            break
+        
+        # Get items from selected collection
+        items, total_count = db.get_collection_items(
+            selected_collection.name, args.only_attachments, 
+            args.after, args.before, args.books, args.articles, args.tag
+        )
+        
+        # Display results
+        if args.only_attachments:
+            print(f"\nItems in folder '{selected_collection.name}' (with PDF/EPUB attachments):")
+            if len(items) < total_count:
+                print(f"Showing {len(items)} items with attachments from {total_count} total matches:")
+        else:
+            print(f"\nItems in folder '{selected_collection.name}':")
+            if total_count > max_results:
+                print(f"Showing first {max_results} of {total_count} items:")
+        
+        if not items:
+            print("No items found in this collection.")
+            input("\nPress Enter to continue...")
+            continue
+        
+        display_items(items, max_results, show_ids=args.showids)
+        
+        # Interactive item selection loop
+        while True:
+            try:
+                choice = input(f"\nSelect item number (1-{len(items)}, 0 or Enter to cancel, 'l' to re-list, 'b' to go back, add 'g' to grab: 3g): ").strip()
+                
+                if choice == "0" or choice == "":
+                    return  # Exit completely
+                elif choice.lower() == "l":
+                    # Re-display the items
+                    print()
+                    display_items(items, max_results, show_ids=args.showids)
+                    continue
+                elif choice.lower() == "b":
+                    # Go back to collection list
+                    break
+                
+                # Check for 'g' suffix
+                should_grab = choice.lower().endswith('g')
+                if should_grab:
+                    choice = choice[:-1]  # Remove 'g'
+                
+                idx = int(choice) - 1
+                if 0 <= idx < len(items):
+                    selected_item = items[idx]
+                    
+                    if should_grab:
+                        # Grab attachment
+                        attachment_path = db.get_item_attachment_path(selected_item.item_id, zotero_data_dir)
+                        if attachment_path:
+                            try:
+                                target_path = Path.cwd() / attachment_path.name
+                                shutil.copy2(attachment_path, target_path)
+                                print(f"Copied attachment to: {target_path}")
+                            except Exception as e:
+                                print(f"Error copying attachment: {e}")
+                        else:
+                            print(f"No attachment found for '{selected_item.title}'")
+                    else:
+                        # Show metadata
+                        show_item_metadata(db, selected_item)
+                else:
+                    print(f"Please enter a number between 1 and {len(items)}")
+                    
+            except (ValueError, KeyboardInterrupt):
+                print("\nCancelled")
+                return
+            except EOFError:
+                return
+
+def handle_non_interactive_list_mode(collections: List[ZoteroCollection], search_term: str, max_results: int, show_all_collections: bool = False) -> None:
     """Handle non-interactive list display."""
     if search_term:
-        print(f"Collections matching '{search_term}':")
+        if show_all_collections:
+            print(f"Collections in '{search_term}' and all sub-collections:")
+        else:
+            print(f"Collections matching '{search_term}':")
     else:
         print("Collections and Sub-collections:")
     
     if len(collections) > max_results:
-        print(f"Showing first {max_results} of {len(collections)} matches:")
+        if search_term:
+            print(f"Showing first {max_results} of {len(collections)} matches:")
+        else:
+            print(f"Showing first {max_results} of {len(collections)} collections:")
     
-    display_hierarchical_search_results(collections, search_term or "", max_results)
+    # When showing all collections (via "/" feature), pass empty search term to display all
+    display_search_term = "" if show_all_collections else (search_term or "")
+    display_hierarchical_search_results(collections, display_search_term, max_results)
 
 def handle_list_command(db: ZoteroDatabase, args, max_results: int) -> int:
     """Handle -l/--list command."""
@@ -228,9 +317,19 @@ def handle_list_command(db: ZoteroDatabase, args, max_results: int) -> int:
     
     if collections:
         if args.interactive:
-            handle_interactive_list_mode(db, collections, args, max_results)
+            # For interactive mode, we need to adjust the display similarly
+            display_search_term = args.list
+            if display_search_term and display_search_term.endswith('/'):
+                display_search_term = display_search_term[:-1]
+            handle_interactive_list_mode(db, collections, args, max_results, display_search_term)
         else:
-            handle_non_interactive_list_mode(collections, args.list, max_results)
+            # Remove "/" from search term for display purposes
+            display_search_term = args.list
+            show_all_collections = False
+            if display_search_term and display_search_term.endswith('/'):
+                display_search_term = display_search_term[:-1]
+                show_all_collections = True
+            handle_non_interactive_list_mode(collections, display_search_term, max_results, show_all_collections)
     else:
         print(f"No collections found matching '{args.list}'")
     
