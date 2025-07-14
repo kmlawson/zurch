@@ -100,6 +100,10 @@ zurch -l "Research/"            # Shows all collections under "Research"
 # List items in a specific folder
 zurch -f "Heritage"
 
+# Include items from folder AND all sub-collections (append / to name)
+zurch -f "Digital Humanities/"  # Shows items from "Digital Humanities" and all sub-collections
+zurch -f "Research/"            # Shows items from "Research" and all sub-collections
+
 # Limit results
 zurch -f "Digital Humanities" -x 10
 

@@ -167,7 +167,7 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--showauthor", 
         action="store_true",
-        help="Show first author name for each item in search results"
+        help="Show first author name (first and last) for each item in search results"
     )
     
     parser.add_argument(

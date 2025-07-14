@@ -150,7 +150,7 @@ def run_config_wizard() -> int:
         'show_ids': ('Show item IDs by default', current_config.get('show_ids', False)),
         'show_tags': ('Show tags by default', current_config.get('show_tags', False)),
         'show_year': ('Show publication year by default', current_config.get('show_year', False)),
-        'show_author': ('Show first author by default', current_config.get('show_author', False)),
+        'show_author': ('Show first author name (first and last) by default', current_config.get('show_author', False)),
         'only_attachments': ('Show only items with attachments by default', current_config.get('only_attachments', False)),
     }
     

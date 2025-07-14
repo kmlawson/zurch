@@ -543,17 +543,126 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
     
     return 0
 
+def handle_multiple_collections_with_subcollections(db: ZoteroDatabase, folder_name: str, collections: List[ZoteroCollection], args, max_results: int, config: dict) -> int:
+    """Handle folder command when including sub-collections (/ suffix used)."""
+    logger.debug(f"Processing {len(collections)} collections for sub-collection search")
+    
+    # Get items from all specified collections
+    all_items = []
+    total_count = 0
+    
+    for i, collection in enumerate(collections):
+        logger.debug(f"Processing collection {i+1}/{len(collections)}: '{collection.name}'")
+        items, count = db.get_collection_items(
+            collection.name, args.only_attachments, 
+            args.after, args.before, args.books, args.articles, args.tag
+        )
+        all_items.extend(items)
+        total_count += count
+        logger.debug(f"  Found {count} items in collection '{collection.name}'")
+    
+    logger.debug(f"Total items found: {len(all_items)}, total count: {total_count}")
+    
+    if not all_items:
+        print(f"No items found in folder '{folder_name}' and its sub-collections")
+        return 1
+    
+    # Apply deduplication if enabled (important since we may have items in multiple collections)
+    duplicates_removed = 0
+    if not args.no_dedupe:
+        all_items, duplicates_removed = deduplicate_items(db, all_items, args.debug)
+    
+    # Apply limit
+    items_before_limit = len(all_items)
+    all_items = all_items[:max_results]
+    items_final = len(all_items)
+    
+    # Display results
+    if args.only_attachments:
+        print(f"Items in folder '{folder_name}' and sub-collections (with PDF/EPUB attachments):")
+    else:
+        print(f"Items in folder '{folder_name}' and sub-collections:")
+    
+    # Show clear count information
+    if items_final < items_before_limit:
+        if duplicates_removed > 0:
+            print(f"Showing {items_final} of {items_before_limit} items ({duplicates_removed} duplicates removed, {total_count} total found):")
+        else:
+            print(f"Showing first {items_final} of {items_before_limit} items:")
+    elif duplicates_removed > 0:
+        print(f"Showing {items_final} items ({duplicates_removed} duplicates removed from {total_count} total found):")
+    
+    if duplicates_removed > 0 and args.debug:
+        print(f"(Debug: {duplicates_removed} duplicates removed)")
+    
+    display_items(all_items, max_results, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, db=db)
+    
+    # Handle export if requested
+    if args.export:
+        export_items(all_items, db, args.export, args.file, f"{folder_name} and sub-collections")
+    
+    if args.interactive:
+        handle_interactive_mode(db, all_items, config, max_results, f"{folder_name} and sub-collections", show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor)
+    
+    return 0
+
 def handle_folder_command(db: ZoteroDatabase, args, max_results: int, config: dict) -> int:
     """Handle -f/--folder command."""
     folder_name = ' '.join(args.folder)
     
+    # Handle "/" suffix for showing sub-collections
+    show_subcolls = folder_name.endswith('/')
+    if show_subcolls:
+        folder_name = folder_name[:-1]  # Remove the trailing "/"
+        logger.debug(f"Folder command with sub-collections: '{folder_name}'")
+    
     # Check how many collections match
     collections = db.search_collections(folder_name)
+    logger.debug(f"Found {len(collections)} collections matching '{folder_name}'")
     
     if not collections:
         similar = db.find_similar_collections(folder_name, 5)
         show_collection_suggestions(folder_name, similar)
         return 1
+    
+    # If "/" suffix was used, force multiple collection handling to include sub-collections
+    if show_subcolls:
+        logger.debug("Processing sub-collections...")
+        
+        # For better performance, only expand exact matches, not partial matches
+        # Find exact matches first
+        exact_matches = [col for col in collections if col.name.lower() == folder_name.lower()]
+        
+        if not exact_matches:
+            # If no exact matches, fall back to regular multiple collection handling
+            logger.debug("No exact matches found, falling back to regular multiple collection handling")
+            return handle_multiple_collections(db, folder_name, args, max_results, config)
+        
+        logger.debug(f"Found {len(exact_matches)} exact matches: {[col.full_path for col in exact_matches]}")
+        
+        # Get all collections for filtering
+        all_collections = db.list_collections()
+        logger.debug(f"Total collections in database: {len(all_collections)}")
+        
+        # Filter to include sub-collections of ALL exact matched collections
+        filtered_collections = []
+        for collection in all_collections:
+            for exact_match in exact_matches:
+                # Check if this collection is the exact match or a child of it
+                if (collection.collection_id == exact_match.collection_id or
+                    collection.full_path.startswith(exact_match.full_path + " > ")):
+                    filtered_collections.append(collection)
+                    break
+        
+        logger.debug(f"Filtered to {len(filtered_collections)} collections (including sub-collections)")
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        filtered_collections = [col for col in filtered_collections if col.collection_id not in seen and not seen.add(col.collection_id)]
+        
+        logger.debug(f"After deduplication: {len(filtered_collections)} collections")
+        
+        return handle_multiple_collections_with_subcollections(db, folder_name, filtered_collections, args, max_results, config)
     
     # Route to appropriate handler based on number of matches
     if len(collections) > 1:
