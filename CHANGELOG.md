@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.6] - 2025-07-14
+
+### Added
+- **--stats Command**: New comprehensive database statistics command providing detailed insights into your Zotero library
+  - **Overview**: Total counts of items, collections, and tags with colored formatting
+  - **Item Types Breakdown**: Complete breakdown of items by type with counts and percentages (books, articles, notes, etc.)
+  - **Attachment Statistics**: Count of items with and without PDF/EPUB attachments with percentages
+  - **Most Used Tags**: Top 20 most frequently used tags with item counts and professional formatting
+  - **Summary**: One-line summary of database contents
+
+### Enhanced
+- **Database Interface**: Added comprehensive stats service with optimized SQL queries for performance
+- **Visual Design**: Rich formatting with emojis, colors, and proper alignment for easy reading
+- **Query Optimization**: Efficient SQL queries that handle large databases without performance issues
+
+### Technical
+- Added `StatsService` class for gathering database statistics
+- Added `DatabaseStats` dataclass for structured data handling
+- Added `build_stats_*_query()` functions for optimized SQL statistics queries
+- Added `display_database_stats()` function with professional formatting
+- Added `handle_stats_command()` for CLI integration
+
 ## [0.6.5] - 2025-07-14
 
 ### Added

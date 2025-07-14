@@ -22,3 +22,14 @@ When the flag is active, any list of item titles will, in a different color, sho
 ## clean up -h
 
 The -h is a bit too much with wrapping lines, is there a way to clean it up and make it clearer on small terminal screens, perhaps keeping lines shorter for descriptions of features?
+
+## export feature
+
+**Implementation Details:**
+- Add a new flag, e.g., `--export [format]`, to the search commands.
+- For CSV, the `csv` module in Python's standard library could be used.
+- For JSON, the `json` module can be used.
+- if --file is present with path, then save the export to that path and file (NO OVERWRITING and check to make sure the path is not in a dangerous place such as system related folders in MacOS, Windows or Linux)
+- if --file is not present, then save it in the current directory
+- if a path has non-existant directories, ask if the user wants to create a directory in that spot.
+

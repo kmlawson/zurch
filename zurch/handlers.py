@@ -9,7 +9,7 @@ from .search import ZoteroDatabase
 from .models import ZoteroItem, ZoteroCollection
 from .display import (
     display_items, display_grouped_items, display_hierarchical_search_results, 
-    show_item_metadata
+    show_item_metadata, display_database_stats
 )
 from .interactive import interactive_collection_selection
 from .duplicates import deduplicate_items, deduplicate_grouped_items
@@ -672,3 +672,13 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
         handle_interactive_mode(db, items, args.grab, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags)
     
     return 0
+
+def handle_stats_command(db: ZoteroDatabase) -> int:
+    """Handle --stats command."""
+    try:
+        stats = db.get_database_stats()
+        display_database_stats(stats, str(db.db_path))
+        return 0
+    except Exception as e:
+        print(f"Error getting database statistics: {e}")
+        return 1

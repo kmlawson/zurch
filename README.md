@@ -59,6 +59,12 @@ zurch --id 12345
 
 # Disable duplicate removal to see all database entries
 zurch -n "duplicate article" --no-dedupe
+
+# Show comprehensive database statistics
+zurch --stats
+
+# Show tags under item titles
+zurch -n "research methods" --showtags
 ```
 
 ## Commands
@@ -153,6 +159,18 @@ zurch -f "Papers" -i -g
 - `-t/--tag TAG [TAG...]`: Filter by tags (case-insensitive, multiple tags = AND logic)
 - `-k/--exact`: Use exact matching instead of partial matching
 
+### Database Statistics (--stats)
+Get comprehensive insights into your Zotero library:
+```bash
+zurch --stats
+```
+Shows:
+- **Overview**: Total items, collections, and tags
+- **Item Types**: Breakdown by type (books, articles, etc.) with percentages
+- **Attachments**: Count of items with/without PDF/EPUB attachments
+- **Top Tags**: Most frequently used tags with item counts
+- **Database Location**: Path to your Zotero database file
+
 ### Other Options
 - `-x/--max-results N`: Limit number of results (default: 100) - **Applied as final step after all filtering and deduplication** - **Applied as final step after all filtering and deduplication**
 - `-d/--debug`: Enable detailed logging and show purple duplicates
@@ -162,6 +180,7 @@ zurch -f "Papers" -i -g
 - `--showids`: Show item ID numbers in search results
 - `--getbyid ID [ID...]`: Grab attachments for specific item IDs
 - `--no-dedupe`: Disable automatic duplicate removal
+- `--showtags`: Show tags for each item in search results
 
 ### Duplicate Detection
 zurch automatically removes duplicate items based on title, author, and year matching:

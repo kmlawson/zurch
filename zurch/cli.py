@@ -8,10 +8,10 @@ from .database import DatabaseError, DatabaseLockedError
 from .parser import create_parser
 from .handlers import (
     handle_id_command, handle_getbyid_command, handle_list_command,
-    handle_folder_command, handle_search_command
+    handle_folder_command, handle_search_command, handle_stats_command
 )
 
-__version__ = "0.6.5"
+__version__ = "0.6.6"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
@@ -73,7 +73,7 @@ def main():
     # Override max_results from command line
     max_results = args.max_results or config.get('max_results', 100)
     
-    if not any([args.folder, args.name, args.list is not None, args.id, args.author, args.getbyid, args.tag]):
+    if not any([args.folder, args.name, args.list is not None, args.id, args.author, args.getbyid, args.tag, args.stats]):
         parser.print_help()
         return 1
     
@@ -91,7 +91,10 @@ def main():
         return 1
     
     try:
-        if args.id:
+        if args.stats:
+            return handle_stats_command(db)
+            
+        elif args.id:
             return handle_id_command(db, args.id)
             
         elif args.getbyid:

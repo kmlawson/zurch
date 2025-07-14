@@ -5,6 +5,7 @@ from .database import DatabaseConnection, DatabaseError, DatabaseLockedError
 from .collections import CollectionService
 from .items import ItemService
 from .metadata import MetadataService
+from .stats import StatsService
 from .models import ZoteroItem, ZoteroCollection
 
 class ZoteroDatabase:
@@ -16,6 +17,7 @@ class ZoteroDatabase:
         self.collections = CollectionService(self.db_connection)
         self.items = ItemService(self.db_connection)
         self.metadata = MetadataService(self.db_connection)
+        self.stats = StatsService(self.db_connection)
     
     # Collection methods
     def list_collections(self) -> List[ZoteroCollection]:
@@ -131,3 +133,7 @@ class ZoteroDatabase:
     def get_database_version(self) -> str:
         """Get Zotero database version."""
         return self.db_connection.get_database_version()
+    
+    def get_database_stats(self):
+        """Get comprehensive database statistics."""
+        return self.stats.get_database_stats()

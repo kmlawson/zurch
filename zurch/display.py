@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple
 import fnmatch
 from .models import ZoteroItem, ZoteroCollection
+from .stats import DatabaseStats
 from .utils import (
     format_item_type_icon, format_attachment_link_icon, pad_number, 
     highlight_search_term, format_duplicate_title, format_metadata_field
@@ -243,3 +244,79 @@ def show_item_metadata(db, item: ZoteroItem) -> None:
         
     except Exception as e:
         print(f"Error getting metadata: {e}")
+
+def display_database_stats(stats: DatabaseStats, db_path: str = None) -> None:
+    """Display comprehensive database statistics."""
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+    BLUE = '\033[34m'
+    GREEN = '\033[32m'
+    YELLOW = '\033[33m'
+    GRAY = '\033[90m'
+    
+    print(f"{BOLD}📊 Zotero Database Statistics{RESET}")
+    print("=" * 50)
+    
+    # Show database location if provided
+    if db_path:
+        print(f"{BOLD}📍 Database Location{RESET}")
+        print(f"  {GRAY}{db_path}{RESET}")
+        print()
+    
+    # Total counts
+    print(f"{BOLD}📚 Overview{RESET}")
+    print(f"  Total Items: {BLUE}{stats.total_items:,}{RESET}")
+    print(f"  Total Collections: {GREEN}{stats.total_collections:,}{RESET}")
+    print(f"  Total Tags: {YELLOW}{stats.total_tags:,}{RESET}")
+    print()
+    
+    # Item types breakdown
+    if stats.item_types:
+        print(f"{BOLD}📖 Items by Type{RESET}")
+        # Calculate percentage for each type
+        total_items = stats.total_items
+        for item_type, count in stats.item_types:
+            percentage = (count / total_items * 100) if total_items > 0 else 0
+            # Format item type name nicely
+            display_name = item_type.replace('_', ' ').title()
+            if display_name == 'Journalarticle':
+                display_name = 'Journal Article'
+            elif display_name == 'Bookchapter':
+                display_name = 'Book Chapter'
+            elif display_name == 'Booksection':
+                display_name = 'Book Section'
+            elif display_name == 'Conferencepaper':
+                display_name = 'Conference Paper'
+            elif display_name == 'Webpage':
+                display_name = 'Web Page'
+            
+            print(f"  {display_name}: {count:,} ({percentage:.1f}%)")
+        print()
+    
+    # Attachment statistics
+    print(f"{BOLD}📎 Attachment Statistics{RESET}")
+    total_attachment_items = stats.items_with_attachments + stats.items_without_attachments
+    with_percentage = (stats.items_with_attachments / total_attachment_items * 100) if total_attachment_items > 0 else 0
+    without_percentage = (stats.items_without_attachments / total_attachment_items * 100) if total_attachment_items > 0 else 0
+    
+    print(f"  Items with PDF/EPUB attachments: {GREEN}{stats.items_with_attachments:,}{RESET} ({with_percentage:.1f}%)")
+    print(f"  Items without attachments: {stats.items_without_attachments:,} ({without_percentage:.1f}%)")
+    print()
+    
+    # Top tags
+    if stats.top_tags:
+        print(f"{BOLD}🏷️  Most Used Tags (Top 20){RESET}")
+        # Calculate max tag name length for alignment
+        max_tag_length = max(len(tag) for tag, _ in stats.top_tags[:10])  # Only check first 10 for display
+        
+        for i, (tag, count) in enumerate(stats.top_tags[:10], 1):  # Show top 10
+            # Pad tag name for alignment
+            padded_tag = tag.ljust(max_tag_length)
+            print(f"  {i:2d}. {padded_tag} ({count:,} items)")
+        
+        if len(stats.top_tags) > 10:
+            print(f"     ... and {len(stats.top_tags) - 10} more tags")
+        print()
+    
+    # Summary line
+    print(f"{BOLD}Summary:{RESET} {stats.total_items:,} items across {stats.total_collections:,} collections with {stats.total_tags:,} unique tags")

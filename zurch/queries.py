@@ -530,6 +530,61 @@ def build_item_tags_query() -> str:
     ORDER BY t.name
     """
 
+def build_stats_total_counts_query() -> str:
+    """Build query to get total counts of items, collections, and tags."""
+    return """
+    SELECT 
+        (SELECT COUNT(*) FROM items WHERE itemID NOT IN (SELECT itemID FROM itemAttachments)) as total_items,
+        (SELECT COUNT(*) FROM collections) as total_collections,
+        (SELECT COUNT(*) FROM tags) as total_tags
+    """
+
+def build_stats_item_types_query() -> str:
+    """Build query to get item counts by type."""
+    return """
+    SELECT it.typeName, COUNT(i.itemID) as count
+    FROM items i
+    JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+    WHERE i.itemID NOT IN (SELECT itemID FROM itemAttachments)
+    GROUP BY it.typeName
+    ORDER BY count DESC
+    """
+
+def build_stats_attachment_counts_query() -> str:
+    """Build query to get attachment statistics."""
+    return """
+    SELECT 
+        (SELECT COUNT(DISTINCT i.itemID) 
+         FROM items i 
+         WHERE i.itemID NOT IN (SELECT itemID FROM itemAttachments)
+         AND EXISTS (
+            SELECT 1 FROM itemAttachments ia 
+            WHERE ia.parentItemID = i.itemID 
+            AND ia.contentType IN ('application/pdf', 'application/epub+zip')
+         )) as items_with_attachments,
+        (SELECT COUNT(*) 
+         FROM items i 
+         WHERE i.itemID NOT IN (SELECT itemID FROM itemAttachments)
+         AND NOT EXISTS (
+            SELECT 1 FROM itemAttachments ia 
+            WHERE ia.parentItemID = i.itemID 
+            AND ia.contentType IN ('application/pdf', 'application/epub+zip')
+         )) as items_without_attachments
+    """
+
+def build_stats_top_tags_query() -> str:
+    """Build query to get most frequently used tags."""
+    return """
+    SELECT t.name, COUNT(it.itemID) as count
+    FROM tags t
+    JOIN itemTags it ON t.tagID = it.tagID
+    JOIN items i ON it.itemID = i.itemID
+    WHERE i.itemID NOT IN (SELECT itemID FROM itemAttachments)
+    GROUP BY t.name
+    ORDER BY count DESC
+    LIMIT 20
+    """
+
 def build_combined_search_query(name=None, author=None, exact_match: bool = False, 
                                only_attachments: bool = False, after_year: int = None, 
                                before_year: int = None, only_books: bool = False, 

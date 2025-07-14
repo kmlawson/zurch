@@ -144,6 +144,12 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Show tags for each item in search results"
     )
+    
+    parser.add_argument(
+        "--stats", 
+        action="store_true",
+        help="Show database statistics including item counts, types, tags, and attachments"
+    )
 
 from . import __version__
 
