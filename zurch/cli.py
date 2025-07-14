@@ -10,6 +10,7 @@ from .handlers import (
     handle_id_command, handle_getbyid_command, handle_list_command,
     handle_folder_command, handle_search_command, handle_stats_command
 )
+from .config_wizard import run_config_wizard
 
 __version__ = "0.6.6"
 
@@ -67,11 +68,31 @@ def main():
         logger.debug("Debug mode enabled")
         logger.debug(f"Arguments: {args}")
     
+    # Handle config wizard command
+    if args.config:
+        return run_config_wizard()
+    
     # Load configuration
     config = load_config()
     
     # Override max_results from command line
     max_results = args.max_results or config.get('max_results', 100)
+    
+    # Apply display defaults from config if not explicitly set on command line
+    if not hasattr(args, 'showids') or not args.showids:
+        args.showids = config.get('show_ids', False)
+    
+    if not hasattr(args, 'showtags') or not args.showtags:
+        args.showtags = config.get('show_tags', False)
+    
+    if not hasattr(args, 'showyear') or not args.showyear:
+        args.showyear = config.get('show_year', False)
+    
+    if not hasattr(args, 'showauthor') or not args.showauthor:
+        args.showauthor = config.get('show_author', False)
+    
+    if not hasattr(args, 'only_attachments') or not args.only_attachments:
+        args.only_attachments = config.get('only_attachments', False)
     
     if not any([args.folder, args.name, args.list is not None, args.id, args.author, args.getbyid, args.tag, args.stats]):
         parser.print_help()

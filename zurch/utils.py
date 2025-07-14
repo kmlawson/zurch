@@ -77,7 +77,12 @@ def load_config() -> Dict[str, Any]:
         "max_results": 100,
         "zotero_database_path": str(sample_db) if sample_db.exists() else None,
         "debug": False,
-        "partial_collection_match": True
+        "partial_collection_match": True,
+        "show_ids": False,
+        "show_tags": False,
+        "show_year": False,
+        "show_author": False,
+        "only_attachments": False
     }
     
     if not config_file.exists():

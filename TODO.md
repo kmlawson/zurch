@@ -54,14 +54,15 @@ The -h is a bit too much with wrapping lines, is there a way to clean it up and 
 
 **✅ COMPLETED in v0.6.6** - Added --showauthor flag that shows first author name after title with " - " separator.
 
-## config wizard
+## config wizard [✅]
 
 - create a `--config` which prompts the user to set each of the config options and saves it. 
 - should show current values as the prompts are given for each config variable
 - should report where the config file is being saved 
 
+**✅ COMPLETED in v0.6.6** - Added comprehensive interactive config wizard with database path detection, display options, and validation.
 
-## Improve the Config file
+## Improve the Config file [✅]
 
 Make it possible to have these flags by default in the config file:
 
@@ -71,3 +72,23 @@ showyear (default: false)
 showauthor (default: false)
 onlyattachments (default: false) - runs all searches with -o
 
+**✅ COMPLETED in v0.6.6** - Added support for all display flags as config defaults. Command line args still override config defaults.
+
+## Sort Feature
+
+- Add `--sort [t/title|d/date|a/author|c/created|m/modified]` to sort search results by title, date, or last name of author (if present) 
+- if sort by date is turned on, then --showyear is assumed and years are shown
+- if sort by author is turned on then --showauthor is assumed and aurthors are shown
+- if sort by created or modified then assume --showcreated or --showmodified and include that in the output
+
+## --showcreated
+
+- add a --showcreated flag (and config option) which includes the item created info in grey on separate line
+
+## --showmodified
+
+- add a --showmodified flag (and config option) which includes the item modification date info in grey on separate line, or same line as creation date info if showcreated is on
+
+## --showcollections
+
+- add a --showcollections (and config option) which includes the collections each returned search item is in on a separate line in grey

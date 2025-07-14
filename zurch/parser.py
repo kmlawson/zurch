@@ -175,6 +175,12 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Show first author name for each item in search results"
     )
+    
+    parser.add_argument(
+        "--config", 
+        action="store_true",
+        help="Launch interactive configuration wizard"
+    )
 
 from . import __version__
 
