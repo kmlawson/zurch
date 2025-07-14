@@ -13,6 +13,7 @@ from .display import (
 )
 from .interactive import interactive_collection_selection
 from .duplicates import deduplicate_items, deduplicate_grouped_items
+from .export import export_items
 
 def sanitize_filename(filename: str, max_length: int = 100) -> str:
     """Sanitize filename for cross-platform compatibility."""
@@ -506,6 +507,10 @@ def handle_multiple_collections(db: ZoteroDatabase, folder_name: str, args, max_
     # Display grouped items and get flat list for interactive mode
     all_items = display_grouped_items(grouped_items, max_results, show_ids=args.showids, show_tags=args.showtags, db=db)
     
+    # Handle export if requested
+    if args.export:
+        export_items(all_items, db, args.export, args.file, folder_name)
+    
     if args.interactive:
         handle_interactive_mode(db, all_items, args.grab, config, max_results, folder_name, grouped_items, args.showids, args.showtags)
     
@@ -530,6 +535,10 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
     # Display results
     display_folder_results(folder_name, items_final, items_before_limit, duplicates_removed, total_count, args)
     display_items(items, max_results, show_ids=args.showids, show_tags=args.showtags, db=db)
+    
+    # Handle export if requested
+    if args.export:
+        export_items(items, db, args.export, args.file, folder_name)
     
     if args.interactive:
         handle_interactive_mode(db, items, args.grab, config, max_results, folder_name, show_ids=args.showids, show_tags=args.showtags)
@@ -667,6 +676,10 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
     
     highlight_term = get_highlight_term(args, name_search)
     display_items(items, max_results, highlight_term, args.showids, show_tags=args.showtags, db=db)
+    
+    # Handle export if requested
+    if args.export:
+        export_items(items, db, args.export, args.file, search_display)
     
     if args.interactive:
         handle_interactive_mode(db, items, args.grab, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags)

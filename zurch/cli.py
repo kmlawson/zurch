@@ -85,6 +85,14 @@ def main():
         print("Error: Cannot use both --books and --articles flags together")
         return 1
     
+    if args.export and not any([args.folder, args.name, args.author, args.tag]):
+        print("Error: --export flag requires a search command (-f, -n, -a, or -t)")
+        return 1
+    
+    if args.file and not args.export:
+        print("Error: --file flag requires --export flag")
+        return 1
+    
     # Get database connection
     db = get_database(config)
     if not db:

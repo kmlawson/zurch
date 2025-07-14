@@ -42,14 +42,14 @@ def add_search_arguments(parser: argparse.ArgumentParser) -> None:
         "-f", "--folder", 
         type=str,
         nargs='+',
-        help="List items in the specified folder (spaces allowed without quotes, use quotes for special chars: ' \" $ ` \\ ( ) [ ] { } | & ; < > * ?)"
+        help="List items in the specified folder"
     )
     
     parser.add_argument(
         "-n", "--name", 
         type=str,
         nargs='+',
-        help="Search for items by name/title. Multiple words = AND search (each word must be present). Quoted text = phrase search (exact phrase). Use quotes for special chars: ' \" $ ` \\ ( ) [ ] { } | & ; < > * ?"
+        help="Search for items by name/title (multiple words = AND search)"
     )
     
     parser.add_argument(
@@ -57,21 +57,21 @@ def add_search_arguments(parser: argparse.ArgumentParser) -> None:
         type=str,
         nargs='?',
         const='',
-        help="List all folders and sub-folders, optionally filtered by pattern (supports %% wildcard, partial match by default). Add '/' suffix to show all sub-collections of matching collections."
+        help="List all folders and sub-folders (supports %% wildcard)"
     )
     
     parser.add_argument(
         "-a", "--author", 
         type=str,
         nargs='+',
-        help="Search for items by author name. Multiple words = AND search (each word must be present). Quoted text = phrase search (exact phrase)."
+        help="Search for items by author name (multiple words = AND search)"
     )
     
     parser.add_argument(
         "-t", "--tag", 
         type=str,
         nargs='+',
-        help="Filter by tags. Multiple words = AND search (item must have all tags). Case-insensitive."
+        help="Filter by tags (multiple tags = AND search, case-insensitive)"
     )
 
 def add_filter_arguments(parser: argparse.ArgumentParser) -> None:
@@ -85,19 +85,19 @@ def add_filter_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "-o", "--only-attachments", 
         action="store_true",
-        help="Show only items that have PDF or EPUB attachments"
+        help="Show only items with PDF or EPUB attachments"
     )
     
     parser.add_argument(
         "--after", 
         type=int,
-        help="Only show items published after this year (inclusive)"
+        help="Show items published after this year (inclusive)"
     )
     
     parser.add_argument(
         "--before", 
         type=int,
-        help="Only show items published before this year (inclusive)"
+        help="Show items published before this year (inclusive)"
     )
     
     parser.add_argument(
@@ -130,7 +130,7 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
         "--getbyid", 
         type=int,
         nargs='+',
-        help="Grab attachments for specific item IDs (space-separated)."
+        help="Grab attachments for specific item IDs"
     )
     
     parser.add_argument(
@@ -148,7 +148,20 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--stats", 
         action="store_true",
-        help="Show database statistics including item counts, types, tags, and attachments"
+        help="Show comprehensive database statistics"
+    )
+    
+    parser.add_argument(
+        "--export", 
+        type=str,
+        choices=["csv", "json"],
+        help="Export search results to specified format (csv or json)"
+    )
+    
+    parser.add_argument(
+        "--file", 
+        type=str,
+        help="Specify output file path for export (defaults to current directory)"
     )
 
 from . import __version__
@@ -156,7 +169,7 @@ from . import __version__
 def create_parser():
     parser = argparse.ArgumentParser(
         description="Zurch - Zotero Search CLI",
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     # Add argument groups
