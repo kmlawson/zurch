@@ -33,3 +33,28 @@ The -h is a bit too much with wrapping lines, is there a way to clean it up and 
 - if --file is not present, then save it in the current directory
 - if a path has non-existant directories, ask if the user wants to create a directory in that spot.
 
+## --showyear feature
+
+- includes the year of publication when it is available for an item in all search item lists
+
+## --showauthor feature
+
+- includes the first author (last and first) of an item after the title
+
+## config wizard
+
+- create a `--config` which prompts the user to set each of the config options and saves it. 
+- should show current values as the prompts are given for each config variable
+- should report where the config file is being saved 
+
+
+## Improve the Config file
+
+Make it possible to have these flags by default in the config file:
+
+showids (default: false)
+showtags (default: false)
+showyear (default: false)
+showauthor (default: false)
+onlyattachments (default: false) - runs all searches with -o
+
