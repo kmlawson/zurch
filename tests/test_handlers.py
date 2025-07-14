@@ -268,7 +268,6 @@ class TestHandleListCommand:
         args.before = None
         args.books = False
         args.articles = False
-        args.grab = False
         args.showids = False
         
         with patch('zurch.handlers.interactive_collection_selection', return_value=collections[0]) as mock_interactive:

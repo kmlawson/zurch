@@ -98,10 +98,6 @@ def main():
         parser.print_help()
         return 1
     
-    if args.grab and not args.interactive:
-        print("Error: --grab (-g) flag requires --interactive (-i) flag")
-        return 1
-    
     if args.books and args.articles:
         print("Error: Cannot use both --books and --articles flags together")
         return 1

@@ -168,7 +168,7 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
         except EOFError:
             return None, False
 
-def handle_interactive_mode(db: ZoteroDatabase, items, grab_mode: bool, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False) -> None:
+def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False) -> None:
     """Handle interactive item selection and actions."""
     zotero_data_dir = Path(config['zotero_database_path']).parent
     
@@ -177,11 +177,9 @@ def handle_interactive_mode(db: ZoteroDatabase, items, grab_mode: bool, config: 
         if not selected:
             break
         
-        # Check if user wants to grab (either via -g flag or 'g' suffix)
-        if grab_mode or should_grab:
+        # Check if user wants to grab (via 'g' suffix)
+        if should_grab:
             grab_attachment(db, selected, zotero_data_dir)
-            if grab_mode:  # If -g flag was used, exit after grab
-                break
         else:
             show_item_metadata(db, selected)
 
@@ -512,7 +510,7 @@ def handle_multiple_collections(db: ZoteroDatabase, folder_name: str, args, max_
         export_items(all_items, db, args.export, args.file, folder_name)
     
     if args.interactive:
-        handle_interactive_mode(db, all_items, args.grab, config, max_results, folder_name, grouped_items, args.showids, args.showtags, args.showyear, args.showauthor)
+        handle_interactive_mode(db, all_items, config, max_results, folder_name, grouped_items, args.showids, args.showtags, args.showyear, args.showauthor)
     
     return 0
 
@@ -541,7 +539,7 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
         export_items(items, db, args.export, args.file, folder_name)
     
     if args.interactive:
-        handle_interactive_mode(db, items, args.grab, config, max_results, folder_name, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor)
+        handle_interactive_mode(db, items, config, max_results, folder_name, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor)
     
     return 0
 
@@ -682,7 +680,7 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
         export_items(items, db, args.export, args.file, search_display)
     
     if args.interactive:
-        handle_interactive_mode(db, items, args.grab, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor)
+        handle_interactive_mode(db, items, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor)
     
     return 0
 

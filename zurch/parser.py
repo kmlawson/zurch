@@ -23,17 +23,11 @@ def add_basic_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 def add_mode_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add interactive and grab mode arguments."""
+    """Add interactive mode arguments."""
     parser.add_argument(
         "-i", "--interactive", 
         action="store_true",
-        help="Enable interactive mode"
-    )
-    
-    parser.add_argument(
-        "-g", "--grab", 
-        action="store_true",
-        help="Grab attachment and copy to current directory (requires -i)"
+        help="Enable interactive mode (append 'g' to item number to grab attachment)"
     )
 
 def add_search_arguments(parser: argparse.ArgumentParser) -> None:

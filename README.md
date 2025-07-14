@@ -4,14 +4,14 @@ A command-line interface tool to interact with your local Zotero installation an
 
 ## Features
 
-- 📂 **List Collections**: Browse all your Zotero collections and sub-collections
-- 🔍 **Search Items**: Find items by title or browse specific folders  
-- 🎯 **Interactive Mode**: Select items interactively to view metadata or grab attachments
-- 📎 **Attachment Management**: Copy PDF, EPUB, and text attachments to your current directory
-- 🎨 **Visual Indicators**: Icons show item types (📗 books, 📄 articles) and attachments (🔗 PDF/EPUB available)
-- ⚡ **Fast Performance**: Optimized SQLite queries for quick results
-- 🔒 **Safe Access**: Read-only database access prevents corruption
-- 🖥️ **Cross-Platform**: Works on Windows, macOS, and Linux
+- **List Collections**: Browse all your Zotero collections and sub-collections
+- **Search Items**: Find items by title or browse specific folders  
+- **Interactive Mode**: Select items interactively to view metadata or grab attachments
+- **Attachment Management**: Copy PDF, EPUB, and text attachments to your current directory
+- **Visual Indicators**: Icons show item types (📗 books, 📄 articles) and attachments (🔗 PDF/EPUB available)
+- **Fast Performance**: Optimized SQLite queries for quick results
+- **Safe Access**: Provides READ ONLY access to your Zotero database 
+- 🖥️ **Cross-Platform**: Designed for macOS, may work on Windows and Linux
 
 ## Installation
 
@@ -41,8 +41,8 @@ zurch -n "medicine"
 # Interactive mode to select and view metadata
 zurch -f "Heritage" -i
 
-# Interactive mode to grab attachments
-zurch -n "China" -i -g
+# Interactive mode to grab attachments (append 'g' to item number)
+zurch -n "China" -i
 
 # Show only items with PDF/EPUB attachments
 zurch -f "Heritage" -o
@@ -140,14 +140,7 @@ zurch -t "important" "methodology" "python"  # Items with all three tags
 When combined with folder or name search, enables interactive selection:
 - View detailed metadata for any item
 - Navigate through multiple items
-- Use with `-g` flag to copy attachments
-
-### Grab Attachments (-g/--grab)
-```bash
-# Must be used with interactive mode
-zurch -f "Papers" -i -g
-
-# Select an item and its attachment will be copied to current directory
+- Select an item and its attachment will be copied to current directory if you add g after the number
 ```
 
 ### Filtering Options
@@ -270,8 +263,8 @@ zurch -n "network analysis"
 # Filter by tags to find specific types of papers
 zurch -n "social networks" -t "methodology"
 
-# Interactively review papers and grab PDFs
-zurch -n "social networks" -i -g
+# Interactively review papers and grab PDFs (use '3g' to grab item 3)
+zurch -n "social networks" -i
 ```
 
 ### Library Management
@@ -294,7 +287,7 @@ zurch -l "digital"
 
 ## Safety and Compatibility
 
-- **Read-Only Access**: zurch never modifies your Zotero database
+- **Read-Only Access**: zurch should never modify your Zotero database but use at your own risk
 - **Database Locking**: Handles cases where Zotero is running
 - **Version Compatibility**: Tested with Zotero 7.0
 - **Error Handling**: Graceful handling of database issues
@@ -363,9 +356,6 @@ Zurch fully supports Unicode characters in search terms, including:
 # Chinese characters
 zurch -n 中国
 
-# Japanese characters  
-zurch -n 日本
-
 # Korean characters
 zurch -n 한국
 
@@ -378,7 +368,7 @@ No special escaping is needed for Unicode characters - they work seamlessly in s
 
 ## Contributing
 
-Contributions are welcome! Please read the development documentation in `info/DEVNOTES.md` for technical details about the codebase.
+Contributions are welcome! Please read the various .md files in the repository help orient yourself. 
 
 ## License
 
@@ -386,6 +376,7 @@ This project is licensed under the MIT License. See LICENSE file for details.
 
 ## Acknowledgments
 
+- Thanks to the Zotero developers for such amazing software
 - Built for the Zotero research community
 - Inspired by the need for command-line access to Zotero data
 - Uses the excellent Zotero SQLite database structure
