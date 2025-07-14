@@ -94,6 +94,12 @@ zurch -n "digital humanities" --export csv
 
 # Export to specific file path
 zurch -n "methodology" --export json --file ~/research/methods.json
+
+# Sort results by publication date (newest first)
+zurch -n "machine learning" --sort date
+
+# Sort by author last name
+zurch -f "Papers" --sort author
 ```
 
 ## Commands
@@ -206,7 +212,17 @@ Shows:
 - `--showtags`: Show tags for each item in search results
 - `--showyear`: Show publication year for each item
 - `--showauthor`: Show first author name for each item
-- `--showcollections`: (Coming soon) Show collections each item belongs to
+- `--showcreated`: (Not yet implemented) Show item creation date in search results
+- `--showmodified`: (Not yet implemented) Show item modification date in search results
+- `--showcollections`: (Not yet implemented) Show collections each item belongs to in search results
+
+### Sorting Options
+- `--sort {t|title|d|date|a|author|c|created|m|modified}`: Sort search results by:
+  - `t` or `title`: Sort alphabetically by title
+  - `d` or `date`: Sort by publication date (auto-enables `--showyear`)
+  - `a` or `author`: Sort by author last name (auto-enables `--showauthor`)
+  - `c` or `created`: Sort by item creation date (newest first)
+  - `m` or `modified`: Sort by modification date (newest first)
 
 ### Export Options
 - `--export [csv|json]`: Export search results to CSV or JSON format
@@ -249,8 +265,7 @@ This will guide you through:
 ### Manual Configuration
 Configuration is stored in OS-appropriate locations:
 - **Windows**: `%APPDATA%\zurch\config.json`
-- **macOS**: `~/Library/Application Support/zurch/config.json`
-- **Linux**: `~/.config/zurch/config.json` (or `$XDG_CONFIG_HOME/zurch/config.json`)
+- **macOS/Linux**: `~/.config/zurch/config.json` (or `$XDG_CONFIG_HOME/zurch/config.json`)
 
 **Note**: If you're upgrading from an earlier version, zurch will automatically migrate your config from the old `~/.zurch-config/` location to the new standard location.
 
