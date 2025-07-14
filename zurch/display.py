@@ -7,7 +7,7 @@ from .utils import (
     highlight_search_term, format_duplicate_title, format_metadata_field
 )
 
-def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, db=None) -> None:
+def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, db=None, sort_by_author: bool = False) -> None:
     """Display items with numbering and icons."""
     for i, item in enumerate(items, 1):
         # Item type icon (books and journal articles)
@@ -23,15 +23,29 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
         # Add ID if requested
         id_display = f" [ID:{item.item_id}]" if show_ids else ""
         
-        # Add year and author if requested
-        year_display = ""
-        author_display = ""
-        
-        if (show_year or show_author) and db:
+        # Handle special case for author sorting
+        if sort_by_author and db:
             try:
                 metadata = db.get_item_metadata(item.item_id)
+                author_prefix = ""
+                year_display = ""
                 
-                # Extract publication year
+                # Extract first author for prefix
+                if 'creators' in metadata:
+                    for creator in metadata['creators']:
+                        if creator.get('creatorType') == 'author':
+                            last_name = creator.get('lastName', '')
+                            first_name = creator.get('firstName', '')
+                            
+                            if last_name and first_name:
+                                author_prefix = f"{last_name}, {first_name} - "
+                            elif last_name:
+                                author_prefix = f"{last_name} - "
+                            elif first_name:
+                                author_prefix = f"{first_name} - "
+                            break
+                
+                # Extract publication year if needed
                 if show_year:
                     pub_year = ""
                     if 'date' in metadata:
@@ -41,71 +55,13 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
                     if pub_year:
                         year_display = f" ({pub_year})"
                 
-                # Extract first author
-                if show_author:
-                    if 'creators' in metadata:
-                        for creator in metadata['creators']:
-                            if creator.get('creatorType') == 'author':
-                                name_parts = []
-                                if creator.get('firstName'):
-                                    name_parts.append(creator['firstName'])
-                                if creator.get('lastName'):
-                                    name_parts.append(creator['lastName'])
-                                if name_parts:
-                                    author_name = ' '.join(name_parts)
-                                    author_display = f" - {author_name}"
-                                    break
+                print(f"{number}. {type_icon}{attachment_icon}{author_prefix}{title}{year_display}{id_display}")
                 
             except Exception as e:
-                # If metadata retrieval fails, continue without year/author
-                pass
-        
-        print(f"{number}. {type_icon}{attachment_icon}{title}{year_display}{author_display}{id_display}")
-        
-        # Show tags if requested
-        if show_tags and db:
-            tags = db.get_item_tags(item.item_id)
-            if tags:
-                # Display tags in a muted color
-                GRAY = '\033[90m'
-                RESET = '\033[0m'
-                tag_text = f"{GRAY}    Tags: {' | '.join(tags)}{RESET}"
-                print(tag_text)
-
-def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, db=None) -> List[ZoteroItem]:
-    """Display items grouped by collection with separators. Returns flat list for interactive mode."""
-    all_items = []
-    item_counter = 1
-    
-    for i, (collection, items) in enumerate(grouped_items):
-        if item_counter > max_results:
-            break
-            
-        # Add spacing between collections (except for the first one)
-        if i > 0:
-            print()
-        
-        # Collection header
-        print(f"=== {collection.full_path} ({len(items)} items) ===")
-        
-        # Display items in this collection
-        for item in items:
-            if item_counter > max_results:
-                break
-                
-            # Item type icon (books and journal articles)
-            type_icon = format_item_type_icon(item.item_type, item.is_duplicate)
-            
-            # Link icon for PDF/EPUB attachments
-            attachment_icon = format_attachment_link_icon(item.attachment_type)
-            
-            number = pad_number(item_counter, max_results)
-            title = highlight_search_term(item.title, search_term) if search_term else item.title
-            title = format_duplicate_title(title, item.is_duplicate)
-            
-            # Add ID if requested
-            id_display = f" [ID:{item.item_id}]" if show_ids else ""
-            
+                # If metadata retrieval fails, show title only
+                print(f"{number}. {type_icon}{attachment_icon}{title}{id_display}")
+        else:
+            # Standard display format
             # Add year and author if requested
             year_display = ""
             author_display = ""
@@ -144,6 +100,152 @@ def display_grouped_items(grouped_items: List[tuple], max_results: int, search_t
                     pass
             
             print(f"{number}. {type_icon}{attachment_icon}{title}{year_display}{author_display}{id_display}")
+        
+        # Show tags if requested
+        if show_tags and db:
+            tags = db.get_item_tags(item.item_id)
+            if tags:
+                # Display tags in a muted color
+                GRAY = '\033[90m'
+                RESET = '\033[0m'
+                tag_text = f"{GRAY}    Tags: {' | '.join(tags)}{RESET}"
+                print(tag_text)
+        
+        # Show created/modified dates if requested
+        if (show_created or show_modified) and db:
+            GRAY = '\033[90m'
+            RESET = '\033[0m'
+            date_parts = []
+            
+            if show_created and item.date_added:
+                date_parts.append(f"Created: {item.date_added}")
+            if show_modified and item.date_modified:
+                date_parts.append(f"Modified: {item.date_modified}")
+                
+            if date_parts:
+                date_text = f"{GRAY}    {' | '.join(date_parts)}{RESET}"
+                print(date_text)
+        
+        # Show collections if requested
+        if show_collections and db:
+            collections = db.get_item_collections(item.item_id)
+            if collections:
+                GRAY = '\033[90m'
+                RESET = '\033[0m'
+                collection_text = f"{GRAY}    Collections: {' | '.join(collections)}{RESET}"
+                print(collection_text)
+
+def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, db=None, sort_by_author: bool = False) -> List[ZoteroItem]:
+    """Display items grouped by collection with separators. Returns flat list for interactive mode."""
+    all_items = []
+    item_counter = 1
+    
+    for i, (collection, items) in enumerate(grouped_items):
+        if item_counter > max_results:
+            break
+            
+        # Add spacing between collections (except for the first one)
+        if i > 0:
+            print()
+        
+        # Collection header
+        print(f"=== {collection.full_path} ({len(items)} items) ===")
+        
+        # Display items in this collection
+        for item in items:
+            if item_counter > max_results:
+                break
+                
+            # Item type icon (books and journal articles)
+            type_icon = format_item_type_icon(item.item_type, item.is_duplicate)
+            
+            # Link icon for PDF/EPUB attachments
+            attachment_icon = format_attachment_link_icon(item.attachment_type)
+            
+            number = pad_number(item_counter, max_results)
+            title = highlight_search_term(item.title, search_term) if search_term else item.title
+            title = format_duplicate_title(title, item.is_duplicate)
+            
+            # Add ID if requested
+            id_display = f" [ID:{item.item_id}]" if show_ids else ""
+            
+            # Handle special case for author sorting
+            if sort_by_author and db:
+                try:
+                    metadata = db.get_item_metadata(item.item_id)
+                    author_prefix = ""
+                    year_display = ""
+                    
+                    # Extract first author for prefix
+                    if 'creators' in metadata:
+                        for creator in metadata['creators']:
+                            if creator.get('creatorType') == 'author':
+                                last_name = creator.get('lastName', '')
+                                first_name = creator.get('firstName', '')
+                                
+                                if last_name and first_name:
+                                    author_prefix = f"{last_name}, {first_name} - "
+                                elif last_name:
+                                    author_prefix = f"{last_name} - "
+                                elif first_name:
+                                    author_prefix = f"{first_name} - "
+                                break
+                    
+                    # Extract publication year if needed
+                    if show_year:
+                        pub_year = ""
+                        if 'date' in metadata:
+                            date_str = metadata['date']
+                            if date_str and len(date_str) >= 4:
+                                pub_year = date_str[:4]
+                        if pub_year:
+                            year_display = f" ({pub_year})"
+                    
+                    print(f"{number}. {type_icon}{attachment_icon}{author_prefix}{title}{year_display}{id_display}")
+                    
+                except Exception as e:
+                    # If metadata retrieval fails, show title only
+                    print(f"{number}. {type_icon}{attachment_icon}{title}{id_display}")
+            else:
+                # Standard display format
+                # Add year and author if requested
+                year_display = ""
+                author_display = ""
+                
+                if (show_year or show_author) and db:
+                    try:
+                        metadata = db.get_item_metadata(item.item_id)
+                        
+                        # Extract publication year
+                        if show_year:
+                            pub_year = ""
+                            if 'date' in metadata:
+                                date_str = metadata['date']
+                                if date_str and len(date_str) >= 4:
+                                    pub_year = date_str[:4]
+                            if pub_year:
+                                year_display = f" ({pub_year})"
+                        
+                        # Extract first author
+                        if show_author:
+                            if 'creators' in metadata:
+                                for creator in metadata['creators']:
+                                    if creator.get('creatorType') == 'author':
+                                        name_parts = []
+                                        if creator.get('firstName'):
+                                            name_parts.append(creator['firstName'])
+                                        if creator.get('lastName'):
+                                            name_parts.append(creator['lastName'])
+                                        if name_parts:
+                                            author_name = ' '.join(name_parts)
+                                            author_display = f" - {author_name}"
+                                            break
+                        
+                    except Exception as e:
+                        # If metadata retrieval fails, continue without year/author
+                        pass
+                
+                print(f"{number}. {type_icon}{attachment_icon}{title}{year_display}{author_display}{id_display}")
             
             # Show tags if requested
             if show_tags and db:
@@ -154,6 +256,30 @@ def display_grouped_items(grouped_items: List[tuple], max_results: int, search_t
                     RESET = '\033[0m'
                     tag_text = f"{GRAY}    Tags: {' | '.join(tags)}{RESET}"
                     print(tag_text)
+            
+            # Show created/modified dates if requested
+            if (show_created or show_modified) and db:
+                GRAY = '\033[90m'
+                RESET = '\033[0m'
+                date_parts = []
+                
+                if show_created and item.date_added:
+                    date_parts.append(f"Created: {item.date_added}")
+                if show_modified and item.date_modified:
+                    date_parts.append(f"Modified: {item.date_modified}")
+                    
+                if date_parts:
+                    date_text = f"{GRAY}    {' | '.join(date_parts)}{RESET}"
+                    print(date_text)
+            
+            # Show collections if requested
+            if show_collections and db:
+                collections = db.get_item_collections(item.item_id)
+                if collections:
+                    GRAY = '\033[90m'
+                    RESET = '\033[0m'
+                    collection_text = f"{GRAY}    Collections: {' | '.join(collections)}{RESET}"
+                    print(collection_text)
             
             all_items.append(item)
             item_counter += 1
@@ -344,12 +470,12 @@ def display_database_stats(stats: DatabaseStats, db_path: str = None) -> None:
     print(f"  Total Tags: {YELLOW}{stats.total_tags:,}{RESET}")
     print()
     
-    # Item types breakdown
+    # Item types breakdown - show only top 10
     if stats.item_types:
-        print(f"{BOLD}📖 Items by Type{RESET}")
+        print(f"{BOLD}📖 Items by Type (Top 10){RESET}")
         # Calculate percentage for each type
         total_items = stats.total_items
-        for item_type, count in stats.item_types:
+        for item_type, count in stats.item_types[:10]:  # Show only top 10
             percentage = (count / total_items * 100) if total_items > 0 else 0
             # Format item type name nicely
             display_name = item_type.replace('_', ' ').title()
@@ -365,6 +491,11 @@ def display_database_stats(stats: DatabaseStats, db_path: str = None) -> None:
                 display_name = 'Web Page'
             
             print(f"  {display_name}: {count:,} ({percentage:.1f}%)")
+        
+        if len(stats.item_types) > 10:
+            remaining_count = sum(count for _, count in stats.item_types[10:])
+            remaining_percentage = (remaining_count / total_items * 100) if total_items > 0 else 0
+            print(f"  Other types: {remaining_count:,} ({remaining_percentage:.1f}%)")
         print()
     
     # Attachment statistics
@@ -377,19 +508,38 @@ def display_database_stats(stats: DatabaseStats, db_path: str = None) -> None:
     print(f"  Items without attachments: {stats.items_without_attachments:,} ({without_percentage:.1f}%)")
     print()
     
-    # Top tags
+    # Top collections
+    if stats.top_collections:
+        print(f"{BOLD}📁 Most Used Collections (Top 20){RESET}")
+        # Calculate max collection name length for alignment
+        max_collection_length = min(50, max(len(collection) for collection, _ in stats.top_collections))
+        
+        for i, (collection, count) in enumerate(stats.top_collections, 1):
+            # Truncate very long collection names
+            display_name = collection[:47] + "..." if len(collection) > 50 else collection
+            padded_name = display_name.ljust(max_collection_length)
+            print(f"  {i:2d}. {padded_name} ({count:,} items)")
+        print()
+    
+    # Top tags - show all 40
     if stats.top_tags:
-        print(f"{BOLD}🏷️  Most Used Tags (Top 20){RESET}")
+        print(f"{BOLD}🏷️  Most Used Tags (Top 40){RESET}")
         # Calculate max tag name length for alignment
-        max_tag_length = max(len(tag) for tag, _ in stats.top_tags[:10])  # Only check first 10 for display
+        max_tag_length = min(40, max(len(tag) for tag, _ in stats.top_tags))
         
-        for i, (tag, count) in enumerate(stats.top_tags[:10], 1):  # Show top 10
-            # Pad tag name for alignment
-            padded_tag = tag.ljust(max_tag_length)
+        for i, (tag, count) in enumerate(stats.top_tags, 1):
+            # Truncate very long tag names
+            display_name = tag[:37] + "..." if len(tag) > 40 else tag
+            padded_tag = display_name.ljust(max_tag_length)
             print(f"  {i:2d}. {padded_tag} ({count:,} items)")
-        
-        if len(stats.top_tags) > 10:
-            print(f"     ... and {len(stats.top_tags) - 10} more tags")
+        print()
+    
+    # Publication decades
+    if stats.publication_decades:
+        print(f"{BOLD}📅 Publications by Decade{RESET}")
+        for decade, count in stats.publication_decades:
+            percentage = (count / stats.total_items * 100) if stats.total_items > 0 else 0
+            print(f"  {decade:12s}: {count:,} items ({percentage:.1f}%)")
         print()
     
     # Summary line

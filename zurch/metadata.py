@@ -56,6 +56,86 @@ class MetadataService:
         
         return metadata
     
+    def get_bulk_item_metadata(self, item_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+        """Get metadata for multiple items in bulk to optimize deduplication."""
+        if not item_ids:
+            return {}
+        
+        # Convert to set to remove duplicates and back to list for SQL
+        unique_ids = list(set(item_ids))
+        id_placeholders = ','.join(['?'] * len(unique_ids))
+        
+        # Get basic item info for all items
+        basic_query = f"""
+            SELECT i.itemID, it.typeName, i.dateAdded, i.dateModified
+            FROM items i
+            JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
+            WHERE i.itemID IN ({id_placeholders})
+        """
+        
+        basic_results = self.db.execute_query(basic_query, unique_ids)
+        metadata_dict = {}
+        
+        for row in basic_results:
+            item_id = row['itemID']
+            metadata_dict[item_id] = {
+                "itemType": row['typeName'],
+                "dateAdded": row['dateAdded'],
+                "dateModified": row['dateModified']
+            }
+        
+        # Get field data for all items
+        field_query = f"""
+            SELECT id.itemID, f.fieldName, idv.value
+            FROM itemData id
+            JOIN fields f ON id.fieldID = f.fieldID
+            JOIN itemDataValues idv ON id.valueID = idv.valueID
+            WHERE id.itemID IN ({id_placeholders})
+        """
+        
+        field_results = self.db.execute_query(field_query, unique_ids)
+        for row in field_results:
+            item_id = row['itemID']
+            if item_id in metadata_dict:
+                metadata_dict[item_id][row['fieldName']] = row['value']
+        
+        # Get creators for all items
+        creator_query = f"""
+            SELECT ic.itemID, crt.creatorType, c.firstName, c.lastName
+            FROM itemCreators ic
+            JOIN creators c ON ic.creatorID = c.creatorID
+            JOIN creatorTypes crt ON ic.creatorTypeID = crt.creatorTypeID
+            WHERE ic.itemID IN ({id_placeholders})
+            ORDER BY ic.itemID, ic.orderIndex
+        """
+        
+        creator_results = self.db.execute_query(creator_query, unique_ids)
+        creators_by_item = {}
+        
+        for row in creator_results:
+            item_id = row['itemID']
+            if item_id not in creators_by_item:
+                creators_by_item[item_id] = []
+            
+            creator = {"creatorType": row['creatorType']}
+            if row['firstName']:
+                creator["firstName"] = row['firstName']
+            if row['lastName']:
+                creator["lastName"] = row['lastName']
+            creators_by_item[item_id].append(creator)
+        
+        # Add creators to metadata
+        for item_id, creators in creators_by_item.items():
+            if item_id in metadata_dict:
+                metadata_dict[item_id]["creators"] = creators
+        
+        # Ensure all requested items have at least an empty dict
+        for item_id in unique_ids:
+            if item_id not in metadata_dict:
+                metadata_dict[item_id] = {}
+        
+        return metadata_dict
+    
     def get_item_collections(self, item_id: int) -> List[str]:
         """Get list of collection names that contain this item."""
         try:

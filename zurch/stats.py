@@ -4,7 +4,8 @@ from typing import Dict, List, Tuple
 from .database import DatabaseConnection
 from .queries import (
     build_stats_total_counts_query, build_stats_item_types_query,
-    build_stats_attachment_counts_query, build_stats_top_tags_query
+    build_stats_attachment_counts_query, build_stats_top_tags_query,
+    build_stats_top_collections_query, build_stats_publication_decades_query
 )
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,8 @@ class DatabaseStats:
     items_with_attachments: int
     items_without_attachments: int
     top_tags: List[Tuple[str, int]]
+    top_collections: List[Tuple[str, int]]
+    publication_decades: List[Tuple[str, int]]
 
 class StatsService:
     """Service for gathering database statistics."""
@@ -55,6 +58,14 @@ class StatsService:
             top_tags_results = self.db.execute_query(build_stats_top_tags_query())
             top_tags = [(row['name'], row['count']) for row in top_tags_results]
             
+            # Get top collections
+            top_collections_results = self.db.execute_query(build_stats_top_collections_query())
+            top_collections = [(row['name'], row['count']) for row in top_collections_results]
+            
+            # Get publication decades
+            publication_decades_results = self.db.execute_query(build_stats_publication_decades_query())
+            publication_decades = [(row['decade'], row['count']) for row in publication_decades_results]
+            
             return DatabaseStats(
                 total_items=total_items,
                 total_collections=total_collections,
@@ -62,7 +73,9 @@ class StatsService:
                 item_types=item_types,
                 items_with_attachments=items_with_attachments,
                 items_without_attachments=items_without_attachments,
-                top_tags=top_tags
+                top_tags=top_tags,
+                top_collections=top_collections,
+                publication_decades=publication_decades
             )
             
         except Exception as e:
@@ -74,5 +87,7 @@ class StatsService:
                 item_types=[],
                 items_with_attachments=0,
                 items_without_attachments=0,
-                top_tags=[]
+                top_tags=[],
+                top_collections=[],
+                publication_decades=[]
             )

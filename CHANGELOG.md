@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2025-07-15
+
+### Enhanced
+- **Code Architecture**: Major refactoring to improve maintainability and security
+  - Refactored overly complex handler functions in `handlers.py` into smaller, focused functions
+  - Introduced `DisplayOptions` class to reduce parameter passing complexity
+  - Split large functions like `handle_folder_command` and `handle_single_collection_with_subcollections`
+  - Extracted helper functions for spinner management, subcollection filtering, and item processing
+  
+### Security
+- **Export Path Validation**: Replaced weak blacklist approach with robust whitelist security model
+  - Export now only allowed to safe directories: current working directory, user home, Documents, Downloads, Desktop, temp directories
+  - Added detailed error messages showing available safe directories when export is blocked
+  - Improved cross-platform support for Windows, macOS, and Linux safe directory detection
+  - Added support for XDG directories on Linux systems
+
+### Technical
+- Enhanced function signatures to reduce parameter complexity
+- Improved error handling and user feedback for export operations
+- Better separation of concerns between data loading, processing, and display logic
+- Maintained backward compatibility for all existing functionality
+
 ## [0.7.1] - 2025-07-14
 
 ### Fixed

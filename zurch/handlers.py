@@ -16,32 +16,42 @@ from .duplicates import deduplicate_items, deduplicate_grouped_items
 from .export import export_items
 from .utils import sort_items
 
-def display_sorted_items(items, max_results, args, db=None, search_term="", show_ids=None, show_tags=None, show_year=None, show_author=None, show_created=None, show_modified=None, show_collections=None):
+class DisplayOptions:
+    """Container for display options to reduce parameter passing."""
+    def __init__(self, args=None, **kwargs):
+        if args:
+            self.show_ids = getattr(args, 'showids', False)
+            self.show_tags = getattr(args, 'showtags', False)
+            self.show_year = getattr(args, 'showyear', False)
+            self.show_author = getattr(args, 'showauthor', False)
+            self.show_created = getattr(args, 'showcreated', False)
+            self.show_modified = getattr(args, 'showmodified', False)
+            self.show_collections = getattr(args, 'showcollections', False)
+            self.sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
+        else:
+            self.show_ids = kwargs.get('show_ids', False)
+            self.show_tags = kwargs.get('show_tags', False)
+            self.show_year = kwargs.get('show_year', False)
+            self.show_author = kwargs.get('show_author', False)
+            self.show_created = kwargs.get('show_created', False)
+            self.show_modified = kwargs.get('show_modified', False)
+            self.show_collections = kwargs.get('show_collections', False)
+            self.sort_by_author = kwargs.get('sort_by_author', False)
+
+def display_sorted_items(items, max_results, args, db=None, search_term="", display_opts: DisplayOptions = None):
     """Display items with optional sorting."""
     # Sort items if sort flag is provided
     if hasattr(args, 'sort') and args.sort:
         items = sort_items(items, args.sort, db)
     
-    # Use args attributes if specific parameters not provided
-    if show_ids is None:
-        show_ids = getattr(args, 'showids', False)
-    if show_tags is None:
-        show_tags = getattr(args, 'showtags', False)
-    if show_year is None:
-        show_year = getattr(args, 'showyear', False)
-    if show_author is None:
-        show_author = getattr(args, 'showauthor', False)
-    if show_created is None:
-        show_created = getattr(args, 'showcreated', False)
-    if show_modified is None:
-        show_modified = getattr(args, 'showmodified', False)
-    if show_collections is None:
-        show_collections = getattr(args, 'showcollections', False)
+    # Use display options or create from args
+    if display_opts is None:
+        display_opts = DisplayOptions(args)
     
-    # Check if sorting by author
-    sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
-    
-    display_items(items, max_results, search_term, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db=db, sort_by_author=sort_by_author)
+    display_items(items, max_results, search_term, 
+                 display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
+                 display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
+                 display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
 
 def sanitize_filename(filename: str, max_length: int = 100) -> str:
     """Sanitize filename for cross-platform compatibility."""
@@ -156,32 +166,37 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
         print(f"Error copying attachment: {e}")
         return False
 
-def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, db=None, sort_by_author: bool = False):
+def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, display_opts: DisplayOptions = None, db=None, return_index: bool = False):
     """Handle interactive item selection.
     
-    Returns (item, should_grab, selected_index) tuple.
+    Returns (item, should_grab) tuple by default, or (item, should_grab, selected_index) if return_index=True.
     User can append 'g' to number to grab attachment: "3g"
     User can type 'l' to re-list all items
     """
     if not items:
-        return None, False, None
+        return (None, False, None) if return_index else (None, False)
+    
+    if display_opts is None:
+        display_opts = DisplayOptions()
     
     while True:
         try:
             choice = input(f"\nSelect item number (1-{len(items)}, 0 to cancel, 'l' to list, add 'g' to grab: 3g): ").strip()
             if choice == "0":
-                return None, False, None
+                return (None, False, None) if return_index else (None, False)
             elif choice.lower() == "l":
                 # Re-display the items
                 print()
                 if grouped_items:
-                    display_grouped_items(grouped_items, max_results, search_term, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db=db, sort_by_author=sort_by_author)
+                    display_grouped_items(grouped_items, max_results, search_term, 
+                                         display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
+                                         display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
+                                         display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
                 else:
-                    # Apply sorting if available
-                    sorted_items = items
-                    if 'args' in locals() and hasattr(args, 'sort') and args.sort:
-                        sorted_items = sort_items(items, args.sort, db)
-                    display_items(sorted_items, max_results, search_term, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db=db, sort_by_author=sort_by_author)
+                    display_items(items, max_results, search_term, 
+                                 display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
+                                 display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
+                                 display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
                 continue
             
             # Check for 'g' suffix
@@ -191,14 +206,14 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
             
             idx = int(choice) - 1
             if 0 <= idx < len(items):
-                return items[idx], should_grab, idx
+                return (items[idx], should_grab, idx) if return_index else (items[idx], should_grab)
             else:
                 print(f"Please enter a number between 1 and {len(items)}")
         except (ValueError, KeyboardInterrupt):
             print("\nCancelled")
-            return None, False, None
+            return (None, False, None) if return_index else (None, False)
         except EOFError:
-            return None, False, None
+            return (None, False, None) if return_index else (None, False)
 
 def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, sort_by_author: bool = False) -> None:
     """Handle interactive item selection and actions."""
@@ -207,7 +222,8 @@ def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results
     first_time = True
     
     while True:
-        selected, should_grab, selected_index = interactive_selection(items, max_results, search_term, grouped_items, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db, sort_by_author)
+        display_opts = DisplayOptions(show_ids=show_ids, show_tags=show_tags, show_year=show_year, show_author=show_author, show_created=show_created, show_modified=show_modified, show_collections=show_collections, sort_by_author=sort_by_author)
+        selected, should_grab, selected_index = interactive_selection(items, max_results, search_term, grouped_items, display_opts, db, return_index=True)
         if not selected:
             break
         
@@ -745,104 +761,136 @@ def display_collections_hierarchically_with_mapping(collections: List[ZoteroColl
     print_hierarchy(hierarchy)
     return collection_mapping
 
-def handle_single_collection_with_subcollections(db: ZoteroDatabase, selected_collection: ZoteroCollection, args, max_results: int, config: dict) -> int:
-    """Handle folder/ command for a single selected collection and its sub-collections."""
+def create_loading_spinner() -> Tuple[dict, Any]:
+    """Create and start a loading spinner."""
     import sys
     import threading
     import time
     
-    # Show spinner while loading
     spinner_chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-    spinner_running = True
+    spinner_state = {'running': True}
     
     def show_spinner():
         i = 0
-        while spinner_running:
+        while spinner_state['running']:
             sys.stdout.write(f'\r{spinner_chars[i % len(spinner_chars)]} Loading collections and sub-collections...')
             sys.stdout.flush()
             time.sleep(0.1)
             i += 1
     
-    # Start spinner
     spinner_thread = threading.Thread(target=show_spinner)
     spinner_thread.daemon = True
     spinner_thread.start()
     
+    return spinner_state, spinner_thread
+
+def stop_spinner(spinner_state: dict, spinner_thread) -> None:
+    """Stop the loading spinner and clear the line."""
+    import sys
+    spinner_state['running'] = False
+    spinner_thread.join()
+    sys.stdout.write('\r' + ' ' * 50 + '\r')  # Clear spinner line
+    sys.stdout.flush()
+
+def filter_subcollections(db: ZoteroDatabase, selected_collection: ZoteroCollection) -> List[ZoteroCollection]:
+    """Filter collections to include the selected collection and its sub-collections."""
+    all_collections = db.list_collections()
+    logger.debug(f"Total collections in database: {len(all_collections)}")
+    logger.debug(f"Selected collection: {selected_collection.full_path} (ID: {selected_collection.collection_id})")
+    
+    filtered_collections = []
+    for collection in all_collections:
+        # Check if this collection is the selected collection or a child of it
+        if (collection.collection_id == selected_collection.collection_id or
+            collection.full_path.startswith(selected_collection.full_path + " > ")):
+            filtered_collections.append(collection)
+            logger.debug(f"Added to filtered collections: {collection.full_path}")
+    
+    logger.debug(f"Filtered collections count: {len(filtered_collections)}")
+    return filtered_collections
+
+def load_items_from_collections(db: ZoteroDatabase, collections: List[ZoteroCollection], args) -> Tuple[List[ZoteroItem], int]:
+    """Load items from multiple collections with progress display."""
+    print(f"Loading items from {len(collections)} collections...")
+    
+    all_items = []
+    total_count = 0
+    
+    for i, collection in enumerate(collections, 1):
+        print(f"\rProcessing collection {i}/{len(collections)}: {collection.name}", end='', flush=True)
+        logger.debug(f"Getting items for collection: {collection.name} (full path: {collection.full_path})")
+        
+        items = db.items.get_items_in_collection(
+            collection.collection_id, args.only_attachments, 
+            args.after, args.before, args.books, args.articles, args.tag
+        )
+        logger.debug(f"Got {len(items)} items from collection {collection.name}")
+        all_items.extend(items)
+        total_count += len(items)
+    
+    print()  # New line after progress
+    return all_items, total_count
+
+def process_subcollection_items(all_items: List[ZoteroItem], args, db: ZoteroDatabase, max_results: int) -> Tuple[List[ZoteroItem], int, int, int]:
+    """Process items from subcollections (deduplication and limit)."""
+    # Apply deduplication if enabled (important since we may have items in multiple collections)
+    duplicates_removed = 0
+    if not args.no_dedupe:
+        print("Removing duplicates...")
+        all_items, duplicates_removed = deduplicate_items(db, all_items, args.debug)
+    
+    # Apply limit
+    items_before_limit = len(all_items)
+    all_items = all_items[:max_results]
+    items_final = len(all_items)
+    
+    return all_items, duplicates_removed, items_before_limit, items_final
+
+def display_subcollection_results(selected_collection: ZoteroCollection, items_final: int, items_before_limit: int, 
+                                 duplicates_removed: int, total_count: int, args) -> None:
+    """Display results for subcollection search."""
+    if args.only_attachments:
+        print(f"Items in folder '{selected_collection.name}' and sub-collections (with PDF/EPUB attachments):")
+    else:
+        print(f"Items in folder '{selected_collection.name}' and sub-collections:")
+    
+    # Show clear count information
+    if items_final < items_before_limit:
+        if duplicates_removed > 0:
+            print(f"Showing {items_final} of {items_before_limit} items ({duplicates_removed} duplicates removed, {total_count} total found):")
+        else:
+            print(f"Showing first {items_final} of {items_before_limit} items:")
+    elif duplicates_removed > 0:
+        print(f"Showing {items_final} items ({duplicates_removed} duplicates removed from {total_count} total found):")
+
+def handle_single_collection_with_subcollections(db: ZoteroDatabase, selected_collection: ZoteroCollection, args, max_results: int, config: dict) -> int:
+    """Handle folder/ command for a single selected collection and its sub-collections."""
+    # Show spinner while loading collections
+    spinner_state, spinner_thread = create_loading_spinner()
+    
     try:
-        # Get all collections for filtering
-        all_collections = db.list_collections()
-        logger.debug(f"Total collections in database: {len(all_collections)}")
-        logger.debug(f"Selected collection: {selected_collection.full_path} (ID: {selected_collection.collection_id})")
-        
         # Filter to include sub-collections of the selected collection
-        filtered_collections = []
-        for collection in all_collections:
-            # Check if this collection is the selected collection or a child of it
-            if (collection.collection_id == selected_collection.collection_id or
-                collection.full_path.startswith(selected_collection.full_path + " > ")):
-                filtered_collections.append(collection)
-                logger.debug(f"Added to filtered collections: {collection.full_path}")
-        
-        logger.debug(f"Filtered collections count: {len(filtered_collections)}")
+        filtered_collections = filter_subcollections(db, selected_collection)
         
         # Stop spinner
-        spinner_running = False
-        spinner_thread.join()
-        sys.stdout.write('\r' + ' ' * 50 + '\r')  # Clear spinner line
-        sys.stdout.flush()
+        stop_spinner(spinner_state, spinner_thread)
         
         logger.debug(f"Found {len(filtered_collections)} collections (including sub-collections)")
         
-        # Show progress while loading items
-        print(f"Loading items from {len(filtered_collections)} collections...")
-        
-        all_items = []
-        total_count = 0
-        
-        for i, collection in enumerate(filtered_collections, 1):
-            print(f"\rProcessing collection {i}/{len(filtered_collections)}: {collection.name}", end='', flush=True)
-            logger.debug(f"Getting items for collection: {collection.name} (full path: {collection.full_path})")
-            
-            items = db.items.get_items_in_collection(
-                collection.collection_id, args.only_attachments, 
-                args.after, args.before, args.books, args.articles, args.tag
-            )
-            logger.debug(f"Got {len(items)} items from collection {collection.name}")
-            all_items.extend(items)
-            total_count += len(items)
-        
-        print()  # New line after progress
+        # Load items from all collections
+        all_items, total_count = load_items_from_collections(db, filtered_collections, args)
         
         if not all_items:
             print(f"No items found in folder '{selected_collection.name}' and its sub-collections")
             return 1
         
-        # Apply deduplication if enabled (important since we may have items in multiple collections)
-        duplicates_removed = 0
-        if not args.no_dedupe:
-            print("Removing duplicates...")
-            all_items, duplicates_removed = deduplicate_items(db, all_items, args.debug)
-        
-        # Apply limit
-        items_before_limit = len(all_items)
-        all_items = all_items[:max_results]
-        items_final = len(all_items)
+        # Process items (deduplication and limit)
+        all_items, duplicates_removed, items_before_limit, items_final = process_subcollection_items(
+            all_items, args, db, max_results
+        )
         
         # Display results
-        if args.only_attachments:
-            print(f"Items in folder '{selected_collection.name}' and sub-collections (with PDF/EPUB attachments):")
-        else:
-            print(f"Items in folder '{selected_collection.name}' and sub-collections:")
-        
-        # Show clear count information
-        if items_final < items_before_limit:
-            if duplicates_removed > 0:
-                print(f"Showing {items_final} of {items_before_limit} items ({duplicates_removed} duplicates removed, {total_count} total found):")
-            else:
-                print(f"Showing first {items_final} of {items_before_limit} items:")
-        elif duplicates_removed > 0:
-            print(f"Showing {items_final} items ({duplicates_removed} duplicates removed from {total_count} total found):")
-        
+        display_subcollection_results(selected_collection, items_final, items_before_limit, duplicates_removed, total_count, args)
         display_sorted_items(all_items, max_results, args, db=db)
         
         # Handle export if requested
@@ -857,10 +905,7 @@ def handle_single_collection_with_subcollections(db: ZoteroDatabase, selected_co
     
     except Exception as e:
         # Make sure spinner is stopped in case of error
-        spinner_running = False
-        spinner_thread.join()
-        sys.stdout.write('\r' + ' ' * 50 + '\r')
-        sys.stdout.flush()
+        stop_spinner(spinner_state, spinner_thread)
         raise e
 
 def handle_multiple_collections_with_subcollections(db: ZoteroDatabase, folder_name: str, collections: List[ZoteroCollection], args, max_results: int, config: dict) -> int:
@@ -927,15 +972,66 @@ def handle_multiple_collections_with_subcollections(db: ZoteroDatabase, folder_n
     
     return 0
 
-def handle_folder_command(db: ZoteroDatabase, args, max_results: int, config: dict) -> int:
-    """Handle -f/--folder command."""
-    folder_name = ' '.join(args.folder)
+def parse_folder_parameters(args) -> Tuple[str, bool]:
+    """Parse folder command parameters.
     
-    # Handle "/" suffix for showing sub-collections
+    Returns: (folder_name, show_subcolls)
+    """
+    folder_name = ' '.join(args.folder)
     show_subcolls = folder_name.endswith('/')
     if show_subcolls:
         folder_name = folder_name[:-1]  # Remove the trailing "/"
         logger.debug(f"Folder command with sub-collections: '{folder_name}'")
+    return folder_name, show_subcolls
+
+def select_collection_for_subcollections(collections: List[ZoteroCollection], folder_name: str, db: ZoteroDatabase) -> Optional[ZoteroCollection]:
+    """Handle interactive selection when multiple collections match for sub-collection search."""
+    print(f"Multiple collections found matching '{folder_name}':")
+    print("Select a collection to show items from it and all its sub-collections:")
+    
+    # Display collections in hierarchical format and get the mapping
+    collection_mapping = display_collections_hierarchically_with_mapping(collections, db)
+    
+    logger.debug(f"Original collections count: {len(collections)}")
+    logger.debug(f"Collection mapping count: {len(collection_mapping)}")
+    
+    while True:
+        try:
+            choice = input(f"\nSelect collection number (1-{len(collection_mapping)}, 0 to cancel): ").strip()
+            if choice == "0":
+                return None
+            
+            selection_num = int(choice)
+            if 1 <= selection_num <= len(collection_mapping):
+                selected_collection = collection_mapping[selection_num - 1]
+                logger.debug(f"Selected collection: {selected_collection.full_path} (ID: {selected_collection.collection_id})")
+                return selected_collection
+            else:
+                print(f"Please enter a number between 1 and {len(collection_mapping)}")
+        except (ValueError, KeyboardInterrupt):
+            print("\nCancelled")
+            return None
+        except EOFError:
+            return None
+
+def handle_subcollections_mode(collections: List[ZoteroCollection], folder_name: str, db: ZoteroDatabase, args, max_results: int, config: dict) -> int:
+    """Handle folder command with subcollections (/ suffix)."""
+    logger.debug("Processing sub-collections...")
+    
+    # If multiple collections match, use interactive selection for better performance
+    if len(collections) > 1:
+        selected_collection = select_collection_for_subcollections(collections, folder_name, db)
+        if not selected_collection:
+            return 0
+        return handle_single_collection_with_subcollections(db, selected_collection, args, max_results, config)
+    
+    # Single collection - process normally
+    selected_collection = collections[0]
+    return handle_single_collection_with_subcollections(db, selected_collection, args, max_results, config)
+
+def handle_folder_command(db: ZoteroDatabase, args, max_results: int, config: dict) -> int:
+    """Handle -f/--folder command."""
+    folder_name, show_subcolls = parse_folder_parameters(args)
     
     # Check how many collections match
     collections = db.search_collections(folder_name)
@@ -946,49 +1042,10 @@ def handle_folder_command(db: ZoteroDatabase, args, max_results: int, config: di
         show_collection_suggestions(folder_name, similar)
         return 1
     
-    # If "/" suffix was used, force multiple collection handling to include sub-collections
+    # Route to appropriate handler
     if show_subcolls:
-        logger.debug("Processing sub-collections...")
-        
-        # If multiple collections match, use interactive selection for better performance
-        if len(collections) > 1:
-            print(f"Multiple collections found matching '{folder_name}':")
-            print("Select a collection to show items from it and all its sub-collections:")
-            
-            # Display collections in hierarchical format and get the mapping
-            collection_mapping = display_collections_hierarchically_with_mapping(collections, db)
-            
-            logger.debug(f"Original collections count: {len(collections)}")
-            logger.debug(f"Collection mapping count: {len(collection_mapping)}")
-            
-            while True:
-                try:
-                    choice = input(f"\nSelect collection number (1-{len(collection_mapping)}, 0 to cancel): ").strip()
-                    if choice == "0":
-                        return 0
-                    
-                    selection_num = int(choice)
-                    if 1 <= selection_num <= len(collection_mapping):
-                        selected_collection = collection_mapping[selection_num - 1]
-                        logger.debug(f"Selected collection: {selected_collection.full_path} (ID: {selected_collection.collection_id})")
-                        break
-                    else:
-                        print(f"Please enter a number between 1 and {len(collection_mapping)}")
-                except (ValueError, KeyboardInterrupt):
-                    print("\nCancelled")
-                    return 0
-                except EOFError:
-                    return 0
-            
-            # Now process the selected collection and its sub-collections
-            return handle_single_collection_with_subcollections(db, selected_collection, args, max_results, config)
-        
-        # Single collection - process normally
-        selected_collection = collections[0]
-        return handle_single_collection_with_subcollections(db, selected_collection, args, max_results, config)
-    
-    # Route to appropriate handler based on number of matches
-    if len(collections) > 1:
+        return handle_subcollections_mode(collections, folder_name, db, args, max_results, config)
+    elif len(collections) > 1:
         return handle_multiple_collections(db, folder_name, args, max_results, config)
     else:
         return handle_single_collection(db, folder_name, args, max_results, config)

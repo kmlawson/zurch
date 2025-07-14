@@ -132,6 +132,8 @@ def format_item_type_icon(item_type: str, is_duplicate: bool = False) -> str:
         icon = "📗 "  # Green book icon for books
     elif item_type_lower in ["journalarticle", "journal article"]:
         icon = "📄 "  # Document icon for journal articles
+    elif item_type_lower == "webpage":
+        icon = "🌐 "  # Globe icon for web pages
     else:
         icon = ""  # No icon for other types
     
@@ -295,13 +297,19 @@ def sort_items(items, sort_by: str, db=None):
                     # Use last name of first author for sorting
                     first_author = creators[0]
                     last_name = first_author.get('lastName', '')
-                    item_authors[item.item_id] = last_name.lower()
+                    if last_name:
+                        item_authors[item.item_id] = last_name.lower()
+                    else:
+                        # Use special value that sorts last (items without authors at bottom)
+                        item_authors[item.item_id] = '~~~no_author'
                 else:
-                    item_authors[item.item_id] = ''
+                    # Use special value that sorts last (items without authors at bottom)
+                    item_authors[item.item_id] = '~~~no_author'
             except Exception:
-                item_authors[item.item_id] = ''
+                # Use special value that sorts last (items without authors at bottom)
+                item_authors[item.item_id] = '~~~no_author'
         
-        return sorted(items, key=lambda item: item_authors.get(item.item_id, ''))
+        return sorted(items, key=lambda item: item_authors.get(item.item_id, '~~~no_author'))
     else:
         # Default to title sorting
         return sorted(items, key=lambda item: item.title.lower())

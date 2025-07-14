@@ -9,43 +9,96 @@ from .search import ZoteroDatabase
 
 logger = logging.getLogger(__name__)
 
-def is_safe_path(file_path: Path) -> bool:
-    """Check if the file path is safe (not in dangerous system directories)."""
-    # Get absolute path to resolve any relative paths
-    abs_path = file_path.resolve()
+def get_safe_base_directories() -> List[Path]:
+    """Get list of safe base directories where files can be exported."""
+    import os
+    from pathlib import Path
     
-    # Dangerous system directories to avoid
-    dangerous_dirs = [
-        "/System",
-        "/Library",
-        "/bin",
-        "/sbin",
-        "/usr/bin",
-        "/usr/sbin",
-        "/Applications",
-        "/private",
-        "/etc",
-        "/var/log",
-        "/var/db",
-        "/var/root",
-        "/root"
-    ]
+    safe_dirs = []
     
-    # Add Windows specific dangerous directories
-    if os.name == 'nt':
-        dangerous_dirs.extend([
-            "C:\\Windows",
-            "C:\\System32",
-            "C:\\Program Files",
-            "C:\\Program Files (x86)"
+    # Always allow current working directory
+    safe_dirs.append(Path.cwd())
+    
+    # Add user home directory and common subdirectories
+    home_dir = Path.home()
+    safe_dirs.extend([
+        home_dir,
+        home_dir / "Documents",
+        home_dir / "Downloads", 
+        home_dir / "Desktop",
+    ])
+    
+    # Add user-specific directories based on OS
+    if os.name == 'posix':  # Unix-like (macOS, Linux)
+        # Add common user directories
+        safe_dirs.extend([
+            home_dir / "tmp",
+            Path("/tmp"),
+            Path("/var/tmp"),
         ])
+        
+        # Add XDG directories if they exist
+        xdg_documents = os.environ.get('XDG_DOCUMENTS_DIR')
+        xdg_download = os.environ.get('XDG_DOWNLOAD_DIR')
+        xdg_desktop = os.environ.get('XDG_DESKTOP_DIR')
+        
+        if xdg_documents:
+            safe_dirs.append(Path(xdg_documents))
+        if xdg_download:
+            safe_dirs.append(Path(xdg_download))
+        if xdg_desktop:
+            safe_dirs.append(Path(xdg_desktop))
+            
+    elif os.name == 'nt':  # Windows
+        # Add Windows user directories
+        appdata = os.environ.get('APPDATA')
+        if appdata:
+            safe_dirs.append(Path(appdata))
+        
+        localappdata = os.environ.get('LOCALAPPDATA')
+        if localappdata:
+            safe_dirs.append(Path(localappdata))
     
-    # Check if path starts with any dangerous directory
-    for dangerous_dir in dangerous_dirs:
-        if str(abs_path).startswith(dangerous_dir):
-            return False
+    # Filter to only existing directories and resolve paths
+    safe_dirs = [d.resolve() for d in safe_dirs if d.exists() and d.is_dir()]
     
-    return True
+    return safe_dirs
+
+def is_safe_path(file_path: Path) -> bool:
+    """Check if the file path is within safe directories using whitelist approach.
+    
+    This uses a whitelist approach which is more secure than blacklisting.
+    Only allows files to be written to:
+    - Current working directory and subdirectories
+    - User home directory and common subdirectories (Documents, Downloads, Desktop)
+    - Temporary directories
+    - XDG directories (Linux)
+    """
+    try:
+        # Get absolute path to resolve any relative paths
+        abs_path = file_path.resolve()
+        
+        # Get list of safe base directories
+        safe_dirs = get_safe_base_directories()
+        
+        # Check if the file path is within any safe directory
+        for safe_dir in safe_dirs:
+            try:
+                # Check if abs_path is within safe_dir or is safe_dir itself
+                abs_path.relative_to(safe_dir)
+                logger.debug(f"Path {abs_path} is safe (within {safe_dir})")
+                return True
+            except ValueError:
+                # Path is not within this safe directory, continue checking
+                continue
+        
+        # If we get here, the path is not within any safe directory
+        logger.warning(f"Path {abs_path} is not within any safe directory")
+        return False
+        
+    except Exception as e:
+        logger.error(f"Error checking path safety: {e}")
+        return False
 
 def ensure_directory_exists(file_path: Path) -> bool:
     """Ensure the directory exists, create if needed with user confirmation."""
@@ -238,9 +291,16 @@ def export_items(items: List[ZoteroItem], db: ZoteroDatabase, export_format: str
         filename = generate_export_filename(export_format, search_term)
         output_path = Path.cwd() / filename
     
-    # Safety checks
+    # Safety checks with improved error messages
     if not is_safe_path(output_path):
-        print(f"Error: Cannot export to {output_path} - path is in a protected system directory.")
+        safe_dirs = get_safe_base_directories()
+        safe_dir_list = '\n  '.join(str(d) for d in safe_dirs[:5])  # Show first 5 safe directories
+        print(f"Error: Cannot export to {output_path}")
+        print(f"For security, exports are only allowed to safe directories such as:")
+        print(f"  {safe_dir_list}")
+        if len(safe_dirs) > 5:
+            print(f"  ... and {len(safe_dirs) - 5} other safe locations")
+        print(f"Try exporting to a subdirectory of your home directory or current working directory.")
         return False
     
     # Check if file exists (no overwriting)

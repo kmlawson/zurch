@@ -109,7 +109,7 @@ def select_best_duplicate(db: ZoteroDatabase, duplicates: List[ZoteroItem]) -> Z
     return selected
 
 def deduplicate_items(db: ZoteroDatabase, items: List[ZoteroItem], debug_mode: bool = False) -> Tuple[List[ZoteroItem], int]:
-    """Remove duplicates from a list of items with optimized metadata caching.
+    """Remove duplicates from a list of items with optimized bulk metadata fetching.
     
     Args:
         db: Database connection
@@ -122,17 +122,24 @@ def deduplicate_items(db: ZoteroDatabase, items: List[ZoteroItem], debug_mode: b
     if not items:
         return [], 0
     
-    # Cache metadata to avoid multiple DB calls per item
-    metadata_cache = {}
+    # Fetch all metadata in bulk to avoid N+1 query problem
+    item_ids = [item.item_id for item in items]
+    try:
+        metadata_cache = db.get_bulk_item_metadata(item_ids)
+        logger.debug(f"Bulk fetched metadata for {len(item_ids)} items")
+    except Exception as e:
+        logger.warning(f"Error bulk fetching metadata, falling back to individual queries: {e}")
+        # Fall back to individual fetching if bulk fails
+        metadata_cache = {}
+        for item in items:
+            try:
+                metadata_cache[item.item_id] = db.get_item_metadata(item.item_id)
+            except Exception as e:
+                logger.warning(f"Error getting metadata for item {item.item_id}: {e}")
+                metadata_cache[item.item_id] = {}
     
     def get_cached_metadata(item_id: int):
-        if item_id not in metadata_cache:
-            try:
-                metadata_cache[item_id] = db.get_item_metadata(item_id)
-            except Exception as e:
-                logger.warning(f"Error getting metadata for item {item_id}: {e}")
-                metadata_cache[item_id] = {}
-        return metadata_cache[item_id]
+        return metadata_cache.get(item_id, {})
     
     # Group items by duplicate key using cached metadata
     duplicate_groups: Dict[DuplicateKey, List[ZoteroItem]] = {}

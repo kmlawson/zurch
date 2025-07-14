@@ -117,6 +117,10 @@ class ZoteroDatabase:
         """Get full metadata for an item."""
         return self.metadata.get_item_metadata(item_id)
     
+    def get_bulk_item_metadata(self, item_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+        """Get metadata for multiple items in bulk to optimize performance."""
+        return self.metadata.get_bulk_item_metadata(item_ids)
+    
     def get_item_collections(self, item_id: int) -> List[str]:
         """Get list of collection names that contain this item."""
         return self.metadata.get_item_collections(item_id)
