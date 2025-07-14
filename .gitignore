@@ -1,6 +1,10 @@
 # Project specific
 CLAUDE.md
 zotero-database-example/
+.claude/
+GEMINI.md
+KEYFILES.md
+TODO.md
 
 # Python
 __pycache__/
