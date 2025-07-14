@@ -19,12 +19,28 @@ Zotero is a powerful citation manager and research assistant for managing source
 
 ## Installation
 
+### Install from PyPI
+
 ```bash
-# Install with uv (recommended)
-uv add zurch
+# Install with uv (recommended) - installs as a globally available tool
+uv tool install zurch
 
 # Or install with pip
 pip install zurch
+
+# Or install with pipx (if you prefer pipx over uv)
+pipx install zurch
+```
+
+### Install from source
+
+```bash
+# Clone the repository
+git clone https://github.com/kmlawson/zurch.git
+cd zurch
+
+# Install with uv
+uv tool install .
 ```
 
 ## Quick Start

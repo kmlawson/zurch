@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-07-14
+
+### Added
+- **PyPI Release**: First official release on PyPI 
+- **Installation Instructions**: Updated README with proper PyPI installation instructions
+  - Added `uv tool install` as recommended installation method
+  - Added `pipx` as alternative to pip
+  - Included installation from source instructions
+
+### Enhanced
+- **Documentation**: Improved installation documentation for better user experience
+
 ## [0.6.9] - 2025-07-14
 
 ### Fixed
