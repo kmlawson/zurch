@@ -14,6 +14,25 @@ from .display import (
 from .interactive import interactive_collection_selection
 from .duplicates import deduplicate_items, deduplicate_grouped_items
 from .export import export_items
+from .utils import sort_items
+
+def display_sorted_items(items, max_results, args, db=None, search_term="", show_ids=None, show_tags=None, show_year=None, show_author=None):
+    """Display items with optional sorting."""
+    # Sort items if sort flag is provided
+    if hasattr(args, 'sort') and args.sort:
+        items = sort_items(items, args.sort, db)
+    
+    # Use args attributes if specific parameters not provided
+    if show_ids is None:
+        show_ids = getattr(args, 'showids', False)
+    if show_tags is None:
+        show_tags = getattr(args, 'showtags', False)
+    if show_year is None:
+        show_year = getattr(args, 'showyear', False)
+    if show_author is None:
+        show_author = getattr(args, 'showauthor', False)
+    
+    display_items(items, max_results, search_term, show_ids, show_tags, show_year, show_author, db=db)
 
 def sanitize_filename(filename: str, max_length: int = 100) -> str:
     """Sanitize filename for cross-platform compatibility."""
@@ -149,7 +168,11 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
                 if grouped_items:
                     display_grouped_items(grouped_items, max_results, search_term, show_ids, show_tags, show_year, show_author, db=db)
                 else:
-                    display_items(items, max_results, search_term, show_ids, show_tags, show_year, show_author, db=db)
+                    # Apply sorting if available
+                    sorted_items = items
+                    if 'args' in locals() and hasattr(args, 'sort') and args.sort:
+                        sorted_items = sort_items(items, args.sort, db)
+                    display_items(sorted_items, max_results, search_term, show_ids, show_tags, show_year, show_author, db=db)
                 continue
             
             # Check for 'g' suffix
@@ -333,7 +356,7 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
             input("\nPress Enter to continue...")
             continue
         
-        display_items(items, max_results, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, db=db)
+        display_sorted_items(items, max_results, args, db=db)
         
         # Interactive item selection loop
         while True:
@@ -345,7 +368,7 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
                 elif choice.lower() == "l":
                     # Re-display the items
                     print()
-                    display_items(items, max_results, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, db=db)
+                    display_sorted_items(items, max_results, args, db=db)
                     continue
                 elif choice.lower() == "b":
                     # Go back to collection list
@@ -532,7 +555,7 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
     
     # Display results
     display_folder_results(folder_name, items_final, items_before_limit, duplicates_removed, total_count, args)
-    display_items(items, max_results, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, db=db)
+    display_sorted_items(items, max_results, args, db=db)
     
     # Handle export if requested
     if args.export:
@@ -712,7 +735,7 @@ def handle_single_collection_with_subcollections(db: ZoteroDatabase, selected_co
         elif duplicates_removed > 0:
             print(f"Showing {items_final} items ({duplicates_removed} duplicates removed from {total_count} total found):")
         
-        display_items(all_items, max_results, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, db=db)
+        display_sorted_items(all_items, max_results, args, db=db)
         
         # Handle export if requested
         if args.export:
@@ -783,7 +806,7 @@ def handle_multiple_collections_with_subcollections(db: ZoteroDatabase, folder_n
     if duplicates_removed > 0 and args.debug:
         print(f"(Debug: {duplicates_removed} duplicates removed)")
     
-    display_items(all_items, max_results, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, db=db)
+    display_sorted_items(all_items, max_results, args, db=db)
     
     # Handle export if requested
     if args.export:
@@ -972,7 +995,7 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
     display_search_results(search_display, items_final, items_before_limit, duplicates_removed, total_count, args)
     
     highlight_term = get_highlight_term(args, name_search)
-    display_items(items, max_results, highlight_term, args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, db=db)
+    display_sorted_items(items, max_results, args, db=db, search_term=highlight_term)
     
     # Handle export if requested
     if args.export:

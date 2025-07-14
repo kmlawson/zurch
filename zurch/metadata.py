@@ -30,25 +30,25 @@ class MetadataService:
             raise ValueError(f"Item {item_id} not found")
         
         metadata = {
-            "itemType": item_info[0],
-            "dateAdded": item_info[1],
-            "dateModified": item_info[2]
+            "itemType": item_info['typeName'],
+            "dateAdded": item_info['dateAdded'],
+            "dateModified": item_info['dateModified']
         }
         
         # Get field data
         field_results = self.db.execute_query(build_item_metadata_query(), (item_id,))
-        for field_name, value in field_results:
-            metadata[field_name] = value
+        for row in field_results:
+            metadata[row['fieldName']] = row['value']
         
         # Get creators
         creator_results = self.db.execute_query(build_item_creators_query(), (item_id,))
         creators = []
-        for creator_type, first_name, last_name in creator_results:
-            creator = {"creatorType": creator_type}
-            if first_name:
-                creator["firstName"] = first_name
-            if last_name:
-                creator["lastName"] = last_name
+        for row in creator_results:
+            creator = {"creatorType": row['creatorType']}
+            if row['firstName']:
+                creator["firstName"] = row['firstName']
+            if row['lastName']:
+                creator["lastName"] = row['lastName']
             creators.append(creator)
         
         if creators:
@@ -60,7 +60,7 @@ class MetadataService:
         """Get list of collection names that contain this item."""
         try:
             results = self.db.execute_query(build_item_collections_query(), (item_id,))
-            return [row[0] for row in results]
+            return [row['path'] for row in results]
         except Exception as e:
             logger.error(f"Error getting item collections: {e}")
             return []
@@ -69,7 +69,7 @@ class MetadataService:
         """Get list of tags for this item."""
         try:
             results = self.db.execute_query(build_item_tags_query(), (item_id,))
-            return [row[0] for row in results]
+            return [row['name'] for row in results]
         except Exception as e:
             logger.error(f"Error getting item tags: {e}")
             return []
@@ -82,7 +82,8 @@ class MetadataService:
             if not result:
                 return None
             
-            attachment_path, item_key = result
+            attachment_path = result['path']
+            item_key = result['key']
             
             if attachment_path and attachment_path.startswith("storage:"):
                 filename = attachment_path[8:]  # Remove "storage:" prefix

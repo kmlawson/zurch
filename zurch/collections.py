@@ -16,12 +16,12 @@ class CollectionService:
         
         return [
             ZoteroCollection(
-                collection_id=row[0],
-                name=row[1],
-                parent_id=row[2],
-                depth=row[3],
-                item_count=row[4],
-                full_path=row[5]
+                collection_id=row['collectionID'],
+                name=row['collectionName'],
+                parent_id=row['parentCollectionID'],
+                depth=row['depth'],
+                item_count=row['item_count'],
+                full_path=row['path']
             )
             for row in results
         ]
@@ -65,6 +65,6 @@ class CollectionService:
     
     def get_collection_item_count(self, collection_id: int) -> int:
         """Get the total number of items in a collection."""
-        query = "SELECT COUNT(*) FROM collectionItems WHERE collectionID = ?"
+        query = "SELECT COUNT(*) as count FROM collectionItems WHERE collectionID = ?"
         result = self.db.execute_single_query(query, (collection_id,))
-        return result[0] if result else 0
+        return result['count'] if result else 0

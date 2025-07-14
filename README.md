@@ -2,6 +2,10 @@
 
 A command-line interface tool to interact with your local Zotero installation and extract information from it.
 
+## Introduction
+
+Zotero is a powerful citation manager and research assistant for managing sources. This command-line interface (CLI) can be used to carry out read-only searches on the sqlite database of the Zotero system. Zotero developers generally do not recommend this kind of external direct access to the database. While risk of any impact on your database is low, if you have concerns, you may want to run this on a copy of your Zotero installation and use of this tool is at your own risk. Zurch will not function while the Zotero is running.
+
 ## Features
 
 - **List Collections**: Browse all your Zotero collections and sub-collections
@@ -10,8 +14,8 @@ A command-line interface tool to interact with your local Zotero installation an
 - **Attachment Management**: Copy PDF, EPUB, and text attachments to your current directory
 - **Visual Indicators**: Icons show item types (📗 books, 📄 articles) and attachments (🔗 PDF/EPUB available)
 - **Fast Performance**: Optimized SQLite queries for quick results
-- **Safe Access**: Provides READ ONLY access to your Zotero database 
-- 🖥️ **Cross-Platform**: Designed for macOS, may work on Windows and Linux
+- Provides READ ONLY access to your Zotero database 
+- Designed for macOS, may work on Windows and Linux
 
 ## Installation
 
@@ -338,6 +342,7 @@ zurch -l "digital"
 - **Version Compatibility**: Tested with Zotero 7.0
 - **Error Handling**: Graceful handling of database issues
 - **Cross-Platform**: Platform-specific path handling
+- See the info/ZOTERO_DATABASE_SECURITY_REPORT.md file for an LLM generated threat assessment. 
 
 ## Development
 
@@ -406,7 +411,6 @@ zurch -n 中国
 zurch -n 한국
 
 # Unicode punctuation and symbols
-zurch -n "–"
 zurch -n "café"
 ```
 

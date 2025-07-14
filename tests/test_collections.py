@@ -134,11 +134,21 @@ class TestCollectionServiceMocked:
     
     def test_list_collections_with_mock(self):
         """Test list_collections with mocked data."""
+        # Create mock row objects that support dict-style access
+        row1 = MagicMock()
+        row1.__getitem__ = MagicMock(side_effect=lambda k: {
+            'collectionID': 1, 'collectionName': "Test Collection", 
+            'parentCollectionID': None, 'depth': 0, 'item_count': 5, 'path': "Test Collection"
+        }[k])
+        
+        row2 = MagicMock()
+        row2.__getitem__ = MagicMock(side_effect=lambda k: {
+            'collectionID': 2, 'collectionName': "Sub Collection", 
+            'parentCollectionID': 1, 'depth': 1, 'item_count': 3, 'path': "Test Collection > Sub Collection"
+        }[k])
+        
         mock_db = MagicMock()
-        mock_db.execute_query.return_value = [
-            (1, "Test Collection", None, 0, 5, "Test Collection"),
-            (2, "Sub Collection", 1, 1, 3, "Test Collection > Sub Collection")
-        ]
+        mock_db.execute_query.return_value = [row1, row2]
         
         service = CollectionService(mock_db)
         collections = service.list_collections()
@@ -170,8 +180,11 @@ class TestCollectionServiceMocked:
     
     def test_get_collection_item_count_with_mock(self):
         """Test get_collection_item_count with mocked data."""
+        mock_row = MagicMock()
+        mock_row.__getitem__ = MagicMock(side_effect=lambda k: {'count': 5}[k])
+        
         mock_db = MagicMock()
-        mock_db.execute_single_query.return_value = (5,)
+        mock_db.execute_single_query.return_value = mock_row
         
         service = CollectionService(mock_db)
         count = service.get_collection_item_count(1)

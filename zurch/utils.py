@@ -238,3 +238,70 @@ def format_metadata_field(field_name: str, value: str) -> str:
     BOLD = '\033[1m'
     RESET = '\033[0m'
     return f"{BOLD}{field_name}:{RESET} {value}"
+
+def sort_items(items, sort_by: str, db=None):
+    """Sort items by specified criteria."""
+    from typing import List
+    from .models import ZoteroItem
+    
+    if not sort_by or not items:
+        return items
+    
+    # Normalize sort criteria
+    sort_key = sort_by.lower()
+    if sort_key in ['t', 'title']:
+        return sorted(items, key=lambda item: item.title.lower())
+    elif sort_key in ['c', 'created']:
+        return sorted(items, key=lambda item: item.date_added or '', reverse=True)
+    elif sort_key in ['m', 'modified']:
+        return sorted(items, key=lambda item: item.date_modified or '', reverse=True)
+    elif sort_key in ['d', 'date']:
+        # For date sorting, we need to get publication year from metadata
+        # For now, fall back to title sorting if no database connection
+        if not db:
+            return sorted(items, key=lambda item: item.title.lower())
+        
+        # Get publication years for all items
+        item_years = {}
+        for item in items:
+            try:
+                metadata = db.metadata.get_item_metadata(item.item_id)
+                year = metadata.get('date', '')
+                # Extract year from date string (format might be "2023", "2023-01-01", etc.)
+                if year:
+                    year_str = str(year)[:4]
+                    try:
+                        item_years[item.item_id] = int(year_str)
+                    except ValueError:
+                        item_years[item.item_id] = 0
+                else:
+                    item_years[item.item_id] = 0
+            except Exception:
+                item_years[item.item_id] = 0
+        
+        return sorted(items, key=lambda item: item_years.get(item.item_id, 0), reverse=True)
+    elif sort_key in ['a', 'author']:
+        # For author sorting, we need to get author info from metadata
+        if not db:
+            return sorted(items, key=lambda item: item.title.lower())
+        
+        # Get authors for all items
+        item_authors = {}
+        for item in items:
+            try:
+                metadata = db.metadata.get_item_metadata(item.item_id)
+                creators = metadata.get('creators', [])
+                if creators and len(creators) > 0:
+                    # Use last name of first author for sorting
+                    first_author = creators[0]
+                    last_name = first_author.get('lastName', '')
+                    item_authors[item.item_id] = last_name.lower()
+                else:
+                    item_authors[item.item_id] = ''
+            except Exception:
+                item_authors[item.item_id] = ''
+        
+        return sorted(items, key=lambda item: item_authors.get(item.item_id, ''))
+    else:
+        # Default to title sorting
+        return sorted(items, key=lambda item: item.title.lower())

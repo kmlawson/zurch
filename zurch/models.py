@@ -47,6 +47,8 @@ class ZoteroItem:
     attachment_type: Optional[str] = None
     attachment_path: Optional[str] = None
     is_duplicate: bool = False
+    date_added: Optional[str] = None
+    date_modified: Optional[str] = None
     
     def get_item_type_enum(self) -> ItemType:
         """Get ItemType enum for this item."""

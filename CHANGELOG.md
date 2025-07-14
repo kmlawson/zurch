@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.8] - 2025-07-14
+
+### Added
+- **--sort Flag**: Sort search results by title, date, author, created, or modified
+  - Supports aliases: `t/title`, `d/date`, `a/author`, `c/created`, `m/modified`
+  - Auto-enables related display flags (e.g., `--sort date` enables `--showyear`)
+  - Works with all search commands (`-f`, `-n`, `-a`, `-t`)
+
+### Enhanced  
+- **Database Performance**: Unified database interface with persistent connections
+  - Uses `sqlite3.Row` for dictionary-style column access
+  - Eliminates redundant connection overhead from old interface
+  - Significantly improved performance for large result sets
+- **Display System**: Enhanced sorting integration across all display functions
+- **Code Architecture**: Consolidated database.py and database_improved.py into single optimized interface
+
+### Technical
+- Added `sort_items()` utility function with metadata-aware sorting for date and author
+- Added `display_sorted_items()` helper function for consistent sorting behavior
+- Enhanced database connection management with context managers and proper error handling
+- Updated all database access patterns to use modern sqlite3.Row dictionary access
+
 ## [0.6.7] - 2025-07-14
 
 ### Added

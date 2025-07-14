@@ -93,7 +93,9 @@ def build_collection_items_query(collection_id: int, only_attachments: bool = Fa
         it.typeName,
         ci.orderIndex,
         ia.contentType,
-        ia.path
+        ia.path,
+        datetime(i.dateAdded, 'localtime') as dateAdded,
+        datetime(i.dateModified, 'localtime') as dateModified
     FROM collectionItems ci
     JOIN items i ON ci.itemID = i.itemID
     JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
@@ -335,7 +337,9 @@ def build_name_search_query(name, exact_match: bool = False, only_attachments: b
         COALESCE(idv.value, '') as title,
         it.typeName,
         ia.contentType,
-        ia.path
+        ia.path,
+        datetime(i.dateAdded, 'localtime') as dateAdded,
+        datetime(i.dateModified, 'localtime') as dateModified
     FROM items i
     JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
     {attachment_join}
@@ -422,7 +426,9 @@ def build_author_search_query(author, exact_match: bool = False, only_attachment
         COALESCE(idv_title.value, '') as title,
         it.typeName,
         ia.contentType,
-        ia.path
+        ia.path,
+        datetime(i.dateAdded, 'localtime') as dateAdded,
+        datetime(i.dateModified, 'localtime') as dateModified
     FROM items i
     JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
     JOIN itemCreators ic ON i.itemID = ic.itemID
@@ -660,7 +666,9 @@ def build_combined_search_query(name=None, author=None, exact_match: bool = Fals
         COALESCE(idv.value, '') as title,
         it.typeName,
         ia.contentType,
-        ia.path as attachment_path
+        ia.path as attachment_path,
+        datetime(i.dateAdded, 'localtime') as dateAdded,
+        datetime(i.dateModified, 'localtime') as dateModified
     FROM items i
     LEFT JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
     LEFT JOIN itemData id ON i.itemID = id.itemID

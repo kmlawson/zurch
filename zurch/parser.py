@@ -171,6 +171,31 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
     )
     
     parser.add_argument(
+        "--showcreated", 
+        action="store_true",
+        help="Show item creation date in search results"
+    )
+    
+    parser.add_argument(
+        "--showmodified", 
+        action="store_true",
+        help="Show item modification date in search results"
+    )
+    
+    parser.add_argument(
+        "--showcollections", 
+        action="store_true",
+        help="Show collections each item belongs to in search results"
+    )
+    
+    parser.add_argument(
+        "--sort", 
+        type=str,
+        choices=["t", "title", "d", "date", "a", "author", "c", "created", "m", "modified"],
+        help="Sort search results by: t/title, d/date, a/author, c/created, m/modified"
+    )
+    
+    parser.add_argument(
         "--config", 
         action="store_true",
         help="Launch interactive configuration wizard"

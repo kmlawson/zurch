@@ -1,6 +1,6 @@
 [project]
 name = "zurch"
-version = "0.6.7"
+version = "0.6.8"
 description = "Zurch - A CLI search tool for Zotero installations"
 readme = "README.md"
 license = { text = "MIT" }

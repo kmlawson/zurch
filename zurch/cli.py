@@ -12,7 +12,7 @@ from .handlers import (
 )
 from .config_wizard import run_config_wizard
 
-__version__ = "0.6.7"
+__version__ = "0.6.8"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
@@ -91,8 +91,28 @@ def main():
     if not hasattr(args, 'showauthor') or not args.showauthor:
         args.showauthor = config.get('show_author', False)
     
+    if not hasattr(args, 'showcreated') or not args.showcreated:
+        args.showcreated = config.get('show_created', False)
+    
+    if not hasattr(args, 'showmodified') or not args.showmodified:
+        args.showmodified = config.get('show_modified', False)
+    
+    if not hasattr(args, 'showcollections') or not args.showcollections:
+        args.showcollections = config.get('show_collections', False)
+    
     if not hasattr(args, 'only_attachments') or not args.only_attachments:
         args.only_attachments = config.get('only_attachments', False)
+    
+    # Handle sort flag - auto-enable related display flags
+    if args.sort:
+        if args.sort in ['d', 'date']:
+            args.showyear = True
+        elif args.sort in ['a', 'author']:
+            args.showauthor = True
+        elif args.sort in ['c', 'created']:
+            args.showcreated = True
+        elif args.sort in ['m', 'modified']:
+            args.showmodified = True
     
     if not any([args.folder, args.name, args.list is not None, args.id, args.author, args.getbyid, args.tag, args.stats]):
         parser.print_help()

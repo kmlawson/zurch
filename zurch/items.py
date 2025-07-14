@@ -25,7 +25,14 @@ class ItemService:
         items = []
         
         for row in results:
-            item_id, title, item_type, order_index, content_type, attachment_path = row
+            item_id = row['itemID']
+            title = row['title']
+            item_type = row['typeName']
+            order_index = row['orderIndex']
+            content_type = row['contentType']
+            attachment_path = row['path']
+            date_added = row['dateAdded']
+            date_modified = row['dateModified']
             
             # Process attachment data directly from query
             attachment_type = get_attachment_type(content_type) if content_type else None
@@ -35,7 +42,9 @@ class ItemService:
                 title=title or "Untitled",
                 item_type=item_type,
                 attachment_type=attachment_type,
-                attachment_path=attachment_path
+                attachment_path=attachment_path,
+                date_added=date_added,
+                date_modified=date_modified
             )
             
             items.append(item)
@@ -60,7 +69,11 @@ class ItemService:
         items = []
         
         for row in results:
-            item_id, title, item_type, content_type, attachment_path = row
+            item_id = row['itemID']
+            title = row['title']
+            item_type = row['typeName']
+            content_type = row['contentType']
+            attachment_path = row['path']
             
             # Process attachment data directly from query
             attachment_type = get_attachment_type(content_type) if content_type else None
@@ -95,7 +108,11 @@ class ItemService:
         items = []
         
         for row in results:
-            item_id, title, item_type, content_type, attachment_path = row
+            item_id = row['itemID']
+            title = row['title']
+            item_type = row['typeName']
+            content_type = row['contentType']
+            attachment_path = row['path']
             
             # Process attachment data directly from query
             attachment_type = get_attachment_type(content_type) if content_type else None
@@ -135,7 +152,11 @@ class ItemService:
             items = []
             
             for row in rows:
-                item_id, title, item_type, content_type, attachment_path = row
+                item_id = row['itemID']
+                title = row['title']
+                item_type = row['typeName']
+                content_type = row['contentType']
+                attachment_path = row['attachment_path']
                 
                 # Process attachment data directly from query
                 attachment_type = get_attachment_type(content_type) if content_type else None
