@@ -640,6 +640,8 @@ def handle_single_collection_with_subcollections(db: ZoteroDatabase, selected_co
     try:
         # Get all collections for filtering
         all_collections = db.list_collections()
+        logger.debug(f"Total collections in database: {len(all_collections)}")
+        logger.debug(f"Selected collection: {selected_collection.full_path} (ID: {selected_collection.collection_id})")
         
         # Filter to include sub-collections of the selected collection
         filtered_collections = []
@@ -648,6 +650,9 @@ def handle_single_collection_with_subcollections(db: ZoteroDatabase, selected_co
             if (collection.collection_id == selected_collection.collection_id or
                 collection.full_path.startswith(selected_collection.full_path + " > ")):
                 filtered_collections.append(collection)
+                logger.debug(f"Added to filtered collections: {collection.full_path}")
+        
+        logger.debug(f"Filtered collections count: {len(filtered_collections)}")
         
         # Stop spinner
         spinner_running = False
@@ -665,13 +670,15 @@ def handle_single_collection_with_subcollections(db: ZoteroDatabase, selected_co
         
         for i, collection in enumerate(filtered_collections, 1):
             print(f"\rProcessing collection {i}/{len(filtered_collections)}: {collection.name}", end='', flush=True)
+            logger.debug(f"Getting items for collection: {collection.name} (full path: {collection.full_path})")
             
-            items, count = db.get_collection_items(
-                collection.name, args.only_attachments, 
+            items = db.items.get_items_in_collection(
+                collection.collection_id, args.only_attachments, 
                 args.after, args.before, args.books, args.articles, args.tag
             )
+            logger.debug(f"Got {len(items)} items from collection {collection.name}")
             all_items.extend(items)
-            total_count += count
+            total_count += len(items)
         
         print()  # New line after progress
         
@@ -818,18 +825,22 @@ def handle_folder_command(db: ZoteroDatabase, args, max_results: int, config: di
             # Display collections in hierarchical format and get the mapping
             collection_mapping = display_collections_hierarchically_with_mapping(collections, db)
             
+            logger.debug(f"Original collections count: {len(collections)}")
+            logger.debug(f"Collection mapping count: {len(collection_mapping)}")
+            
             while True:
                 try:
-                    choice = input(f"\nSelect collection number (1-{len(collections)}, 0 to cancel): ").strip()
+                    choice = input(f"\nSelect collection number (1-{len(collection_mapping)}, 0 to cancel): ").strip()
                     if choice == "0":
                         return 0
                     
                     selection_num = int(choice)
-                    if 1 <= selection_num <= len(collections):
+                    if 1 <= selection_num <= len(collection_mapping):
                         selected_collection = collection_mapping[selection_num - 1]
+                        logger.debug(f"Selected collection: {selected_collection.full_path} (ID: {selected_collection.collection_id})")
                         break
                     else:
-                        print(f"Please enter a number between 1 and {len(collections)}")
+                        print(f"Please enter a number between 1 and {len(collection_mapping)}")
                 except (ValueError, KeyboardInterrupt):
                     print("\nCancelled")
                     return 0
