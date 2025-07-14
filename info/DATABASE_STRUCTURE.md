@@ -84,12 +84,24 @@ CREATE TABLE itemDataValues (
 Defines available metadata fields.
 
 ```sql
--- Common fields include:
+-- Key metadata fields (fieldID: fieldName):
 -- 1: title
 -- 2: abstractNote  
--- 6: date
+-- 6: date (PUBLICATION DATE - use for date filtering)
 -- 7: language
 -- 8: shortTitle
+-- 14: accessDate (ACCESS DATE - when item was downloaded)
+-- 15: rights
+-- 16: extra
+-- 25: ISBN
+-- 37: publicationTitle
+-- 58: DOI
+-- 70: issue
+-- 72: journalAbbreviation
+-- 73: ISSN
+
+-- IMPORTANT: Field 6 (date) is publication date, Field 14 (accessDate) is access date
+-- Use Field 6 for --after/--before date filtering, NOT Field 14
 ```
 
 ### Item Types (`itemTypes`)

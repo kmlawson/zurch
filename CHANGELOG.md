@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.9] - 2025-07-14
+
+### Fixed
+- **Publication Date Statistics**: Fixed `--stats` command to show actual publication dates instead of access dates
+  - Changed field ID from 14 (accessDate) to 6 (publication date) in all date-related queries
+  - Publication decades now show realistic historical distribution (peak in 1990s-2010s)
+  - Added "No Publication Date" category showing items without publication years (23.5% of items)
+  - Fixed date filtering (`--after`, `--before` flags) to use publication dates consistently
+  - Affects all date-based operations including search sorting and statistics
+
+### Technical
+- Updated 8 SQL query locations in `queries.py` to use correct field ID for publication dates
+- Enhanced publication decades query logic to handle missing publication dates properly
+- Improved data integrity for all date-related functionality throughout the application
+
 ## [0.6.8] - 2025-07-14
 
 ### Added

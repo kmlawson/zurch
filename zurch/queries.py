@@ -110,7 +110,7 @@ def build_collection_items_query(collection_id: int, only_attachments: bool = Fa
         SELECT id.itemID, idv.value
         FROM itemData id
         JOIN itemDataValues idv ON id.valueID = idv.valueID
-        WHERE id.fieldID = 14  -- date field
+        WHERE id.fieldID = 6  -- date field (publication date)
     ) date_data ON i.itemID = date_data.itemID
     LEFT JOIN (
         SELECT DISTINCT parentItemID as itemID, contentType, path
@@ -325,7 +325,7 @@ def build_name_search_query(name, exact_match: bool = False, only_attachments: b
     {attachment_join}
     LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
     LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
-    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 6  -- date field (publication date)
     LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
     {where_clause}
     """
@@ -345,7 +345,7 @@ def build_name_search_query(name, exact_match: bool = False, only_attachments: b
     {attachment_join}
     LEFT JOIN itemData id ON i.itemID = id.itemID AND id.fieldID = 1  -- title field only
     LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID
-    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 6  -- date field (publication date)
     LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
     LEFT JOIN (
         SELECT DISTINCT parentItemID as itemID, contentType, path
@@ -414,7 +414,7 @@ def build_author_search_query(author, exact_match: bool = False, only_attachment
     JOIN itemCreators ic ON i.itemID = ic.itemID
     JOIN creators c ON ic.creatorID = c.creatorID
     {attachment_join}
-    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 6  -- date field (publication date)
     LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
     {where_clause}
     """
@@ -436,7 +436,7 @@ def build_author_search_query(author, exact_match: bool = False, only_attachment
     {attachment_join}
     LEFT JOIN itemData id_title ON i.itemID = id_title.itemID AND id_title.fieldID = 1  -- title field
     LEFT JOIN itemDataValues idv_title ON id_title.valueID = idv_title.valueID
-    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14  -- date field
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 6  -- date field (publication date)
     LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
     LEFT JOIN (
         SELECT DISTINCT parentItemID as itemID, contentType, path
@@ -588,7 +588,46 @@ def build_stats_top_tags_query() -> str:
     WHERE i.itemID NOT IN (SELECT itemID FROM itemAttachments)
     GROUP BY t.name
     ORDER BY count DESC
+    LIMIT 40
+    """
+
+def build_stats_top_collections_query() -> str:
+    """Build query to get collections with most items."""
+    return """
+    SELECT c.collectionName as name, COUNT(ci.itemID) as count
+    FROM collections c
+    JOIN collectionItems ci ON c.collectionID = ci.collectionID
+    JOIN items i ON ci.itemID = i.itemID
+    WHERE i.itemID NOT IN (SELECT itemID FROM itemAttachments)
+    GROUP BY c.collectionID, c.collectionName
+    ORDER BY count DESC
     LIMIT 20
+    """
+
+def build_stats_publication_decades_query() -> str:
+    """Build query to get publication counts by decade using actual publication date."""
+    return """
+    SELECT 
+        CASE 
+            WHEN idv.value IS NULL OR LENGTH(idv.value) < 4 OR SUBSTR(idv.value, 1, 4) NOT GLOB '[0-9][0-9][0-9][0-9]' THEN 'No Publication Date'
+            WHEN CAST(SUBSTR(idv.value, 1, 4) AS INTEGER) < 1900 THEN 'Before 1900'
+            WHEN CAST(SUBSTR(idv.value, 1, 4) AS INTEGER) >= 2020 THEN '2020s'
+            ELSE 
+                CAST((CAST(SUBSTR(idv.value, 1, 4) AS INTEGER) / 10) * 10 AS TEXT) || 's'
+        END as decade,
+        COUNT(i.itemID) as count
+    FROM items i
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 6
+    LEFT JOIN itemDataValues idv ON id_date.valueID = idv.valueID
+    WHERE i.itemID NOT IN (SELECT itemID FROM itemAttachments)
+    GROUP BY decade
+    ORDER BY 
+        CASE 
+            WHEN decade = 'No Publication Date' THEN 9999
+            WHEN decade = 'Before 1900' THEN 0
+            WHEN decade = '2020s' THEN 2021
+            ELSE CAST(SUBSTR(decade, 1, 4) AS INTEGER)
+        END
     """
 
 def build_combined_search_query(name=None, author=None, exact_match: bool = False, 
@@ -651,7 +690,7 @@ def build_combined_search_query(name=None, author=None, exact_match: bool = Fals
     FROM items i
     LEFT JOIN itemData id ON i.itemID = id.itemID
     LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID AND id.fieldID = 1
-    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 6
     LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
     LEFT JOIN itemCreators ic ON i.itemID = ic.itemID
     LEFT JOIN creators c ON ic.creatorID = c.creatorID
@@ -673,7 +712,7 @@ def build_combined_search_query(name=None, author=None, exact_match: bool = Fals
     LEFT JOIN itemTypes it ON i.itemTypeID = it.itemTypeID
     LEFT JOIN itemData id ON i.itemID = id.itemID
     LEFT JOIN itemDataValues idv ON id.valueID = idv.valueID AND id.fieldID = 1
-    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 14
+    LEFT JOIN itemData id_date ON i.itemID = id_date.itemID AND id_date.fieldID = 6
     LEFT JOIN itemDataValues idv_date ON id_date.valueID = idv_date.valueID
     LEFT JOIN itemCreators ic ON i.itemID = ic.itemID
     LEFT JOIN creators c ON ic.creatorID = c.creatorID

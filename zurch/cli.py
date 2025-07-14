@@ -12,7 +12,7 @@ from .handlers import (
 )
 from .config_wizard import run_config_wizard
 
-__version__ = "0.6.8"
+__version__ = "0.6.9"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
