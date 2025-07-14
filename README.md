@@ -65,6 +65,15 @@ zurch --stats
 
 # Show tags under item titles
 zurch -n "research methods" --showtags
+
+# Show year and author information
+zurch -n "machine learning" --showyear --showauthor
+
+# Export search results to CSV
+zurch -n "digital humanities" --export csv
+
+# Export to specific file path
+zurch -n "methodology" --export json --file ~/research/methods.json
 ```
 
 ## Commands
@@ -80,6 +89,10 @@ zurch -l "china"
 # Use % wildcard for more control
 zurch -l "china%"      # starts with "china"
 zurch -l "%history%"   # contains "history"
+
+# Show collection and all its sub-collections (append / to name)
+zurch -l "Digital Humanities/"  # Shows "Digital Humanities" and all sub-collections
+zurch -l "Research/"            # Shows all collections under "Research"
 ```
 
 ### Browse Folder (-f/--folder)
@@ -164,16 +177,27 @@ Shows:
 - **Top Tags**: Most frequently used tags with item counts
 - **Database Location**: Path to your Zotero database file
 
+### Display Options
+- `--showids`: Show item ID numbers in search results
+- `--showtags`: Show tags for each item in search results
+- `--showyear`: Show publication year for each item
+- `--showauthor`: Show first author name for each item
+- `--showcollections`: (Coming soon) Show collections each item belongs to
+
+### Export Options
+- `--export [csv|json]`: Export search results to CSV or JSON format
+- `--file PATH`: Specify output file path for export (defaults to current directory)
+
 ### Other Options
-- `-x/--max-results N`: Limit number of results (default: 100) - **Applied as final step after all filtering and deduplication** - **Applied as final step after all filtering and deduplication**
+- `-x/--max-results N`: Limit number of results (default: 100) - **Applied as final step after all filtering and deduplication**
 - `-d/--debug`: Enable detailed logging and show purple duplicates
 - `-v/--version`: Show version information
 - `-h/--help`: Show help message
 - `--id ID`: Show metadata for a specific item ID
-- `--showids`: Show item ID numbers in search results
 - `--getbyid ID [ID...]`: Grab attachments for specific item IDs
 - `--no-dedupe`: Disable automatic duplicate removal
-- `--showtags`: Show tags for each item in search results
+- `--config`: Launch interactive configuration wizard
+- `--stats`: Show comprehensive database statistics
 
 ### Duplicate Detection
 zurch automatically removes duplicate items based on title, author, and year matching:
@@ -186,7 +210,20 @@ Example: Search for "World History" reduces 8 duplicate items to 2 unique result
 
 ## Configuration
 
-zurch automatically discovers your Zotero database. Configuration is stored in OS-appropriate locations:
+### Interactive Configuration Wizard
+The easiest way to configure zurch is through the interactive wizard:
+```bash
+zurch --config
+```
+
+This will guide you through:
+- Auto-detecting your Zotero database location
+- Setting default display options (IDs, tags, year, author)
+- Configuring search defaults
+- Setting maximum results limit
+
+### Manual Configuration
+Configuration is stored in OS-appropriate locations:
 - **Windows**: `%APPDATA%\zurch\config.json`
 - **macOS**: `~/Library/Application Support/zurch/config.json`
 - **Linux**: `~/.config/zurch/config.json` (or `$XDG_CONFIG_HOME/zurch/config.json`)
@@ -198,7 +235,12 @@ Example configuration:
 {
   "zotero_database_path": "/path/to/Zotero/zotero.sqlite",
   "max_results": 100,
-  "debug": false
+  "debug": false,
+  "show_ids": false,
+  "show_tags": false,
+  "show_year": false,
+  "show_author": false,
+  "only_attachments": false
 }
 ```
 
