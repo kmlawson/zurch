@@ -24,11 +24,13 @@ When the flag is active, any list of item titles will, in a different color, sho
 
 **✅ COMPLETED in v0.6.5** - Added --showtags flag that shows tags under item titles in muted gray color.
 
-## clean up -h
+## clean up -h [✅]
 
 The -h is a bit too much with wrapping lines, is there a way to clean it up and make it clearer on small terminal screens, perhaps keeping lines shorter for descriptions of features?
 
-## export feature
+**✅ COMPLETED in v0.6.6** - Help display cleaned up with RawDescriptionHelpFormatter and shorter descriptions.
+
+## export feature [✅]
 
 **Implementation Details:**
 - Add a new flag, e.g., `--export [format]`, to the search commands.
@@ -38,13 +40,19 @@ The -h is a bit too much with wrapping lines, is there a way to clean it up and 
 - if --file is not present, then save it in the current directory
 - if a path has non-existant directories, ask if the user wants to create a directory in that spot.
 
-## --showyear feature
+**✅ COMPLETED in v0.6.6** - Added comprehensive export functionality with CSV/JSON formats, safety checks, and file conflict resolution.
+
+## --showyear feature [✅]
 
 - includes the year of publication when it is available for an item in all search item lists
 
-## --showauthor feature
+**✅ COMPLETED in v0.6.6** - Added --showyear flag that displays publication year in parentheses after item titles.
+
+## --showauthor feature [✅]
 
 - includes the first author (last and first) of an item after the title
+
+**✅ COMPLETED in v0.6.6** - Added --showauthor flag that shows first author name after title with " - " separator.
 
 ## config wizard
 

@@ -163,6 +163,18 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
         type=str,
         help="Specify output file path for export (defaults to current directory)"
     )
+    
+    parser.add_argument(
+        "--showyear", 
+        action="store_true",
+        help="Show publication year for each item in search results"
+    )
+    
+    parser.add_argument(
+        "--showauthor", 
+        action="store_true",
+        help="Show first author name for each item in search results"
+    )
 
 from . import __version__
 

@@ -7,7 +7,7 @@ from .utils import (
     highlight_search_term, format_duplicate_title, format_metadata_field
 )
 
-def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, db=None) -> None:
+def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, db=None) -> None:
     """Display items with numbering and icons."""
     for i, item in enumerate(items, 1):
         # Item type icon (books and journal articles)
@@ -23,7 +23,44 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
         # Add ID if requested
         id_display = f" [ID:{item.item_id}]" if show_ids else ""
         
-        print(f"{number}. {type_icon}{attachment_icon}{title}{id_display}")
+        # Add year and author if requested
+        year_display = ""
+        author_display = ""
+        
+        if (show_year or show_author) and db:
+            try:
+                metadata = db.get_item_metadata(item.item_id)
+                
+                # Extract publication year
+                if show_year:
+                    pub_year = ""
+                    if 'date' in metadata:
+                        date_str = metadata['date']
+                        if date_str and len(date_str) >= 4:
+                            pub_year = date_str[:4]
+                    if pub_year:
+                        year_display = f" ({pub_year})"
+                
+                # Extract first author
+                if show_author:
+                    if 'creators' in metadata:
+                        for creator in metadata['creators']:
+                            if creator.get('creatorType') == 'author':
+                                name_parts = []
+                                if creator.get('firstName'):
+                                    name_parts.append(creator['firstName'])
+                                if creator.get('lastName'):
+                                    name_parts.append(creator['lastName'])
+                                if name_parts:
+                                    author_name = ' '.join(name_parts)
+                                    author_display = f" - {author_name}"
+                                    break
+                
+            except Exception as e:
+                # If metadata retrieval fails, continue without year/author
+                pass
+        
+        print(f"{number}. {type_icon}{attachment_icon}{title}{year_display}{author_display}{id_display}")
         
         # Show tags if requested
         if show_tags and db:
@@ -35,7 +72,7 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
                 tag_text = f"{GRAY}    Tags: {' | '.join(tags)}{RESET}"
                 print(tag_text)
 
-def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, db=None) -> List[ZoteroItem]:
+def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, db=None) -> List[ZoteroItem]:
     """Display items grouped by collection with separators. Returns flat list for interactive mode."""
     all_items = []
     item_counter = 1
@@ -69,7 +106,44 @@ def display_grouped_items(grouped_items: List[tuple], max_results: int, search_t
             # Add ID if requested
             id_display = f" [ID:{item.item_id}]" if show_ids else ""
             
-            print(f"{number}. {type_icon}{attachment_icon}{title}{id_display}")
+            # Add year and author if requested
+            year_display = ""
+            author_display = ""
+            
+            if (show_year or show_author) and db:
+                try:
+                    metadata = db.get_item_metadata(item.item_id)
+                    
+                    # Extract publication year
+                    if show_year:
+                        pub_year = ""
+                        if 'date' in metadata:
+                            date_str = metadata['date']
+                            if date_str and len(date_str) >= 4:
+                                pub_year = date_str[:4]
+                        if pub_year:
+                            year_display = f" ({pub_year})"
+                    
+                    # Extract first author
+                    if show_author:
+                        if 'creators' in metadata:
+                            for creator in metadata['creators']:
+                                if creator.get('creatorType') == 'author':
+                                    name_parts = []
+                                    if creator.get('firstName'):
+                                        name_parts.append(creator['firstName'])
+                                    if creator.get('lastName'):
+                                        name_parts.append(creator['lastName'])
+                                    if name_parts:
+                                        author_name = ' '.join(name_parts)
+                                        author_display = f" - {author_name}"
+                                        break
+                    
+                except Exception as e:
+                    # If metadata retrieval fails, continue without year/author
+                    pass
+            
+            print(f"{number}. {type_icon}{attachment_icon}{title}{year_display}{author_display}{id_display}")
             
             # Show tags if requested
             if show_tags and db:
