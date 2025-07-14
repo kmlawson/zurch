@@ -16,7 +16,7 @@ from .duplicates import deduplicate_items, deduplicate_grouped_items
 from .export import export_items
 from .utils import sort_items
 
-def display_sorted_items(items, max_results, args, db=None, search_term="", show_ids=None, show_tags=None, show_year=None, show_author=None):
+def display_sorted_items(items, max_results, args, db=None, search_term="", show_ids=None, show_tags=None, show_year=None, show_author=None, show_created=None, show_modified=None, show_collections=None):
     """Display items with optional sorting."""
     # Sort items if sort flag is provided
     if hasattr(args, 'sort') and args.sort:
@@ -31,8 +31,17 @@ def display_sorted_items(items, max_results, args, db=None, search_term="", show
         show_year = getattr(args, 'showyear', False)
     if show_author is None:
         show_author = getattr(args, 'showauthor', False)
+    if show_created is None:
+        show_created = getattr(args, 'showcreated', False)
+    if show_modified is None:
+        show_modified = getattr(args, 'showmodified', False)
+    if show_collections is None:
+        show_collections = getattr(args, 'showcollections', False)
     
-    display_items(items, max_results, search_term, show_ids, show_tags, show_year, show_author, db=db)
+    # Check if sorting by author
+    sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
+    
+    display_items(items, max_results, search_term, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db=db, sort_by_author=sort_by_author)
 
 def sanitize_filename(filename: str, max_length: int = 100) -> str:
     """Sanitize filename for cross-platform compatibility."""
@@ -147,32 +156,32 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
         print(f"Error copying attachment: {e}")
         return False
 
-def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, db=None):
+def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, db=None, sort_by_author: bool = False):
     """Handle interactive item selection.
     
-    Returns (item, should_grab) tuple.
+    Returns (item, should_grab, selected_index) tuple.
     User can append 'g' to number to grab attachment: "3g"
     User can type 'l' to re-list all items
     """
     if not items:
-        return None, False
+        return None, False, None
     
     while True:
         try:
             choice = input(f"\nSelect item number (1-{len(items)}, 0 to cancel, 'l' to list, add 'g' to grab: 3g): ").strip()
             if choice == "0":
-                return None, False
+                return None, False, None
             elif choice.lower() == "l":
                 # Re-display the items
                 print()
                 if grouped_items:
-                    display_grouped_items(grouped_items, max_results, search_term, show_ids, show_tags, show_year, show_author, db=db)
+                    display_grouped_items(grouped_items, max_results, search_term, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db=db, sort_by_author=sort_by_author)
                 else:
                     # Apply sorting if available
                     sorted_items = items
                     if 'args' in locals() and hasattr(args, 'sort') and args.sort:
                         sorted_items = sort_items(items, args.sort, db)
-                    display_items(sorted_items, max_results, search_term, show_ids, show_tags, show_year, show_author, db=db)
+                    display_items(sorted_items, max_results, search_term, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db=db, sort_by_author=sort_by_author)
                 continue
             
             # Check for 'g' suffix
@@ -182,29 +191,126 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
             
             idx = int(choice) - 1
             if 0 <= idx < len(items):
-                return items[idx], should_grab
+                return items[idx], should_grab, idx
             else:
                 print(f"Please enter a number between 1 and {len(items)}")
         except (ValueError, KeyboardInterrupt):
             print("\nCancelled")
-            return None, False
+            return None, False, None
         except EOFError:
-            return None, False
+            return None, False, None
 
-def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False) -> None:
+def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, sort_by_author: bool = False) -> None:
     """Handle interactive item selection and actions."""
     zotero_data_dir = Path(config['zotero_database_path']).parent
+    current_index = None  # Track current item for next/previous navigation
+    first_time = True
     
     while True:
-        selected, should_grab = interactive_selection(items, max_results, search_term, grouped_items, show_ids, show_tags, show_year, show_author, db)
+        selected, should_grab, selected_index = interactive_selection(items, max_results, search_term, grouped_items, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db, sort_by_author)
         if not selected:
             break
+        
+        current_index = selected_index
         
         # Check if user wants to grab (via 'g' suffix)
         if should_grab:
             grab_attachment(db, selected, zotero_data_dir)
         else:
-            show_item_metadata(db, selected)
+            # Show metadata and handle next/previous navigation
+            result_index = handle_metadata_navigation(db, items, current_index, zotero_data_dir)
+            if result_index == -1:
+                break  # Exit completely
+            current_index = result_index
+            
+            # When returning from metadata navigation, redisplay the list
+            print()
+            if grouped_items:
+                display_grouped_items(grouped_items, max_results, search_term, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db=db, sort_by_author=sort_by_author)
+            else:
+                # Apply sorting if available
+                sorted_items = items
+                display_items(sorted_items, max_results, search_term, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db=db, sort_by_author=sort_by_author)
+
+def handle_metadata_navigation(db: ZoteroDatabase, items, current_index: int, zotero_data_dir: Path) -> int:
+    """Handle metadata display with next/previous navigation.
+    
+    Returns the final index after navigation, or current_index if returning to main menu.
+    """
+    import sys
+    
+    def get_single_char():
+        """Get a single character input without waiting for Enter."""
+        try:
+            # Try to import and use termios/tty for single character input
+            import termios
+            import tty
+            
+            if not sys.stdin.isatty():
+                # Fall back to regular input when not in a TTY (e.g., piped input)
+                return input().strip()
+            
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                char = sys.stdin.read(1)
+                # Handle special keys like Enter
+                if ord(char) == 13:  # Enter key
+                    char = ""
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            return char
+        except (ImportError, AttributeError, termios.error, OSError):
+            # Fall back to regular input if termios/tty not available or fails
+            return input().strip()
+    
+    while True:
+        # Show metadata for current item
+        current_item = items[current_index]
+        show_item_metadata(db, current_item)
+        
+        # Check if current item has attachment
+        has_attachment = current_item.attachment_type is not None
+        
+        # Build navigation prompt
+        nav_options = []
+        if current_index > 0:
+            nav_options.append("'p' for previous")
+        if current_index < len(items) - 1:
+            nav_options.append("'n' for next")
+        if has_attachment:
+            nav_options.append("'g' to grab attachment")
+        nav_options.append("'l' for back to list")
+        nav_options.append("'0' or Enter to exit")
+        
+        nav_text = ", ".join(nav_options)
+        
+        try:
+            print(f"\nOptions: {nav_text}: ", end='', flush=True)
+            choice = get_single_char().lower()
+            print(choice if choice else "Enter")  # Echo the choice
+            
+            if choice == "0" or choice == "":
+                return -1  # Signal to exit completely (0 or Enter)
+            elif choice == "l":
+                return current_index  # Return to list
+            elif choice == "g" and has_attachment:
+                # Grab attachment for current item
+                grab_attachment(db, current_item, zotero_data_dir)
+                continue  # Stay in metadata navigation
+            elif choice == "n" and current_index < len(items) - 1:
+                current_index += 1
+                continue  # Show next item metadata
+            elif choice == "p" and current_index > 0:
+                current_index -= 1
+                continue  # Show previous item metadata
+            else:
+                print("Invalid option. Please try again.")
+                continue
+                
+        except (KeyboardInterrupt, EOFError):
+            return current_index  # Return to main menu on interrupt
 
 def handle_id_command(db: ZoteroDatabase, item_id: int) -> int:
     """Handle --id flag - show metadata for specific item."""
@@ -526,14 +632,15 @@ def handle_multiple_collections(db: ZoteroDatabase, folder_name: str, args, max_
     print()
     
     # Display grouped items and get flat list for interactive mode
-    all_items = display_grouped_items(grouped_items, max_results, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, db=db)
+    sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
+    all_items = display_grouped_items(grouped_items, max_results, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, db=db, sort_by_author=sort_by_author)
     
     # Handle export if requested
     if args.export:
         export_items(all_items, db, args.export, args.file, folder_name)
     
     if args.interactive:
-        handle_interactive_mode(db, all_items, config, max_results, folder_name, grouped_items, args.showids, args.showtags, args.showyear, args.showauthor)
+        handle_interactive_mode(db, all_items, config, max_results, folder_name, grouped_items, args.showids, args.showtags, args.showyear, args.showauthor, args.showcreated, args.showmodified, args.showcollections, sort_by_author)
     
     return 0
 
@@ -562,7 +669,8 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
         export_items(items, db, args.export, args.file, folder_name)
     
     if args.interactive:
-        handle_interactive_mode(db, items, config, max_results, folder_name, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor)
+        sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
+        handle_interactive_mode(db, items, config, max_results, folder_name, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, sort_by_author=sort_by_author)
     
     return 0
 
@@ -742,7 +850,8 @@ def handle_single_collection_with_subcollections(db: ZoteroDatabase, selected_co
             export_items(all_items, db, args.export, args.file, f"{selected_collection.name} and sub-collections")
         
         if args.interactive:
-            handle_interactive_mode(db, all_items, config, max_results, f"{selected_collection.name} and sub-collections", show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor)
+            sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
+            handle_interactive_mode(db, all_items, config, max_results, f"{selected_collection.name} and sub-collections", show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, sort_by_author=sort_by_author)
         
         return 0
     
@@ -813,7 +922,8 @@ def handle_multiple_collections_with_subcollections(db: ZoteroDatabase, folder_n
         export_items(all_items, db, args.export, args.file, f"{folder_name} and sub-collections")
     
     if args.interactive:
-        handle_interactive_mode(db, all_items, config, max_results, f"{folder_name} and sub-collections", show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor)
+        sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
+        handle_interactive_mode(db, all_items, config, max_results, f"{folder_name} and sub-collections", show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, sort_by_author=sort_by_author)
     
     return 0
 
@@ -1002,7 +1112,8 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
         export_items(items, db, args.export, args.file, search_display)
     
     if args.interactive:
-        handle_interactive_mode(db, items, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor)
+        sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
+        handle_interactive_mode(db, items, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, sort_by_author=sort_by_author)
     
     return 0
 

@@ -74,6 +74,8 @@ class ItemService:
             item_type = row['typeName']
             content_type = row['contentType']
             attachment_path = row['path']
+            date_added = row['dateAdded']
+            date_modified = row['dateModified']
             
             # Process attachment data directly from query
             attachment_type = get_attachment_type(content_type) if content_type else None
@@ -83,7 +85,9 @@ class ItemService:
                 title=title or "Untitled",
                 item_type=item_type,
                 attachment_type=attachment_type,
-                attachment_path=attachment_path
+                attachment_path=attachment_path,
+                date_added=date_added,
+                date_modified=date_modified
             )
             
             items.append(item)
@@ -113,6 +117,8 @@ class ItemService:
             item_type = row['typeName']
             content_type = row['contentType']
             attachment_path = row['path']
+            date_added = row['dateAdded']
+            date_modified = row['dateModified']
             
             # Process attachment data directly from query
             attachment_type = get_attachment_type(content_type) if content_type else None
@@ -122,7 +128,9 @@ class ItemService:
                 title=title or "Untitled",
                 item_type=item_type,
                 attachment_type=attachment_type,
-                attachment_path=attachment_path
+                attachment_path=attachment_path,
+                date_added=date_added,
+                date_modified=date_modified
             )
             
             items.append(item)
@@ -157,6 +165,8 @@ class ItemService:
                 item_type = row['typeName']
                 content_type = row['contentType']
                 attachment_path = row['attachment_path']
+                date_added = row['dateAdded']
+                date_modified = row['dateModified']
                 
                 # Process attachment data directly from query
                 attachment_type = get_attachment_type(content_type) if content_type else None
@@ -166,7 +176,9 @@ class ItemService:
                     title=title or "Untitled",
                     item_type=item_type,
                     attachment_type=attachment_type,
-                    attachment_path=attachment_path
+                    attachment_path=attachment_path,
+                    date_added=date_added,
+                    date_modified=date_modified
                 )
                 
                 items.append(item)

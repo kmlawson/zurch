@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2025-07-14
+
+### Fixed
+- **Display Features Implementation**: Fixed three new display flags to work correctly across all search types
+  - `--showcreated`: Now properly displays item creation dates in search results
+  - `--showmodified`: Now properly displays item modification dates in search results  
+  - `--showcollections`: Now properly displays collection paths for items in search results
+  - Fixed data extraction in search methods (`search_items_by_name`, `search_items_by_author`, `search_items_combined`)
+  - Updated all display function calls to pass new parameters through the entire call chain
+  - Enhanced interactive mode to support all three new display features
+
+### Technical
+- Updated SQL result processing in `items.py` to extract `dateAdded` and `dateModified` fields
+- Enhanced function signatures for `interactive_selection()` and `handle_interactive_mode()` 
+- Fixed parameter passing in all calls to `display_grouped_items()` and `display_items()`
+- Improved consistency of display features across folder, name, author, and combined searches
+
 ## [0.7.0] - 2025-07-14
 
 ### Added
