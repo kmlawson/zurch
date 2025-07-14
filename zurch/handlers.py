@@ -543,6 +543,77 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
     
     return 0
 
+def count_subcollections(collection: ZoteroCollection, db: ZoteroDatabase) -> int:
+    """Count the number of sub-collections for a given collection."""
+    all_collections = db.list_collections()
+    count = 0
+    for other_collection in all_collections:
+        if other_collection.full_path.startswith(collection.full_path + " > "):
+            count += 1
+    return count
+
+def display_collections_hierarchically_with_mapping(collections: List[ZoteroCollection], db: ZoteroDatabase) -> List[ZoteroCollection]:
+    """Display collections in hierarchical format with proper indentation and return the mapping."""
+    
+    # Build hierarchy data structure
+    hierarchy = {}
+    
+    for collection in collections:
+        parts = collection.full_path.split(' > ')
+        current_level = hierarchy
+        
+        # Build nested structure
+        for j, part in enumerate(parts):
+            if part not in current_level:
+                current_level[part] = {
+                    '_children': {},
+                    '_collection': None,
+                    '_item_count': 0
+                }
+            
+            # If this is the final part, store the collection info
+            if j == len(parts) - 1:
+                current_level[part]['_collection'] = collection
+                current_level[part]['_item_count'] = collection.item_count
+            
+            current_level = current_level[part]['_children']
+    
+    # Display the hierarchy with sequential numbering and collect mapping
+    counter = {'value': 1}  # Using dict to allow modification in nested function
+    collection_mapping = []
+    
+    def print_hierarchy(level_dict, depth=0):
+        indent = "  " * depth
+        
+        for name, data in sorted(level_dict.items()):
+            collection = data['_collection']
+            item_count = data['_item_count']
+            
+            if collection:
+                # This is a leaf node (actual collection from our search)
+                # Count sub-collections for this collection
+                sub_count = count_subcollections(collection, db)
+                
+                count_info = f" ({item_count} items"
+                if sub_count > 0:
+                    count_info += f", {sub_count} sub-collections"
+                count_info += ")"
+                
+                print(f"{counter['value']:2d}.{indent} {name}{count_info}")
+                collection_mapping.append(collection)
+                counter['value'] += 1
+            else:
+                # This is a parent node - only show if it has children that are in our list
+                if data['_children']:
+                    print(f"   {indent} {name}")
+            
+            # Recursively print children
+            if data['_children']:
+                print_hierarchy(data['_children'], depth + 1)
+    
+    print_hierarchy(hierarchy)
+    return collection_mapping
+
 def handle_single_collection_with_subcollections(db: ZoteroDatabase, selected_collection: ZoteroCollection, args, max_results: int, config: dict) -> int:
     """Handle folder/ command for a single selected collection and its sub-collections."""
     import sys
@@ -744,9 +815,8 @@ def handle_folder_command(db: ZoteroDatabase, args, max_results: int, config: di
             print(f"Multiple collections found matching '{folder_name}':")
             print("Select a collection to show items from it and all its sub-collections:")
             
-            # Show collections with item counts
-            for i, collection in enumerate(collections, 1):
-                print(f"{i:2d}. {collection.full_path} ({collection.item_count} items)")
+            # Display collections in hierarchical format and get the mapping
+            collection_mapping = display_collections_hierarchically_with_mapping(collections, db)
             
             while True:
                 try:
@@ -754,9 +824,9 @@ def handle_folder_command(db: ZoteroDatabase, args, max_results: int, config: di
                     if choice == "0":
                         return 0
                     
-                    idx = int(choice) - 1
-                    if 0 <= idx < len(collections):
-                        selected_collection = collections[idx]
+                    selection_num = int(choice)
+                    if 1 <= selection_num <= len(collections):
+                        selected_collection = collection_mapping[selection_num - 1]
                         break
                     else:
                         print(f"Please enter a number between 1 and {len(collections)}")
