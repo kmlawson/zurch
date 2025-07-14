@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.7] - 2025-07-14
+
+### Added
+- **--showyear Flag**: Display publication year in parentheses after item titles
+- **--showauthor Flag**: Display first author name with " - " separator after item titles  
+- **--config Wizard**: Interactive configuration wizard for easy setup
+  - Auto-detects Zotero database location
+  - Prompts for all configuration options with current values
+  - Validates database path and input values
+  - Reports config file location and saves atomically
+- **Config Defaults**: Support for display flags as config defaults
+  - `show_ids`, `show_tags`, `show_year`, `show_author`, `only_attachments`
+  - Command line arguments still override config defaults
+  - Backward compatible with existing config files
+
+### Enhanced
+- **Display System**: Enhanced all display functions to support year and author information
+- **Interactive Mode**: Full support for new display options in interactive mode
+- **Export Functionality**: Export includes year and author information when available
+- **Configuration Management**: Improved config loading with new display defaults
+
+### Technical
+- Added `config_wizard.py` with comprehensive interactive configuration setup
+- Enhanced `display_items()` and `display_grouped_items()` with year/author extraction
+- Updated all handlers to pass new display parameters through the system
+- Added validation functions for database paths and configuration values
+- Extended config file schema with new display option defaults
+
 ## [0.6.6] - 2025-07-14
 
 ### Added
