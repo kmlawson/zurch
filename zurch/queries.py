@@ -520,6 +520,16 @@ def build_attachment_path_query() -> str:
     LIMIT 1
     """
 
+def build_item_tags_query() -> str:
+    """Build query to get tags for a specific item."""
+    return """
+    SELECT t.name
+    FROM itemTags it
+    JOIN tags t ON it.tagID = t.tagID
+    WHERE it.itemID = ?
+    ORDER BY t.name
+    """
+
 def build_combined_search_query(name=None, author=None, exact_match: bool = False, 
                                only_attachments: bool = False, after_year: int = None, 
                                before_year: int = None, only_books: bool = False, 

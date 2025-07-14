@@ -138,6 +138,12 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Show item ID numbers in search results"
     )
+    
+    parser.add_argument(
+        "--showtags", 
+        action="store_true",
+        help="Show tags for each item in search results"
+    )
 
 from . import __version__
 

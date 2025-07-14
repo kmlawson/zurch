@@ -1,5 +1,6 @@
 import shutil
 import logging
+import re
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
 
@@ -13,8 +14,92 @@ from .display import (
 from .interactive import interactive_collection_selection
 from .duplicates import deduplicate_items, deduplicate_grouped_items
 
+def sanitize_filename(filename: str, max_length: int = 100) -> str:
+    """Sanitize filename for cross-platform compatibility."""
+    # Remove or replace invalid characters for Windows, macOS, and Linux
+    invalid_chars = r'[<>:"/\\|?*]'
+    filename = re.sub(invalid_chars, '', filename)
+    
+    # Remove control characters
+    filename = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', filename)
+    
+    # Replace multiple spaces with single space
+    filename = re.sub(r'\s+', ' ', filename)
+    
+    # Trim whitespace
+    filename = filename.strip()
+    
+    # Truncate if too long, but try to preserve extension
+    if len(filename) > max_length:
+        filename = filename[:max_length]
+    
+    return filename
+
+def generate_attachment_filename(db: ZoteroDatabase, item: ZoteroItem, original_filename: str) -> str:
+    """Generate a better filename for attachments using author and title."""
+    # Get item metadata to access author information
+    try:
+        metadata = db.get_item_metadata(item.item_id)
+        creators = metadata.get("creators", [])
+        title = metadata.get("title", item.title)
+        
+        # Get the file extension from original filename
+        original_path = Path(original_filename)
+        extension = original_path.suffix
+        
+        # Extract author last name (prefer first author)
+        author_lastname = None
+        for creator in creators:
+            if creator.get("creatorType") == "author" and creator.get("lastName"):
+                author_lastname = creator["lastName"]
+                break
+        
+        # Build the filename
+        filename_parts = []
+        
+        # Add author if available
+        if author_lastname:
+            filename_parts.append(author_lastname)
+        
+        # Add title (truncated if necessary)
+        if title:
+            # Calculate remaining length for title
+            base_length = 100  # Base max length
+            if author_lastname:
+                base_length -= len(author_lastname) + 3  # Account for " - "
+            base_length -= len(extension)  # Account for extension
+            
+            # Truncate title if needed
+            if len(title) > base_length:
+                title = title[:base_length-3] + "..."
+            
+            filename_parts.append(title)
+        
+        # Join parts with " - "
+        if filename_parts:
+            filename = " - ".join(filename_parts)
+        else:
+            # Fallback to original filename without extension
+            filename = original_path.stem
+        
+        # Add extension back
+        filename += extension
+        
+        # Sanitize the filename
+        filename = sanitize_filename(filename)
+        
+        # Ensure we have a valid filename
+        if not filename or filename == extension:
+            filename = original_filename
+        
+        return filename
+        
+    except Exception as e:
+        logger.warning(f"Could not generate filename for item {item.item_id}: {e}")
+        return original_filename
+
 def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path) -> bool:
-    """Copy attachment file to current directory."""
+    """Copy attachment file to current directory with improved filename."""
     attachment_path = db.get_item_attachment_path(item.item_id, zotero_data_dir)
     
     if not attachment_path:
@@ -22,7 +107,19 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
         return False
     
     try:
-        target_path = Path.cwd() / attachment_path.name
+        # Generate a better filename using author and title
+        new_filename = generate_attachment_filename(db, item, attachment_path.name)
+        target_path = Path.cwd() / new_filename
+        
+        # Handle filename conflicts by adding a number suffix
+        counter = 1
+        original_target = target_path
+        while target_path.exists():
+            stem = original_target.stem
+            suffix = original_target.suffix
+            target_path = Path.cwd() / f"{stem} ({counter}){suffix}"
+            counter += 1
+        
         shutil.copy2(attachment_path, target_path)
         print(f"Copied attachment to: {target_path}")
         return True
@@ -30,7 +127,7 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
         print(f"Error copying attachment: {e}")
         return False
 
-def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False):
+def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, db=None):
     """Handle interactive item selection.
     
     Returns (item, should_grab) tuple.
@@ -49,9 +146,9 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
                 # Re-display the items
                 print()
                 if grouped_items:
-                    display_grouped_items(grouped_items, max_results, search_term, show_ids)
+                    display_grouped_items(grouped_items, max_results, search_term, show_ids, show_tags, db)
                 else:
-                    display_items(items, max_results, search_term, show_ids)
+                    display_items(items, max_results, search_term, show_ids, show_tags, db)
                 continue
             
             # Check for 'g' suffix
@@ -70,12 +167,12 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
         except EOFError:
             return None, False
 
-def handle_interactive_mode(db: ZoteroDatabase, items, grab_mode: bool, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False) -> None:
+def handle_interactive_mode(db: ZoteroDatabase, items, grab_mode: bool, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False) -> None:
     """Handle interactive item selection and actions."""
     zotero_data_dir = Path(config['zotero_database_path']).parent
     
     while True:
-        selected, should_grab = interactive_selection(items, max_results, search_term, grouped_items, show_ids)
+        selected, should_grab = interactive_selection(items, max_results, search_term, grouped_items, show_ids, show_tags, db)
         if not selected:
             break
         
@@ -237,7 +334,7 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
             input("\nPress Enter to continue...")
             continue
         
-        display_items(items, max_results, show_ids=args.showids)
+        display_items(items, max_results, show_ids=args.showids, show_tags=args.showtags, db=db)
         
         # Interactive item selection loop
         while True:
@@ -249,7 +346,7 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
                 elif choice.lower() == "l":
                     # Re-display the items
                     print()
-                    display_items(items, max_results, show_ids=args.showids)
+                    display_items(items, max_results, show_ids=args.showids, show_tags=args.showtags, db=db)
                     continue
                 elif choice.lower() == "b":
                     # Go back to collection list
@@ -407,10 +504,10 @@ def handle_multiple_collections(db: ZoteroDatabase, folder_name: str, args, max_
     print()
     
     # Display grouped items and get flat list for interactive mode
-    all_items = display_grouped_items(grouped_items, max_results, show_ids=args.showids)
+    all_items = display_grouped_items(grouped_items, max_results, show_ids=args.showids, show_tags=args.showtags, db=db)
     
     if args.interactive:
-        handle_interactive_mode(db, all_items, args.grab, config, max_results, folder_name, grouped_items, args.showids)
+        handle_interactive_mode(db, all_items, args.grab, config, max_results, folder_name, grouped_items, args.showids, args.showtags)
     
     return 0
 
@@ -432,10 +529,10 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
     
     # Display results
     display_folder_results(folder_name, items_final, items_before_limit, duplicates_removed, total_count, args)
-    display_items(items, max_results, show_ids=args.showids)
+    display_items(items, max_results, show_ids=args.showids, show_tags=args.showtags, db=db)
     
     if args.interactive:
-        handle_interactive_mode(db, items, args.grab, config, max_results, folder_name, show_ids=args.showids)
+        handle_interactive_mode(db, items, args.grab, config, max_results, folder_name, show_ids=args.showids, show_tags=args.showtags)
     
     return 0
 
@@ -569,9 +666,9 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
     display_search_results(search_display, items_final, items_before_limit, duplicates_removed, total_count, args)
     
     highlight_term = get_highlight_term(args, name_search)
-    display_items(items, max_results, highlight_term, args.showids)
+    display_items(items, max_results, highlight_term, args.showids, show_tags=args.showtags, db=db)
     
     if args.interactive:
-        handle_interactive_mode(db, items, args.grab, config, max_results, search_display, show_ids=args.showids)
+        handle_interactive_mode(db, items, args.grab, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags)
     
     return 0

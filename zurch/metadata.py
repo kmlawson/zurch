@@ -4,7 +4,7 @@ from typing import Dict, Any, List, Optional
 from .database import DatabaseConnection
 from .queries import (
     build_item_metadata_query, build_item_creators_query, 
-    build_item_collections_query, build_attachment_path_query
+    build_item_collections_query, build_attachment_path_query, build_item_tags_query
 )
 
 logger = logging.getLogger(__name__)
@@ -63,6 +63,15 @@ class MetadataService:
             return [row[0] for row in results]
         except Exception as e:
             logger.error(f"Error getting item collections: {e}")
+            return []
+    
+    def get_item_tags(self, item_id: int) -> List[str]:
+        """Get list of tags for this item."""
+        try:
+            results = self.db.execute_query(build_item_tags_query(), (item_id,))
+            return [row[0] for row in results]
+        except Exception as e:
+            logger.error(f"Error getting item tags: {e}")
             return []
     
     def get_item_attachment_path(self, item_id: int, zotero_data_dir: Path) -> Optional[Path]:

@@ -119,6 +119,10 @@ class ZoteroDatabase:
         """Get list of collection names that contain this item."""
         return self.metadata.get_item_collections(item_id)
     
+    def get_item_tags(self, item_id: int) -> List[str]:
+        """Get list of tags for this item."""
+        return self.metadata.get_item_tags(item_id)
+    
     def get_item_attachment_path(self, item_id: int, zotero_data_dir: Path) -> Optional[Path]:
         """Get the file system path for an item's attachment."""
         return self.metadata.get_item_attachment_path(item_id, zotero_data_dir)

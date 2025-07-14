@@ -11,7 +11,7 @@ from .handlers import (
     handle_folder_command, handle_search_command
 )
 
-__version__ = "0.6.4"
+__version__ = "0.6.5"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO

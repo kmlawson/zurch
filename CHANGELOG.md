@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.5] - 2025-07-14
+
+### Added
+- **Enhanced -g Feature**: Improved attachment file naming using author lastname and title (e.g., "Smith - Title of Book.pdf"). Files are automatically sanitized for cross-platform compatibility and include conflict resolution with numbered suffixes.
+- **Tags in Metadata Display**: Added tag display in item metadata view showing all associated tags in format "Tags: tag1 | tag2 | tag3".
+- **--showtags Flag**: New command-line flag to display tags under each item title in search results, shown in muted gray color for visual clarity.
+
+### Enhanced
+- **Attachment Grabbing**: File naming now prioritizes author last names and truncates long titles intelligently while preserving file extensions.
+- **Metadata Display**: Tags are now included in the standard metadata view alongside collections and other item information.
+- **Search Result Display**: Users can now view tags directly in search results without opening individual items.
+
+### Technical
+- Added `get_item_tags()` method to database interface for retrieving item tags
+- Added `build_item_tags_query()` function for SQL tag queries
+- Enhanced `display_items()` and `display_grouped_items()` functions to support tag display
+- Added filename sanitization functions for cross-platform compatibility
+
 ## [0.6.4] - 2025-07-14
 
 ### Fixed

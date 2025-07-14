@@ -6,7 +6,7 @@ from .utils import (
     highlight_search_term, format_duplicate_title, format_metadata_field
 )
 
-def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False) -> None:
+def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, db=None) -> None:
     """Display items with numbering and icons."""
     for i, item in enumerate(items, 1):
         # Item type icon (books and journal articles)
@@ -23,8 +23,18 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
         id_display = f" [ID:{item.item_id}]" if show_ids else ""
         
         print(f"{number}. {type_icon}{attachment_icon}{title}{id_display}")
+        
+        # Show tags if requested
+        if show_tags and db:
+            tags = db.get_item_tags(item.item_id)
+            if tags:
+                # Display tags in a muted color
+                GRAY = '\033[90m'
+                RESET = '\033[0m'
+                tag_text = f"{GRAY}    Tags: {' | '.join(tags)}{RESET}"
+                print(tag_text)
 
-def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "", show_ids: bool = False) -> List[ZoteroItem]:
+def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, db=None) -> List[ZoteroItem]:
     """Display items grouped by collection with separators. Returns flat list for interactive mode."""
     all_items = []
     item_counter = 1
@@ -59,6 +69,16 @@ def display_grouped_items(grouped_items: List[tuple], max_results: int, search_t
             id_display = f" [ID:{item.item_id}]" if show_ids else ""
             
             print(f"{number}. {type_icon}{attachment_icon}{title}{id_display}")
+            
+            # Show tags if requested
+            if show_tags and db:
+                tags = db.get_item_tags(item.item_id)
+                if tags:
+                    # Display tags in a muted color
+                    GRAY = '\033[90m'
+                    RESET = '\033[0m'
+                    tag_text = f"{GRAY}    Tags: {' | '.join(tags)}{RESET}"
+                    print(tag_text)
             
             all_items.append(item)
             item_counter += 1
@@ -199,6 +219,13 @@ def show_item_metadata(db, item: ZoteroItem) -> None:
             print(f"{BOLD}Collections:{RESET}")
             for collection in collections:
                 print(f"  {collection}")
+        
+        # Display tags for this item
+        tags = db.get_item_tags(item.item_id)
+        if tags:
+            BOLD = '\033[1m'
+            RESET = '\033[0m'
+            print(f"{BOLD}Tags:{RESET} {' | '.join(tags)}")
         
         # Display other fields
         skip_fields = set(field_order + ['itemType', 'creators', 'dateAdded', 'dateModified'])

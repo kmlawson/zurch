@@ -18,3 +18,7 @@ When showing the meta data for an item, show the tags it has too in a list:
 ## --showtags feature
 
 When the flag is active, any list of item titles will, in a different color, show the tags divided by "|" for each item on the next line under it.
+
+## clean up -h
+
+The -h is a bit too much with wrapping lines, is there a way to clean it up and make it clearer on small terminal screens, perhaps keeping lines shorter for descriptions of features?
