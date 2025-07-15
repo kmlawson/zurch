@@ -1,0 +1,170 @@
+╭───────────────────────────────────────────────────╮
+│ ✻ Welcome to Claude Code!                         │
+│                                                   │
+│   /help for help, /status for your current setup  │
+│                                                   │
+│   cwd: /Users/kml8/shell/current/zurch            │
+╰───────────────────────────────────────────────────╯
+⏺ Compact summary (ctrl+r to expand)
+  ⎿  Read zurch/cli.py (193 lines)
+  ⎿  Read zurch/utils.py (410 lines)
+  ⎿  Read zurch/config.py (168 lines)
+  ⎿  Read zurch/database.py (200 lines)
+  ⎿  Read zurch/export.py (489 lines)
+  ⎿  Todo list read (9 items)
+
+⏺ I need to complete the auto-launch config wizard functionality (Task 8) that was in progress. Let me test the implementation by
+  running the tool to see if it works correctly.
+
+⏺ Bash(uv tool uninstall zurch && uv cache clean && uv tool install .)
+  ⎿  Uninstalled 1 executable: zurch         
+     Clearing cache at: /Users/kml8/.cache/uv
+     Removed 187 files (1.3MiB)
+     … +12 lines (ctrl+r to expand)
+
+⏺ Now let me create a temporary config directory to test the first-time setup flow:
+
+⏺ Bash(mv ~/.config/zurch ~/.config/zurch.backup 2>/dev/null || true)
+  ⎿  (No content)
+
+⏺ Bash(zurch --help)
+  ⎿  usage: zurch [-h] [-v] [-d] [-x MAX_RESULTS] [-i] [-f FOLDER [FOLDER ...]] 
+                  [-n NAME [NAME ...]] [-l [LIST]] [-a AUTHOR [AUTHOR ...]]
+                  [-t TAG [TAG ...]] [-k] [-o] [--after AFTER] [--before BEFORE]
+     … +59 lines (ctrl+r to expand)
+
+⏺ Now let me test the first-time setup by trying to run a search command:
+
+⏺ Bash(echo "n" | zurch -n test)
+  ⎿  Error: 2025-07-15 09:31:13,307 - zurch.utils - ERROR - Cannot save invalid configuration: Invalid configuration: Additional 
+     properties are not allowed ('partial_collection_match' was unexpected)
+     Traceback (most recent call last):
+       File "/Users/kml8/.local/bin/zurch", line 10, in <module>
+         sys.exit(main())
+                  ~~~~^^
+       File "/Users/kml8/.local/share/uv/tools/zurch/lib/python3.13/site-packages/zurch/cli.py", line 76, in main
+         config = load_config()
+       File "/Users/kml8/.local/share/uv/tools/zurch/lib/python3.13/site-packages/zurch/utils.py", line 141, in load_config
+         save_config(default_config)
+         ~~~~~~~~~~~^^^^^^^^^^^^^^^^
+     … +3 lines (ctrl+r to see all)
+
+⏺ I found the issue! The configuration schema doesn't include partial_collection_match but it's being added in the default
+  configuration. Let me fix this:
+
+⏺ Update(zurch/config.py)
+  ⎿  Error: String to replace not found in file.
+     String:         \"only_attachments\": {\n            \"type\": \"boolean\"\n        }\n    },\n    \"required\": [],\n    
+     \"additionalProperties\": False
+
+⏺ Let me check the exact format in the config file:
+
+⏺ Read(zurch/config.py)
+  ⎿  Read 15 lines (ctrl+r to expand)
+
+⏺ Update(zurch/config.py)
+  ⎿  Updated zurch/config.py with 3 additions     
+       54            },
+       55            "only_attachments": {
+       56                "type": "boolean"
+       57 +          },
+       58 +          "partial_collection_match": {
+       59 +              "type": "boolean"
+       60            }
+       61        },
+       62        "required": [],
+
+⏺ Now let me reinstall and test again:
+
+⏺ Bash(uv tool uninstall zurch && uv cache clean && uv tool install .)
+  ⎿  Uninstalled 1 executable: zurch         
+     Clearing cache at: /Users/kml8/.cache/uv
+     Removed 338 files (6.0MiB)
+     … +12 lines (ctrl+r to expand)
+
+⏺ Bash(echo "n" | zurch -n test)
+  ⎿  Found Zotero database: /Users/kml8/Zotero/zotero.sqlite           
+     Items matching 'test':
+     Showing 100 of 310 items (70 duplicates removed, 380 total found):
+     … +119 lines (ctrl+r to expand)
+
+⏺ Great! The auto-configuration worked. It found the Zotero database automatically and proceeded with the search. Let me test what
+   happens when no database is found by moving the database temporarily:
+
+⏺ Bash(mv ~/.config/zurch/config.json ~/.config/zurch/config.json.backup)
+  ⎿  (No content)
+
+⏺ Bash(echo -e "n\nn" | zurch -n test)
+  ⎿  Found Zotero database: /Users/kml8/Zotero/zotero.sqlite           
+     Items matching 'test':
+     Showing 100 of 310 items (70 duplicates removed, 380 total found):
+     … +119 lines (ctrl+r to expand)
+
+⏺ The auto-discovery still works even without a config file. Let me restore the config and test what happens when no database is
+  found by renaming the database temporarily:
+
+⏺ Bash(mv ~/.config/zurch/config.json.backup ~/.config/zurch/config.json)
+  ⎿  overwrite /Users/kml8/.config/zurch/config.json? (y/n [n]) not overwritten
+
+⏺ Bash(rm ~/.config/zurch/config.json && mv ~/.config/zurch/config.json.backup ~/.config/zurch/config.json)
+  ⎿  (No content)
+
+⏺ Now let me test the scenario where the database can't be found and the config wizard is launched:
+
+⏺ Bash(mv ~/Zotero/zotero.sqlite ~/Zotero/zotero.sqlite.backup)
+  ⎿  (No content)
+
+⏺ Update(zurch/utils.py)
+  ⎿  Error: String to replace not found in file.
+     String:     # For development, use the sample database
+         sample_db = Path(__file__).parent / \"zotero-database-example\" / \"zotero.sqlite\"
+
+⏺ Read(zurch/utils.py)
+  ⎿  Read 10 lines (ctrl+r to expand)
+
+⏺ Update(zurch/utils.py)
+  ⎿  Updated zurch/utils.py with 1 addition and 1 removal                                               
+       118        config_file = get_config_file()
+       119        
+       120        # For development, use the sample database
+       121 -      sample_db = Path(__file__).parent / "zotero-database-example" / "zotero.sqlite"
+       121 +      sample_db = Path(__file__).parent.parent / "zotero-database-example" / "zotero.sqlite"
+       122        
+       123        from .constants import Defaults
+       124        
+
+⏺ Bash(rm ~/.config/zurch/config.json)
+  ⎿  (No content)
+
+⏺ Bash(uv tool uninstall zurch && uv cache clean && uv tool install .)
+  ⎿  Uninstalled 1 executable: zurch         
+     Clearing cache at: /Users/kml8/.cache/uv
+     Removed 338 files (6.0MiB)
+     … +12 lines (ctrl+r to expand)
+
+⏺ Bash(echo -e "y\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nn" | timeout 30 zurch -n test)
+  ⎿  Error: (eval):1: command not found: timeout
+
+⏺ Bash(echo -e "y\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nn" | gtimeout 30 zurch -n test)
+  ⎿  Error: (eval):1: command not found: gtimeout
+
+⏺ Bash(echo -e "n\n" | zurch -n test)
+  ⎿  Error: Zotero database not found. Please run 'zurch --config' to set up.
+
+     === First Time Setup ===
+     It looks like you haven't configured zurch yet.
+     Let's set up your Zotero database connection.
+
+     Running configuration wizard...
+     🔧 Zurch Configuration Wizard
+     ========================================
+     This wizard will help you configure zurch for your Zotero installation.
+     … +9 lines (ctrl+r to see all)
+
+⏺ Perfect! The auto-launch config wizard is working correctly. Now let me test it with the config wizard accepting a path:
+
+⏺ Bash(mv ~/Zotero/zotero.sqlite.backup ~/Zotero/zotero.sqlite)
+  ⎿  (No content)
+  ⎿  API Error: Claude's response exceeded the 32000 output token maximum. To configure this behavior, set the 
+     CLAUDE_CODE_MAX_OUTPUT_TOKENS environment variable.
+

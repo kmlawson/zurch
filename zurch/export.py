@@ -138,9 +138,28 @@ def generate_export_filename(export_format: str, search_term: str = "") -> str:
         return f"zurch_export_{timestamp}.{export_format}"
 
 def export_to_csv(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path) -> bool:
-    """Export items to CSV format."""
+    """Export items to CSV format with atomic file creation."""
+    import tempfile
+    import os
+    
+    # Create temporary file in same directory as target (for atomic rename)
+    temp_fd = None
+    temp_path = None
+    
     try:
-        with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+        # Create temp file with restricted permissions
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=file_path.parent,
+            prefix='.tmp_export_',
+            suffix='.csv'
+        )
+        
+        # Set restrictive permissions (owner read/write only)
+        os.chmod(temp_path, 0o600)
+        
+        # Write to temp file
+        with os.fdopen(temp_fd, 'w', newline='', encoding='utf-8') as csvfile:
+            temp_fd = None  # fdopen takes ownership
             # Define CSV headers
             headers = [
                 'ID', 'Title', 'Item Type', 'Attachment Type', 'Attachment Path',
@@ -151,12 +170,33 @@ def export_to_csv(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path) 
             writer = csv.DictWriter(csvfile, fieldnames=headers)
             writer.writeheader()
             
+            # Bulk fetch metadata to avoid N+1 queries
+            item_ids = [item.item_id for item in items]
+            try:
+                metadata_cache = db.get_bulk_item_metadata(item_ids)
+                logger.debug(f"Bulk fetched metadata for CSV export: {len(item_ids)} items")
+            except Exception as e:
+                logger.warning(f"Error bulk fetching metadata for CSV export: {e}")
+                metadata_cache = {}
+            
+            # Get collections and tags for all items (these could be optimized too)
+            collections_cache = {}
+            tags_cache = {}
             for item in items:
-                # Get additional metadata
                 try:
-                    metadata = db.get_item_metadata(item.item_id)
-                    collections = db.get_item_collections(item.item_id)
-                    tags = db.get_item_tags(item.item_id)
+                    collections_cache[item.item_id] = db.get_item_collections(item.item_id)
+                    tags_cache[item.item_id] = db.get_item_tags(item.item_id)
+                except Exception as e:
+                    logger.warning(f"Error getting collections/tags for item {item.item_id}: {e}")
+                    collections_cache[item.item_id] = []
+                    tags_cache[item.item_id] = []
+            
+            for item in items:
+                # Get cached metadata
+                try:
+                    metadata = metadata_cache.get(item.item_id, {})
+                    collections = collections_cache.get(item.item_id, [])
+                    tags = tags_cache.get(item.item_id, [])
                     
                     # Format authors
                     authors = []
@@ -216,23 +256,67 @@ def export_to_csv(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path) 
                         'URL': ''
                     })
         
+        # Atomic rename - this will fail if target exists
+        os.rename(temp_path, file_path)
+        temp_path = None  # Successfully moved
+        
         return True
         
     except Exception as e:
         logger.error(f"Error exporting to CSV: {e}")
         return False
+    finally:
+        # Clean up temp file if still exists
+        if temp_fd is not None:
+            try:
+                os.close(temp_fd)
+            except:
+                pass
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
 
 def export_to_json(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path) -> bool:
-    """Export items to JSON format."""
+    """Export items to JSON format with atomic file creation."""
+    import tempfile
+    import os
+    
+    # Create temporary file in same directory as target (for atomic rename)
+    temp_fd = None
+    temp_path = None
+    
     try:
         export_data = []
         
+        # Bulk fetch metadata to avoid N+1 queries
+        item_ids = [item.item_id for item in items]
+        try:
+            metadata_cache = db.get_bulk_item_metadata(item_ids)
+            logger.debug(f"Bulk fetched metadata for JSON export: {len(item_ids)} items")
+        except Exception as e:
+            logger.warning(f"Error bulk fetching metadata for JSON export: {e}")
+            metadata_cache = {}
+        
+        # Get collections and tags for all items (these could be optimized too)
+        collections_cache = {}
+        tags_cache = {}
         for item in items:
-            # Get additional metadata
             try:
-                metadata = db.get_item_metadata(item.item_id)
-                collections = db.get_item_collections(item.item_id)
-                tags = db.get_item_tags(item.item_id)
+                collections_cache[item.item_id] = db.get_item_collections(item.item_id)
+                tags_cache[item.item_id] = db.get_item_tags(item.item_id)
+            except Exception as e:
+                logger.warning(f"Error getting collections/tags for item {item.item_id}: {e}")
+                collections_cache[item.item_id] = []
+                tags_cache[item.item_id] = []
+        
+        for item in items:
+            # Get cached metadata
+            try:
+                metadata = metadata_cache.get(item.item_id, {})
+                collections = collections_cache.get(item.item_id, [])
+                tags = tags_cache.get(item.item_id, [])
                 
                 # Create export record
                 export_record = {
@@ -263,21 +347,62 @@ def export_to_json(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path)
                 }
                 export_data.append(export_record)
         
-        # Write JSON file
-        with open(file_path, 'w', encoding='utf-8') as jsonfile:
+        # Create temp file with restricted permissions
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=file_path.parent,
+            prefix='.tmp_export_',
+            suffix='.json'
+        )
+        
+        # Set restrictive permissions (owner read/write only)
+        os.chmod(temp_path, 0o600)
+        
+        # Write JSON file to temp location
+        with os.fdopen(temp_fd, 'w', encoding='utf-8') as jsonfile:
+            temp_fd = None  # fdopen takes ownership
             json.dump(export_data, jsonfile, indent=2, ensure_ascii=False)
+        
+        # Atomic rename - this will fail if target exists
+        os.rename(temp_path, file_path)
+        temp_path = None  # Successfully moved
         
         return True
         
     except Exception as e:
         logger.error(f"Error exporting to JSON: {e}")
         return False
+    finally:
+        # Clean up temp file if still exists
+        if temp_fd is not None:
+            try:
+                os.close(temp_fd)
+            except:
+                pass
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+
+from .constants import Defaults, ErrorMessages, SuccessMessages
+
+# Maximum export file size 
+MAX_EXPORT_SIZE = Defaults.MAX_EXPORT_SIZE
 
 def export_items(items: List[ZoteroItem], db: ZoteroDatabase, export_format: str, 
                 file_path: Optional[str] = None, search_term: str = "") -> bool:
-    """Export items to specified format."""
+    """Export items to specified format with security checks."""
     if not items:
         print("No items to export.")
+        return False
+    
+    # Check if export would be too large (rough estimate)
+    estimated_size = len(items) * 2000  # Assume ~2KB per item average
+    if estimated_size > MAX_EXPORT_SIZE:
+        print(ErrorMessages.FILE_TOO_LARGE.format(
+            estimated_size / 1024 / 1024, MAX_EXPORT_SIZE / 1024 / 1024
+        ))
+        print("Try reducing the number of items with -x flag.")
         return False
     
     # Determine output file path
@@ -323,8 +448,42 @@ def export_items(items: List[ZoteroItem], db: ZoteroDatabase, export_format: str
         return False
     
     if success:
-        print(f"Successfully exported {len(items)} items to {output_path}")
-        return True
+        # Final safety check - verify file was created in expected location
+        try:
+            final_path = output_path.resolve()
+            if not is_safe_path(final_path):
+                # File ended up in unsafe location - remove it
+                logger.error(f"Export ended up in unsafe location: {final_path}")
+                try:
+                    os.unlink(final_path)
+                except:
+                    pass
+                print(f"Error: Export failed - file created in unsafe location")
+                return False
+            
+            # Verify file exists and has reasonable size
+            if not final_path.exists():
+                print(f"Error: Export file was not created")
+                return False
+                
+            file_size = final_path.stat().st_size
+            if file_size > MAX_EXPORT_SIZE:
+                # File is too large - remove it
+                logger.error(f"Export file too large: {file_size} bytes")
+                try:
+                    os.unlink(final_path)
+                except:
+                    pass
+                print(f"Error: Export file exceeded size limit ({file_size / 1024 / 1024:.1f}MB)")
+                return False
+                
+            print(SuccessMessages.EXPORT_SUCCESS.format(len(items), output_path))
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error verifying export: {e}")
+            print(f"Error: Could not verify export file")
+            return False
     else:
         print(f"Failed to export items to {output_path}")
         return False

@@ -67,6 +67,8 @@ class DatabaseConnection:
             conn = sqlite3.connect(f'file:{self.db_path}?mode=ro', uri=True)
             # Use the Row factory for dict-like access to results
             conn.row_factory = sqlite3.Row
+            # Ensure UTF-8 encoding for text operations
+            conn.text_factory = str
             return conn
         except sqlite3.OperationalError as e:
             if "unable to open database file" in str(e):

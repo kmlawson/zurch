@@ -151,7 +151,7 @@ Zurch is an ambitious, feature-rich CLI for exploring a local Zotero database.  
 ### Weaknesses
 • README recommends `uv tool install`, but uv isn't listed in pyproject extras (may confuse users outside the Rust-Python community).  
 • Colour output, spinner, and Unicode rely on terminal support but no optional dependency (colorama on Windows) is declared.  
-• Version with code (0.7.1) and CHANGELOG (0.7.2) already out of sync.
+• Version with code (0.7.2) and CHANGELOG (0.7.2) now synchronized.
 
 ### Actionable Improvements
 • Declare optional dependencies: `colorama; sys_platform == "win32"`, `prompt_toolkit` for future interactive UI.  

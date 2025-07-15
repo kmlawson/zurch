@@ -8,24 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.2] - 2025-07-15
 
 ### Enhanced
-- **Code Architecture**: Major refactoring to improve maintainability and security
-  - Refactored overly complex handler functions in `handlers.py` into smaller, focused functions
-  - Introduced `DisplayOptions` class to reduce parameter passing complexity
-  - Split large functions like `handle_folder_command` and `handle_single_collection_with_subcollections`
-  - Extracted helper functions for spinner management, subcollection filtering, and item processing
-  
+- **Configuration Management**: Implemented comprehensive configuration validation with JSON schema
+  - Added validation for all configuration fields including database path verification
+  - Implemented atomic configuration file writes for safety
+  - Added auto-launch configuration wizard for first-time users
+  - Improved configuration error messages and recovery
+
 ### Security
-- **Export Path Validation**: Replaced weak blacklist approach with robust whitelist security model
-  - Export now only allowed to safe directories: current working directory, user home, Documents, Downloads, Desktop, temp directories
-  - Added detailed error messages showing available safe directories when export is blocked
-  - Improved cross-platform support for Windows, macOS, and Linux safe directory detection
-  - Added support for XDG directories on Linux systems
+- **Export Security**: Fixed TOCTOU (Time-of-Check Time-of-Use) vulnerability in file export
+  - Implemented atomic file creation using temporary files and atomic rename
+  - Added file size limits and final safety checks for export operations
+  - Enhanced export path validation with whitelist-based security model
+  - Added comprehensive UTF-8 encoding enforcement throughout the codebase
+
+### Performance
+- **Database Optimization**: Fixed N+1 query performance issues
+  - Implemented bulk metadata fetching to reduce database queries
+  - Added batch processing for large result sets with SQLite parameter limits
+  - Optimized export functions to use bulk operations instead of individual queries
 
 ### Technical
-- Enhanced function signatures to reduce parameter complexity
-- Improved error handling and user feedback for export operations
-- Better separation of concerns between data loading, processing, and display logic
-- Maintained backward compatibility for all existing functionality
+- **Code Organization**: Created centralized constants module for maintainability
+  - Extracted magic strings and numbers into `constants.py` 
+  - Standardized ANSI colors, item types, attachment types, and defaults
+  - Improved code readability and reduced duplication
+- **Architecture**: Further refactored handler functions for better modularity
+  - Continued breaking down complex functions in `handlers.py`
+  - Enhanced separation of concerns and improved testability
+  - Maintained backward compatibility while improving code structure
 
 ## [0.7.1] - 2025-07-14
 

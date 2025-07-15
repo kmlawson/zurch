@@ -1,6 +1,6 @@
 [project]
 name = "zurch"
-version = "0.7.1"
+version = "0.7.2"
 description = "Zurch - A CLI search tool for Zotero installations"
 readme = "README.md"
 license = { text = "MIT" }
@@ -24,7 +24,9 @@ classifiers = [
     "Topic :: Utilities",
 ]
 requires-python = ">=3.8"
-dependencies = []
+dependencies = [
+    "jsonschema>=4.0.0",
+]
 
 [project.scripts]
 zurch = "zurch.cli:main"

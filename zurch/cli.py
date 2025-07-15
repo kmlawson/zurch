@@ -12,7 +12,7 @@ from .handlers import (
 )
 from .config_wizard import run_config_wizard
 
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
@@ -45,7 +45,7 @@ def get_database(config: dict) -> ZoteroDatabase:
             save_config(config)
             print(f"Found Zotero database: {db_path}")
         else:
-            print("Zotero database not found. Please set the path in config.")
+            print("Zotero database not found. Please run 'zurch --config' to set up.")
             return None
     
     try:
@@ -133,7 +133,30 @@ def main():
     # Get database connection
     db = get_database(config)
     if not db:
-        return 1
+        print("\n=== First Time Setup ===")
+        print("It looks like you haven't configured zurch yet.")
+        print("Let's set up your Zotero database connection.")
+        
+        # Auto-launch config wizard
+        print("\nRunning configuration wizard...")
+        wizard_result = run_config_wizard()
+        
+        if wizard_result != 0:
+            print("Configuration setup cancelled or failed.")
+            return 1
+        
+        # Reload config after wizard
+        config = load_config()
+        db = get_database(config)
+        
+        if not db:
+            print("\nError: Could not establish database connection even after configuration.")
+            print("Please check your Zotero installation and try again.")
+            return 1
+        
+        print("\nSetup complete! You can now use zurch to search your Zotero library.")
+        print("Try 'zurch --help' to see all available commands.")
+        print("")
     
     try:
         if args.stats:

@@ -3,9 +3,54 @@ import os
 import platform
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Tuple
 
 logger = logging.getLogger(__name__)
+
+def safe_encode_text(text: str, encoding: str = 'utf-8', errors: str = 'replace') -> str:
+    """Safely encode text to handle Unicode errors.
+    
+    Args:
+        text: The text to encode
+        encoding: Target encoding (default: utf-8)
+        errors: How to handle encoding errors (default: replace)
+    
+    Returns:
+        Safely encoded text
+    """
+    if not isinstance(text, str):
+        text = str(text)
+    
+    try:
+        # Try to encode and decode to catch any Unicode issues
+        text.encode(encoding)
+        return text
+    except UnicodeEncodeError as e:
+        logger.warning(f"Unicode encoding error: {e}")
+        # Replace problematic characters
+        return text.encode(encoding, errors=errors).decode(encoding)
+
+def safe_file_write(file_path: Path, content: str, encoding: str = 'utf-8') -> bool:
+    """Safely write content to file with UTF-8 encoding and error handling.
+    
+    Args:
+        file_path: Path to write to
+        content: Content to write
+        encoding: File encoding (default: utf-8)
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # Ensure content is safely encoded
+        safe_content = safe_encode_text(content, encoding)
+        
+        with open(file_path, 'w', encoding=encoding) as f:
+            f.write(safe_content)
+        return True
+    except Exception as e:
+        logger.error(f"Error writing file {file_path}: {e}")
+        return False
 
 def get_config_dir() -> Path:
     """Get the appropriate config directory for the OS using standard paths."""
@@ -64,25 +109,32 @@ def get_config_file() -> Path:
     return get_config_dir() / "config.json"
 
 def load_config() -> Dict[str, Any]:
-    """Load configuration from file."""
+    """Load configuration from file with validation."""
+    from .config import validate_config_data
+    
     # Try to migrate config from old location first
     migrate_config_if_needed()
     
     config_file = get_config_file()
     
     # For development, use the sample database
-    sample_db = Path(__file__).parent / "zotero-database-example" / "zotero.sqlite"
+    sample_db = Path(__file__).parent.parent / "zotero-database-example" / "zotero.sqlite"
+    
+    from .constants import Defaults
     
     default_config = {
-        "max_results": 100,
+        "max_results": Defaults.MAX_RESULTS,
         "zotero_database_path": str(sample_db) if sample_db.exists() else None,
-        "debug": False,
+        "debug": Defaults.DEBUG,
         "partial_collection_match": True,
-        "show_ids": False,
-        "show_tags": False,
-        "show_year": False,
-        "show_author": False,
-        "only_attachments": False
+        "show_ids": Defaults.SHOW_IDS,
+        "show_tags": Defaults.SHOW_TAGS,
+        "show_year": Defaults.SHOW_YEAR,
+        "show_author": Defaults.SHOW_AUTHOR,
+        "show_created": Defaults.SHOW_CREATED,
+        "show_modified": Defaults.SHOW_MODIFIED,
+        "show_collections": Defaults.SHOW_COLLECTIONS,
+        "only_attachments": Defaults.ONLY_ATTACHMENTS
     }
     
     if not config_file.exists():
@@ -90,8 +142,17 @@ def load_config() -> Dict[str, Any]:
         return default_config
     
     try:
-        with open(config_file, 'r') as f:
+        with open(config_file, 'r', encoding='utf-8') as f:
             config = json.load(f)
+        
+        # Validate configuration
+        is_valid, error_msg = validate_config_data(config)
+        if not is_valid:
+            logger.error(f"Invalid configuration in {config_file}: {error_msg}")
+            print(f"Warning: Configuration file is invalid: {error_msg}")
+            print(f"Using default configuration. Run 'zurch --config' to fix.")
+            return default_config
+        
         # Merge with defaults to ensure all keys exist
         for key, value in default_config.items():
             if key not in config:
@@ -102,46 +163,80 @@ def load_config() -> Dict[str, Any]:
         return default_config
 
 def save_config(config: Dict[str, Any]) -> None:
-    """Save configuration to file."""
+    """Save configuration to file with validation."""
+    from .config import validate_config_data
+    
+    # Validate configuration before saving
+    is_valid, error_msg = validate_config_data(config)
+    if not is_valid:
+        logger.error(f"Cannot save invalid configuration: {error_msg}")
+        raise ValueError(f"Invalid configuration: {error_msg}")
+    
     config_file = get_config_file()
+    
+    # Ensure directory exists
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Use atomic write for safety
+    import tempfile
+    import os
+    
+    temp_fd, temp_path = tempfile.mkstemp(
+        dir=config_file.parent,
+        prefix='.tmp_config_',
+        suffix='.json'
+    )
+    
     try:
-        with open(config_file, 'w') as f:
-            json.dump(config, f, indent=2)
-    except IOError as e:
+        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+        
+        # Atomic rename
+        os.rename(temp_path, config_file)
+        
+    except Exception as e:
+        # Clean up temp file on error
+        try:
+            os.unlink(temp_path)
+        except:
+            pass
         logger.error(f"Error saving config: {e}")
+        raise
 
 def format_attachment_icon(attachment_type: Optional[str]) -> str:
     """Return colored icon based on attachment type (DEPRECATED - use format_attachment_document_icon)."""
     if not attachment_type:
         return ""
     
+    from .constants import AttachmentTypes, Colors, Icons
+    
     attachment_type = attachment_type.lower()
-    if attachment_type == "pdf":
-        return "\033[34m📘\033[0m"  # Blue book for PDF
-    elif attachment_type == "epub":
-        return "\033[32m📗\033[0m"  # Green book for EPUB
-    elif attachment_type in ["txt", "text"]:
-        return "\033[90m📄\033[0m"  # Grey document for TXT
+    if attachment_type == AttachmentTypes.PDF:
+        return f"{Colors.BLUE}{Icons.BOOK_BLUE}{Colors.RESET}"  # Blue book for PDF
+    elif attachment_type == AttachmentTypes.EPUB:
+        return f"{Colors.GREEN}{Icons.BOOK_GREEN}{Colors.RESET}"  # Green book for EPUB
+    elif attachment_type in AttachmentTypes.TEXT_EXTENSIONS:
+        return f"{Colors.GRAY}{Icons.DOCUMENT}{Colors.RESET}"  # Grey document for TXT
     else:
         return ""
 
 def format_item_type_icon(item_type: str, is_duplicate: bool = False) -> str:
     """Return icon that goes before the title based on item type."""
+    from .constants import ItemTypes, Icons, Colors
+    
     item_type_lower = item_type.lower()
-    if item_type_lower == "book":
-        icon = "📗 "  # Green book icon for books
-    elif item_type_lower in ["journalarticle", "journal article"]:
-        icon = "📄 "  # Document icon for journal articles
-    elif item_type_lower == "webpage":
-        icon = "🌐 "  # Globe icon for web pages
+    if item_type_lower == ItemTypes.BOOK:
+        icon = f"{Icons.BOOK_GREEN} "  # Green book icon for books
+    elif item_type_lower in [ItemTypes.JOURNAL_ARTICLE, ItemTypes.JOURNAL_ARTICLE_ALT]:
+        icon = f"{Icons.DOCUMENT} "  # Document icon for journal articles
+    elif item_type_lower == ItemTypes.WEBPAGE:
+        icon = f"{Icons.WEBPAGE} "  # Globe icon for web pages
     else:
         icon = ""  # No icon for other types
     
     # Apply purple color to duplicates
     if is_duplicate and icon:
-        PURPLE = '\033[35m'
-        RESET = '\033[0m'
-        return f"{PURPLE}{icon}{RESET}"
+        return f"{Colors.MAGENTA}{icon}{Colors.RESET}"
     
     return icon
 

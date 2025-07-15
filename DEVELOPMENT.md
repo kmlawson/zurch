@@ -36,6 +36,9 @@ zurch/
 │   ├── display.py     # Output formatting
 │   ├── interactive.py # Interactive mode
 │   ├── config.py      # Configuration management
+│   ├── config_wizard.py # Configuration wizard
+│   ├── constants.py   # Constants and enums
+│   ├── export.py      # Export functionality
 │   ├── utils.py       # Utility functions
 │   └── queries.py     # SQL queries
 └── tests/             # Test suite
@@ -145,6 +148,16 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
 - `--id ID`: Show metadata for specific item ID
 - `--getbyid ID [ID...]`: Grab attachments for specific item IDs
 - `--showids`: Show item ID numbers in results
+- `--showtags`: Show tags for each item in results
+- `--showyear`: Show publication year for each item in results
+- `--showauthor`: Show first author name for each item in results
+- `--showcreated`: Show item creation date in results
+- `--showmodified`: Show item modification date in results
+- `--showcollections`: Show collections each item belongs to in results
+- `--sort {t,title,d,date,a,author,c,created,m,modified}`: Sort results
+- `--export {csv,json}`: Export search results to file
+- `--file FILE`: Specify output file path for export
+- `--config`: Launch interactive configuration wizard
 - `--no-dedupe`: Disable automatic duplicate removal
 
 ### Interactive Mode Features
@@ -201,10 +214,10 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
 
 ### Known Issues and Future Enhancements
 1. Full arrow key navigation (requires curses/termios)
-2. Export functionality for search results
-3. Integration with Zotero API for remote access
-4. Caching for improved performance on large databases
-5. Shell argument pre-processing to auto-escape common characters
+2. Integration with Zotero API for remote access
+3. Caching for improved performance on large databases
+4. Shell argument pre-processing to auto-escape common characters
+5. Further handler refactoring for better modularity
 
 ### Git Workflow
 ```bash
