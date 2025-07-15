@@ -26,10 +26,14 @@ class CollectionService:
             for row in results
         ]
     
-    def search_collections(self, name: str) -> List[ZoteroCollection]:
-        """Find collections by name (case-insensitive partial match)."""
+    def search_collections(self, name: str, exact_match: bool = False) -> List[ZoteroCollection]:
+        """Find collections by name (case-insensitive partial or exact match)."""
         collections = self.list_collections()
-        matching = [c for c in collections if name.lower() in c.name.lower()]
+        
+        if exact_match:
+            matching = [c for c in collections if c.name.lower() == name.lower()]
+        else:
+            matching = [c for c in collections if name.lower() in c.name.lower()]
         
         # Sort by depth (least deep first), then by name
         matching.sort(key=lambda c: (c.depth, c.name.lower()))

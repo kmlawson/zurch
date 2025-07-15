@@ -24,9 +24,9 @@ class ZoteroDatabase:
         """Get all collections with hierarchy information."""
         return self.collections.list_collections()
     
-    def search_collections(self, name: str) -> List[ZoteroCollection]:
-        """Find collections by name (case-insensitive partial match)."""
-        return self.collections.search_collections(name)
+    def search_collections(self, name: str, exact_match: bool = False) -> List[ZoteroCollection]:
+        """Find collections by name (case-insensitive partial or exact match)."""
+        return self.collections.search_collections(name, exact_match=exact_match)
     
     def find_similar_collections(self, name: str, limit: int = 5) -> List[ZoteroCollection]:
         """Find collections with similar names for suggestions."""

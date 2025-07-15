@@ -1034,7 +1034,7 @@ def handle_folder_command(db: ZoteroDatabase, args, max_results: int, config: di
     folder_name, show_subcolls = parse_folder_parameters(args)
     
     # Check how many collections match
-    collections = db.search_collections(folder_name)
+    collections = db.search_collections(folder_name, exact_match=args.exact)
     logger.debug(f"Found {len(collections)} collections matching '{folder_name}'")
     
     if not collections:

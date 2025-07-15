@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.4] - 2025-07-15
 
+### Bug Fixes
+- **Database Lock Handling**: Fixed issue where database lock (Zotero running) incorrectly triggered config wizard
+  - Only configuration issues (missing/invalid config) now trigger the setup wizard
+  - Database lock now shows clear "Please close Zotero" message instead of forcing reconfiguration
+  - Improved error handling to distinguish between config issues vs runtime errors
+- **Exact Matching**: Fixed `-k/--exact` flag not working with `-f/--folder` command
+  - Added exact_match parameter to collection search methods
+  - `-f "Heritage" -k` now only matches collections named exactly "Heritage"
+  - Maintains backward compatibility with existing partial matching behavior
+
 ### Maintenance
 - **File Cleanup**: Removed unnecessary files from repository
 - **Package Optimization**: Cleaned up project structure

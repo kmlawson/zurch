@@ -48,35 +48,40 @@ uv tool install .
 ## Quick Start
 
 ```bash
-# List all collections
+# List all collections (up to default max items to show, defaults to 100 but configurable)
 zurch -l
 
 # List collections matching a pattern (partial matching by default)
 zurch -l japan
 
-# List collections with exact matching
+# List collections with exact matching name
 zurch -l "Japan" -k
 
-# Browse items in a folder
+# Browse items in a folder/s partial matching a name
 zurch -f "Heritage"
+# OR
+zurch -f Heritage
 
 # Search for items by name
 zurch -n "medicine"
+# OR
+zurch -n medicine
+# but look out for special characters like ' in People's - you'll need to run "People's"
 
-# Interactive mode to select and view metadata
+# Interactive mode to select and view metadata or grab attachments for items in a folder
 zurch -f "Heritage" -i
-
-# Interactive mode to grab attachments (append 'g' to item number)
+# Interactive mode works with other searches too:
 zurch -n "China" -i
+zurch -a "Smith" -i
 
-# Show only items with PDF/EPUB attachments
+# Show only hits with PDF/EPUB attachments
 zurch -f "Heritage" -o
 
-# Interactive grab with number suffix
+# Grabbing the PDF or EPUB attachment while in interactive mode:
 zurch -f "Papers" -i
-# Then type: 5g (to grab attachment from item 5)
+# Then type: 5g to grab attachment from item 5 if it includes one
 
-# Debug mode shows duplicates in purple
+# Debug mode shows additional verbose logging, including duplicates in purple
 zurch -n "World History" -d
 
 # Look up specific item by ID
@@ -85,7 +90,7 @@ zurch --id 12345
 # Disable duplicate removal to see all database entries
 zurch -n "duplicate article" --no-dedupe
 
-# Show comprehensive database statistics
+# Show comprehensive database statistics about the database
 zurch --stats
 
 # Show tags under item titles
@@ -94,8 +99,9 @@ zurch -n "research methods" --showtags
 # Show year and author information
 zurch -n "machine learning" --showyear --showauthor
 
-# Export search results to CSV
+# Export search results to CSV and JSON
 zurch -n "digital humanities" --export csv
+zurch -n "digital humanities" --export json
 
 # Export to specific file path
 zurch -n "methodology" --export json --file ~/research/methods.json

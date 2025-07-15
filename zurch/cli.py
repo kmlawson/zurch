@@ -32,8 +32,12 @@ def setup_logging(debug=False):
 
 
 
-def get_database(config: dict) -> ZoteroDatabase:
-    """Get and validate Zotero database connection."""
+def get_database(config: dict) -> tuple[ZoteroDatabase, str]:
+    """Get and validate Zotero database connection.
+    
+    Returns: (database_instance, error_type)
+    error_type can be: 'success', 'config_missing', 'locked', 'error'
+    """
     db_path = config.get('zotero_database_path')
     
     if not db_path:
@@ -46,16 +50,17 @@ def get_database(config: dict) -> ZoteroDatabase:
             print(f"Found Zotero database: {db_path}")
         else:
             print("Zotero database not found. Please run 'zurch --config' to set up.")
-            return None
+            return None, 'config_missing'
     
     try:
-        return ZoteroDatabase(Path(db_path))
+        db = ZoteroDatabase(Path(db_path))
+        return db, 'success'
     except DatabaseLockedError as e:
         print(f"Error: {e}")
-        return None
+        return None, 'locked'
     except DatabaseError as e:
         print(f"Database error: {e}")
-        return None
+        return None, 'error'
 
 def main():
     parser = create_parser()
@@ -131,8 +136,9 @@ def main():
         return 1
     
     # Get database connection
-    db = get_database(config)
-    if not db:
+    db, error_type = get_database(config)
+    
+    if error_type == 'config_missing':
         print("\n=== First Time Setup ===")
         print("It looks like you haven't configured zurch yet.")
         print("Let's set up your Zotero database connection.")
@@ -147,9 +153,9 @@ def main():
         
         # Reload config after wizard
         config = load_config()
-        db = get_database(config)
+        db, error_type = get_database(config)
         
-        if not db:
+        if error_type != 'success':
             print("\nError: Could not establish database connection even after configuration.")
             print("Please check your Zotero installation and try again.")
             return 1
@@ -157,6 +163,14 @@ def main():
         print("\nSetup complete! You can now use zurch to search your Zotero library.")
         print("Try 'zurch --help' to see all available commands.")
         print("")
+    
+    elif error_type == 'locked':
+        print("\nPlease close Zotero and try again.")
+        return 1
+    
+    elif error_type == 'error':
+        print("\nDatabase error occurred. Please check your Zotero installation.")
+        return 1
     
     try:
         if args.stats:
