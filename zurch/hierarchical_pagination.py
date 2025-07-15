@@ -143,7 +143,18 @@ def get_paginated_collections(
     for group in top_level_groups:
         group_size = len(group['collections'])
         
-        if current_page_count + group_size > page_size and current_page_groups:
+        # If this single group exceeds page_size, show it on its own page with a warning
+        if group_size > page_size:
+            if current_page_groups:
+                # Finish current page first
+                pages.append(current_page_groups)
+            
+            # Add the large group as its own page (will show warning during display)
+            pages.append([group])
+            current_page_groups = []
+            current_page_count = 0
+            
+        elif current_page_count + group_size > page_size and current_page_groups:
             # Start new page
             pages.append(current_page_groups)
             current_page_groups = [group]

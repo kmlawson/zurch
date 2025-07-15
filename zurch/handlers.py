@@ -625,11 +625,18 @@ def handle_non_interactive_list_mode(collections: List[ZoteroCollection], search
             page_collections, has_previous, has_next, current_page, total_pages = \
                 get_paginated_collections(collections, max_results, current_page)
             
+            # Check if this page exceeds the max_results limit
+            if len(page_collections) > max_results:
+                print(f"⚠️  Note: This collection hierarchy has {len(page_collections)} items, exceeding the limit of {max_results}.")
+                print(f"    Showing all items to maintain hierarchy structure. Use -x to increase limit.")
+                print()
+            
             # Display the current page
             display_hierarchical_search_results(page_collections, display_search_term, None)
             
             # Show pagination status
-            print(f"\nShowing collections on page {current_page + 1} of {total_pages}")
+            collections_shown = len(page_collections)
+            print(f"\nShowing {collections_shown} collections on page {current_page + 1} of {total_pages}")
             
             # If only one page, exit
             if total_pages <= 1:
