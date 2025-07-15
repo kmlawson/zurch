@@ -15,6 +15,8 @@ from .interactive import interactive_collection_selection
 from .duplicates import deduplicate_items, deduplicate_grouped_items
 from .export import export_items
 from .utils import sort_items
+from .pagination import handle_pagination_loop
+from .hierarchical_pagination import get_paginated_collections
 
 class DisplayOptions:
     """Container for display options to reduce parameter passing."""
@@ -39,7 +41,7 @@ class DisplayOptions:
             self.sort_by_author = kwargs.get('sort_by_author', False)
 
 def display_sorted_items(items, max_results, args, db=None, search_term="", display_opts: DisplayOptions = None):
-    """Display items with optional sorting."""
+    """Display items with optional sorting and pagination."""
     # Sort items if sort flag is provided
     if hasattr(args, 'sort') and args.sort:
         items = sort_items(items, args.sort, db)
@@ -48,10 +50,80 @@ def display_sorted_items(items, max_results, args, db=None, search_term="", disp
     if display_opts is None:
         display_opts = DisplayOptions(args)
     
-    display_items(items, max_results, search_term, 
-                 display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
-                 display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
-                 display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+    # Check if pagination is enabled and we have more items than max_results
+    if hasattr(args, 'pagination') and args.pagination and len(items) > max_results:
+        # Use pagination
+        def display_page(page_items, search_term, display_opts, db, max_results):
+            display_items(page_items, max_results, search_term, 
+                         display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
+                         display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
+                         display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+        
+        handle_pagination_loop(items, max_results, display_page, search_term, display_opts, db, max_results)
+    else:
+        # Normal display with max_results limit
+        display_items(items[:max_results], max_results, search_term, 
+                     display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
+                     display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
+                     display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+
+
+def display_sorted_grouped_items(grouped_items, max_results, args, db=None, search_term="", display_opts: DisplayOptions = None):
+    """Display grouped items with optional pagination."""
+    # Use display options or create from args
+    if display_opts is None:
+        display_opts = DisplayOptions(args)
+    
+    # Flatten grouped items to count total items
+    all_items = []
+    for collection, items in grouped_items:
+        all_items.extend(items)
+    
+    # Check if pagination is enabled and we have more items than max_results
+    if hasattr(args, 'pagination') and args.pagination and len(all_items) > max_results:
+        # Use pagination for grouped items
+        def display_grouped_page(page_items, search_term, display_opts, db, max_results):
+            # Need to reconstruct grouped structure for the page
+            reconstructed_groups = []
+            current_collection = None
+            current_items = []
+            
+            for item in page_items:
+                # Find which collection this item belongs to
+                item_collection = None
+                for collection, items in grouped_items:
+                    if item in items:
+                        item_collection = collection
+                        break
+                
+                if item_collection != current_collection:
+                    # Save previous group if exists
+                    if current_collection is not None and current_items:
+                        reconstructed_groups.append((current_collection, current_items))
+                    
+                    # Start new group
+                    current_collection = item_collection
+                    current_items = [item]
+                else:
+                    current_items.append(item)
+            
+            # Add final group
+            if current_collection is not None and current_items:
+                reconstructed_groups.append((current_collection, current_items))
+            
+            # Display the reconstructed groups
+            display_grouped_items(reconstructed_groups, max_results, search_term,
+                                display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
+                                display_opts.show_author, display_opts.show_created, display_opts.show_modified,
+                                display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+        
+        handle_pagination_loop(all_items, max_results, display_grouped_page, search_term, display_opts, db, max_results)
+    else:
+        # Normal grouped display
+        display_grouped_items(grouped_items, max_results, search_term,
+                            display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
+                            display_opts.show_author, display_opts.show_created, display_opts.show_modified,
+                            display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
 
 def sanitize_filename(filename: str, max_length: int = 100) -> str:
     """Sanitize filename for cross-platform compatibility."""
@@ -460,7 +532,8 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
         # Get items from selected collection
         items, total_count = db.get_collection_items(
             selected_collection.name, args.only_attachments, 
-            args.after, args.before, args.books, args.articles, args.tag
+            args.after, args.before, args.books, args.articles, args.tag,
+            exact_match=args.exact
         )
         
         # Display results
@@ -529,7 +602,7 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
             except EOFError:
                 return
 
-def handle_non_interactive_list_mode(collections: List[ZoteroCollection], search_term: str, max_results: int, show_all_collections: bool = False) -> None:
+def handle_non_interactive_list_mode(collections: List[ZoteroCollection], search_term: str, max_results: int, show_all_collections: bool = False, args=None) -> None:
     """Handle non-interactive list display."""
     if search_term:
         if show_all_collections:
@@ -539,15 +612,48 @@ def handle_non_interactive_list_mode(collections: List[ZoteroCollection], search
     else:
         print("Collections and Sub-collections:")
     
-    if len(collections) > max_results:
-        if search_term:
-            print(f"Showing first {max_results} of {len(collections)} matches:")
-        else:
-            print(f"Showing first {max_results} of {len(collections)} collections:")
-    
     # When showing all collections (via "/" feature), pass empty search term to display all
     display_search_term = "" if show_all_collections else (search_term or "")
-    display_hierarchical_search_results(collections, display_search_term, max_results)
+    
+    # Check if pagination is enabled and we have more collections than max_results
+    if args and hasattr(args, 'pagination') and args.pagination and len(collections) > max_results:
+        # Use hierarchical pagination for collections
+        current_page = 0
+        
+        while True:
+            # Get paginated collections maintaining hierarchy
+            page_collections, has_previous, has_next, current_page, total_pages = \
+                get_paginated_collections(collections, max_results, current_page)
+            
+            # Display the current page
+            display_hierarchical_search_results(page_collections, display_search_term, None)
+            
+            # Show pagination status
+            print(f"\nShowing collections on page {current_page + 1} of {total_pages}")
+            
+            # If only one page, exit
+            if total_pages <= 1:
+                break
+            
+            # Get user input for navigation
+            from .pagination import get_pagination_input
+            user_input = get_pagination_input(has_previous, has_next)
+            
+            if user_input == '0' or user_input == '':
+                break
+            elif user_input == 'n' and has_next:
+                current_page += 1
+            elif user_input == 'p' and has_previous:
+                current_page -= 1
+    else:
+        # Normal display with limit
+        if len(collections) > max_results:
+            if search_term:
+                print(f"Showing first {max_results} of {len(collections)} matches:")
+            else:
+                print(f"Showing first {max_results} of {len(collections)} collections:")
+        
+        display_hierarchical_search_results(collections, display_search_term, max_results)
 
 def handle_list_command(db: ZoteroDatabase, args, max_results: int) -> int:
     """Handle -l/--list command."""
@@ -570,7 +676,7 @@ def handle_list_command(db: ZoteroDatabase, args, max_results: int) -> int:
             if display_search_term and display_search_term.endswith('/'):
                 display_search_term = display_search_term[:-1]
                 show_all_collections = True
-            handle_non_interactive_list_mode(collections, display_search_term, max_results, show_all_collections)
+            handle_non_interactive_list_mode(collections, display_search_term, max_results, show_all_collections, args)
     else:
         print(f"No collections found matching '{args.list}'")
     
@@ -595,8 +701,13 @@ def apply_deduplication_and_limit(items: List[ZoteroItem], db: ZoteroDatabase, a
         items, duplicates_removed = deduplicate_items(db, items, args.debug)
     
     items_before_limit = len(items)
-    items = items[:max_results]
-    items_final = len(items)
+    
+    # Skip limiting if pagination is enabled - let pagination handle it
+    if hasattr(args, 'pagination') and args.pagination:
+        items_final = len(items)
+    else:
+        items = items[:max_results]
+        items_final = len(items)
     
     return items, duplicates_removed, items_before_limit, items_final
 
@@ -624,7 +735,8 @@ def handle_multiple_collections(db: ZoteroDatabase, folder_name: str, args, max_
     """Handle folder command when multiple collections match."""
     grouped_items, total_count = db.get_collection_items_grouped(
         folder_name, args.only_attachments, 
-        args.after, args.before, args.books, args.articles, args.tag
+        args.after, args.before, args.books, args.articles, args.tag,
+        exact_match=args.exact
     )
     
     if not grouped_items:
@@ -649,7 +761,13 @@ def handle_multiple_collections(db: ZoteroDatabase, folder_name: str, args, max_
     
     # Display grouped items and get flat list for interactive mode
     sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
-    all_items = display_grouped_items(grouped_items, max_results, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, db=db, sort_by_author=sort_by_author)
+    display_opts = DisplayOptions(args)
+    display_sorted_grouped_items(grouped_items, max_results, args, db=db, search_term=folder_name, display_opts=display_opts)
+    
+    # Get all items for interactive mode
+    all_items = []
+    for collection, items in grouped_items:
+        all_items.extend(items)
     
     # Handle export if requested
     if args.export:
@@ -664,7 +782,8 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
     """Handle folder command when single collection matches."""
     items, total_count = db.get_collection_items(
         folder_name, args.only_attachments, 
-        args.after, args.before, args.books, args.articles, args.tag
+        args.after, args.before, args.books, args.articles, args.tag,
+        exact_match=args.exact
     )
     
     if not items:
@@ -920,7 +1039,8 @@ def handle_multiple_collections_with_subcollections(db: ZoteroDatabase, folder_n
         logger.debug(f"Processing collection {i+1}/{len(collections)}: '{collection.name}'")
         items, count = db.get_collection_items(
             collection.name, args.only_attachments, 
-            args.after, args.before, args.books, args.articles, args.tag
+            args.after, args.before, args.books, args.articles, args.tag,
+            exact_match=args.exact
         )
         all_items.extend(items)
         total_count += count

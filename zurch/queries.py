@@ -1,17 +1,18 @@
 from typing import List, Optional, Tuple
 
 def build_collection_tree_query() -> str:
-    """Build the recursive CTE query for collection hierarchy."""
+    """Build the recursive CTE query for collection hierarchy with recursive item counts and library context."""
     return """
     WITH RECURSIVE collection_tree AS (
         SELECT 
-            collectionID,
-            collectionName,
-            parentCollectionID,
+            c.collectionID,
+            c.collectionName,
+            c.parentCollectionID,
+            c.libraryID,
             0 as depth,
-            collectionName as path
-        FROM collections 
-        WHERE parentCollectionID IS NULL
+            c.collectionName as path
+        FROM collections c
+        WHERE c.parentCollectionID IS NULL
         
         UNION ALL
         
@@ -19,22 +20,39 @@ def build_collection_tree_query() -> str:
             c.collectionID,
             c.collectionName,
             c.parentCollectionID,
+            c.libraryID,
             ct.depth + 1,
             ct.path || ' > ' || c.collectionName
         FROM collections c
         JOIN collection_tree ct ON c.parentCollectionID = ct.collectionID
+    ),
+    all_descendants AS (
+        SELECT 
+            ct1.collectionID as ancestor_id,
+            ct2.collectionID as descendant_id
+        FROM collection_tree ct1
+        JOIN collection_tree ct2 ON (
+            ct2.collectionID = ct1.collectionID OR
+            ct2.path LIKE ct1.path || ' > %'
+        )
     )
     SELECT 
         ct.collectionID,
         ct.collectionName,
         ct.parentCollectionID,
         ct.depth,
-        COUNT(ci.itemID) as item_count,
-        ct.path
+        COUNT(DISTINCT ci.itemID) as item_count,
+        ct.path,
+        ct.libraryID,
+        l.type as library_type,
+        COALESCE(g.name, 'Personal Library') as library_name
     FROM collection_tree ct
-    LEFT JOIN collectionItems ci ON ct.collectionID = ci.collectionID
-    GROUP BY ct.collectionID, ct.collectionName, ct.parentCollectionID, ct.depth, ct.path
-    ORDER BY ct.depth, ct.collectionName
+    JOIN libraries l ON ct.libraryID = l.libraryID
+    LEFT JOIN groups g ON l.libraryID = g.libraryID
+    LEFT JOIN all_descendants ad ON ct.collectionID = ad.ancestor_id
+    LEFT JOIN collectionItems ci ON ad.descendant_id = ci.collectionID
+    GROUP BY ct.collectionID, ct.collectionName, ct.parentCollectionID, ct.depth, ct.path, ct.libraryID, l.type, g.name
+    ORDER BY l.type DESC, ct.depth, ct.collectionName
     """
 
 def build_collection_items_query(collection_id: int, only_attachments: bool = False, 

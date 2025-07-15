@@ -306,33 +306,51 @@ def matches_search_term(text: str, search_term: str) -> bool:
         return search_lower in text_lower
 
 def display_hierarchical_search_results(collections: List, search_term: str, max_results: int = None) -> None:
-    """Display search results in hierarchical format showing parent structure."""
-    # Build a hierarchy tree from the collections
-    hierarchy = {}
+    """Display search results in hierarchical format showing parent structure with library grouping."""
+    # Group collections by library to avoid duplicates
+    libraries = {}
     displayed_count = 0
     
+    # Group collections by library
     for collection in collections:
-        parts = collection.full_path.split(' > ')
-        current_level = hierarchy
+        library_key = f"{collection.library_type}:{collection.library_id}"
+        if library_key not in libraries:
+            libraries[library_key] = {
+                'name': collection.library_name,
+                'type': collection.library_type,
+                'collections': [],
+                'hierarchy': {}
+            }
+        libraries[library_key]['collections'].append(collection)
+    
+    # Build hierarchy for each library
+    for library_key, library_data in libraries.items():
+        hierarchy = {}
         
-        # Build the nested structure
-        for i, part in enumerate(parts):
-            if part not in current_level:
-                current_level[part] = {
-                    '_children': {},
-                    '_collection': None,
-                    '_is_match': False
-                }
+        for collection in library_data['collections']:
+            parts = collection.full_path.split(' > ')
+            current_level = hierarchy
             
-            # Check if this part matches our search
-            if matches_search_term(part, search_term):
-                current_level[part]['_is_match'] = True
-            
-            # If this is the final part, store the collection info
-            if i == len(parts) - 1:
-                current_level[part]['_collection'] = collection
-            
-            current_level = current_level[part]['_children']
+            # Build the nested structure
+            for i, part in enumerate(parts):
+                if part not in current_level:
+                    current_level[part] = {
+                        '_children': {},
+                        '_collection': None,
+                        '_is_match': False
+                    }
+                
+                # Check if this part matches our search
+                if matches_search_term(part, search_term):
+                    current_level[part]['_is_match'] = True
+                
+                # If this is the final part, store the collection info
+                if i == len(parts) - 1:
+                    current_level[part]['_collection'] = collection
+                
+                current_level = current_level[part]['_children']
+        
+        library_data['hierarchy'] = hierarchy
     
     # Display the hierarchy
     def print_hierarchy(level_dict, depth=0, parent_shown=False):
@@ -380,7 +398,22 @@ def display_hierarchical_search_results(collections: List, search_term: str, max
                 return True
         return False
     
-    print_hierarchy(hierarchy)
+    # Display each library's hierarchy
+    # Sort libraries: user library first, then group libraries alphabetically
+    sorted_libraries = sorted(
+        libraries.items(),
+        key=lambda x: (x[1]['type'] != 'user', x[1]['name'])
+    )
+    
+    for i, (library_key, library_data) in enumerate(sorted_libraries):
+        # Show library header for group libraries or when there are multiple libraries
+        if len(libraries) > 1 and library_data['type'] == 'group':
+            if i > 0:  # Add spacing between libraries
+                print()
+            print(f"=== {library_data['name']} (Group Library) ===")
+        
+        # Print the hierarchy for this library
+        print_hierarchy(library_data['hierarchy'])
 
 def show_item_metadata(db, item: ZoteroItem) -> None:
     """Display full metadata for an item."""

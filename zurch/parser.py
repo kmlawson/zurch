@@ -29,6 +29,12 @@ def add_mode_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Enable interactive mode (append 'g' to item number to grab attachment)"
     )
+    
+    parser.add_argument(
+        "-p", "--pagination", 
+        action="store_true",
+        help="Enable pagination for long result lists (n=next, p=previous, 0=exit)"
+    )
 
 def add_search_arguments(parser: argparse.ArgumentParser) -> None:
     """Add search-related arguments."""

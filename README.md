@@ -48,7 +48,7 @@ uv tool install .
 ## Quick Start
 
 ```bash
-# List all collections (up to default max items to show, defaults to 100 but configurable)
+# List collections (up to default max items to show)
 zurch -l
 
 # List collections matching a pattern (partial matching by default)
@@ -63,10 +63,8 @@ zurch -f "Heritage"
 zurch -f Heritage
 
 # Search for items by name
-zurch -n "medicine"
-# OR
+zurch -n "People's"
 zurch -n medicine
-# but look out for special characters like ' in People's - you'll need to run "People's"
 
 # Interactive mode to select and view metadata or grab attachments for items in a folder
 zurch -f "Heritage" -i
@@ -75,17 +73,23 @@ zurch -n "China" -i
 zurch -a "Smith" -i
 
 # Show only hits with PDF/EPUB attachments
-zurch -f "Heritage" -o
+zurch -n nationalism -o
 
 # Grabbing the PDF or EPUB attachment while in interactive mode:
-zurch -f "Papers" -i
+zurch -n "Introduction to" -i
 # Then type: 5g to grab attachment from item 5 if it includes one
 
 # Debug mode shows additional verbose logging, including duplicates in purple
 zurch -n "World History" -d
 
-# Look up specific item by ID
+# Show IDs 
+zurch -n nationalism --showids
+
+# Look up metadata of a specific item by ID
 zurch --id 12345
+
+# Grab attachment of a specific item by ID
+zurch --getbyid 12345
 
 # Disable duplicate removal to see all database entries
 zurch -n "duplicate article" --no-dedupe
@@ -101,7 +105,6 @@ zurch -n "machine learning" --showyear --showauthor
 
 # Export search results to CSV and JSON
 zurch -n "digital humanities" --export csv
-zurch -n "digital humanities" --export json
 
 # Export to specific file path
 zurch -n "methodology" --export json --file ~/research/methods.json
@@ -111,6 +114,9 @@ zurch -n "machine learning" --sort date
 
 # Sort by author last name
 zurch -f "Papers" --sort author
+
+# Navigate through long results with pagination
+zurch -n "china" -p -x 5  # Show 5 items per page, navigate with n/p/0
 ```
 
 ## Commands
@@ -123,9 +129,9 @@ zurch -l
 # Filter collections (partial matching by default)
 zurch -l "china"
 
-# Use % wildcard for more control
-zurch -l "china%"      # starts with "china"
-zurch -l "%history%"   # contains "history"
+# Partial match by default but use % wildcard for more control
+zurch -l "china%"      # starts with "china" 
+zurch -l "%history"   # ends with "history"
 
 # Show collection and all its sub-collections (append / to name)
 zurch -l "Digital Humanities/"  # Shows "Digital Humanities" and all sub-collections
@@ -212,6 +218,22 @@ When combined with folder or name search, enables interactive selection:
 - Select an item and its attachment will be copied to current directory if you add g after the number
 ```
 
+### Pagination (-p/--pagination)
+Navigate through long result lists page by page:
+```bash
+# Enable pagination to browse results in manageable chunks
+zurch -n "china" -p -x 5    # 5 items per page
+zurch -l -p -x 10           # 10 collections per page
+zurch -f "Papers" -p -x 20  # 20 folder items per page
+
+# Navigation controls:
+# n = next page
+# p = previous page  
+# 0 or Enter = exit pagination
+```
+
+When pagination is enabled (`-p` flag), results exceeding the max limit (`-x` value) will be shown page by page with navigation prompts. This is useful for exploring large result sets without overwhelming the terminal.
+
 ### Filtering Options
 - `-o/--only-attachments`: Show only items with PDF/EPUB attachments
 - `--books`: Show only book items in search results  
@@ -256,6 +278,7 @@ Shows:
 
 ### Other Options
 - `-x/--max-results N`: Limit number of results (default: 100) - **Applied as final step after all filtering and deduplication**
+- `-p/--pagination`: Enable pagination for long result lists (navigate with n/p/0)
 - `-d/--debug`: Enable detailed logging and show purple duplicates
 - `-v/--version`: Show version information
 - `-h/--help`: Show help message

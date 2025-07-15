@@ -21,7 +21,10 @@ class CollectionService:
                 parent_id=row['parentCollectionID'],
                 depth=row['depth'],
                 item_count=row['item_count'],
-                full_path=row['path']
+                full_path=row['path'],
+                library_id=row['libraryID'],
+                library_type=row['library_type'],
+                library_name=row['library_name']
             )
             for row in results
         ]

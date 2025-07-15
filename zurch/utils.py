@@ -225,11 +225,11 @@ def format_item_type_icon(item_type: str, is_duplicate: bool = False) -> str:
     from .constants import ItemTypes, Icons, Colors
     
     item_type_lower = item_type.lower()
-    if item_type_lower == ItemTypes.BOOK:
+    if item_type_lower == ItemTypes.BOOK.lower():
         icon = f"{Icons.BOOK_GREEN} "  # Green book icon for books
-    elif item_type_lower in [ItemTypes.JOURNAL_ARTICLE, ItemTypes.JOURNAL_ARTICLE_ALT]:
+    elif item_type_lower in [ItemTypes.JOURNAL_ARTICLE.lower(), ItemTypes.JOURNAL_ARTICLE_ALT.lower()]:
         icon = f"{Icons.DOCUMENT} "  # Document icon for journal articles
-    elif item_type_lower == ItemTypes.WEBPAGE:
+    elif item_type_lower == ItemTypes.WEBPAGE.lower():
         icon = f"{Icons.WEBPAGE} "  # Globe icon for web pages
     else:
         icon = ""  # No icon for other types

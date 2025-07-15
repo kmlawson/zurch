@@ -36,9 +36,10 @@ class ZoteroDatabase:
     def get_collection_items(self, collection_name: str, 
                            only_attachments: bool = False, after_year: int = None, 
                            before_year: int = None, only_books: bool = False, 
-                           only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
+                           only_articles: bool = False, tags: Optional[List[str]] = None,
+                           exact_match: bool = False) -> Tuple[List[ZoteroItem], int]:
         """Get items from collections matching the given name. Returns (items, total_count)."""
-        collections = self.search_collections(collection_name)
+        collections = self.search_collections(collection_name, exact_match=exact_match)
         
         if not collections:
             return [], 0
@@ -58,9 +59,10 @@ class ZoteroDatabase:
     def get_collection_items_grouped(self, collection_name: str, 
                                    only_attachments: bool = False, after_year: int = None, 
                                    before_year: int = None, only_books: bool = False, 
-                                   only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[Tuple[ZoteroCollection, List[ZoteroItem]]], int]:
+                                   only_articles: bool = False, tags: Optional[List[str]] = None,
+                                   exact_match: bool = False) -> Tuple[List[Tuple[ZoteroCollection, List[ZoteroItem]]], int]:
         """Get items from collections matching the given name, grouped by collection. Returns (grouped_items, total_count)."""
-        collections = self.search_collections(collection_name)
+        collections = self.search_collections(collection_name, exact_match=exact_match)
         
         if not collections:
             return [], 0

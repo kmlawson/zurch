@@ -72,10 +72,23 @@ class ZoteroCollection:
     depth: int = 0
     item_count: int = 0
     full_path: str = ""
+    library_id: int = 1
+    library_type: str = "user"
+    library_name: str = "Personal Library"
     
     def is_root(self) -> bool:
         """Check if this is a root collection."""
         return self.parent_id is None
+    
+    def is_group_collection(self) -> bool:
+        """Check if this is a group collection."""
+        return self.library_type == "group"
+    
+    def get_display_name(self) -> str:
+        """Get the collection name with library context if needed."""
+        if self.is_group_collection():
+            return f"{self.name} ({self.library_name})"
+        return self.name
     
     def get_path_components(self) -> list[str]:
         """Get collection path as list of components."""
