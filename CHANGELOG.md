@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2025-07-15
+
+### Documentation
+- **README Enhancement**: Improved search examples and -k flag documentation
+  - Added clear examples showing quote handling for special characters
+  - Added comprehensive -k/--exact flag examples for all search types
+  - Clarified difference between AND search vs phrase search
+  - Fixed misleading author search example comments
+  - Added proper examples for People's Republic quote handling
+  - Better demonstrates when to use quotes vs no quotes
+  - Added note about planned -fa/-la flags for future release
+
+### Technical
+- **Badge System**: Added comprehensive status badges to README
+  - Added PyPI version badge with automatic version tracking
+  - Added test status badge showing current test coverage
+  - Added Zotero compatibility badge with brand-matching colors
+  - Added Claude Code development badge
+  - Organized all badges on single line for better presentation
+
+### Bug Fixes
+- **README Examples**: Fixed wildcard syntax in examples
+  - Corrected "*" wildcards to "%" (SQL LIKE pattern)
+  - Removed unnecessary wildcards from -l flag examples (uses partial matching by default)
+  - Updated collection search examples to be more accurate
+
 ## [0.7.2] - 2025-07-15
 
 ### Enhanced
