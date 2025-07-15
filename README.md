@@ -51,8 +51,11 @@ uv tool install .
 # List all collections
 zurch -l
 
-# List collections matching a pattern
+# List collections matching a pattern (partial matching by default)
 zurch -l japan
+
+# List collections with exact matching
+zurch -l "Japan" -k
 
 # Browse items in a folder
 zurch -f "Heritage"
@@ -143,12 +146,15 @@ zurch -f "Travel" -i
 ```bash
 # Search item titles (supports AND logic for multiple words)
 zurch -n machine learning    # Finds items with BOTH "machine" AND "learning"
-zurch -n "machine learning"  # Finds items with exact phrase "machine learning"
+zurch -n "machine learning"  # Finds items containing "machine learning"
 
-# Case-insensitive, partial matching
-zurch -n "china"
+# Case-insensitive, partial matching (default)
+zurch -n "china"             # Finds "China", "China's History", "Modern China", etc.
 
-# Wildcard patterns
+# Exact matching with -k flag
+zurch -n "china" -k          # Finds only items with title exactly "china"
+
+# Wildcard patterns (for partial matching)
 zurch -n "china%"    # Titles starting with "china"
 zurch -n "%history"  # Titles ending with "history"  
 zurch -n "%war%"     # Titles containing "war"
@@ -159,7 +165,10 @@ zurch -n "%war%"     # Titles containing "war"
 # Search by author name (supports AND logic for multiple words)
 zurch -a smith       # Find items by authors named "smith"
 zurch -a john smith  # Find items by authors with BOTH "john" AND "smith"
-zurch -a "john smith"# Find items by author with exact name "john smith"
+zurch -a "john smith"# Find items by authors containing "john smith"
+
+# Exact matching with -k flag
+zurch -a "john smith" -k  # Find items by authors with exactly "john smith"
 
 # Works with first or last names
 zurch -a benjamin    # Finds Benjamin Franklin, Benjamin Netanyahu, etc.
@@ -167,10 +176,13 @@ zurch -a benjamin    # Finds Benjamin Franklin, Benjamin Netanyahu, etc.
 
 ### Filter by Tags (-t/--tag)
 ```bash
-# Search by tag alone (case-insensitive)
+# Search by tag alone (case-insensitive, partial matching by default)
 zurch -t methodology  # Find all items tagged with "methodology"
 zurch -t china japan  # Find items tagged with BOTH "china" AND "japan"
-zurch -t "digital humanities"  # Find items tagged with exact phrase
+zurch -t "digital humanities"  # Find items tagged containing "digital humanities"
+
+# Exact tag matching with -k flag
+zurch -t "digital humanities" -k  # Find items tagged with exactly "digital humanities"
 
 # Combine with other searches for more specific results
 zurch -n "machine learning" -t "data science"  # Items about ML tagged with data science
