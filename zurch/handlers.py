@@ -239,11 +239,12 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
         return False
 
 def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, display_opts: DisplayOptions = None, db=None, return_index: bool = False):
-    """Handle interactive item selection.
+    """Handle interactive item selection with automatic pagination.
     
     Returns (item, should_grab) tuple by default, or (item, should_grab, selected_index) if return_index=True.
     User can append 'g' to number to grab attachment: "3g"
     User can type 'l' to re-list all items
+    Automatically enables pagination when total items exceed max_results
     """
     if not items:
         return (None, False, None) if return_index else (None, False)
@@ -251,7 +252,34 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
     if display_opts is None:
         display_opts = DisplayOptions()
     
+    # Check if we need pagination
+    total_items = len(items)
+    needs_pagination = total_items > max_results
+    
+    if needs_pagination:
+        return interactive_selection_with_pagination(items, max_results, search_term, grouped_items, display_opts, db, return_index)
+    else:
+        return interactive_selection_simple(items, max_results, search_term, grouped_items, display_opts, db, return_index)
+
+
+def interactive_selection_simple(items, max_results: int, search_term: str, grouped_items, display_opts: DisplayOptions, db, return_index: bool):
+    """Simple interactive selection without pagination."""
+    first_display = True
+    
     while True:
+        # Show items on first display or when user asks to re-list
+        if first_display:
+            first_display = False
+            if grouped_items:
+                display_grouped_items(grouped_items, max_results, search_term, 
+                                     display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
+                                     display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
+                                     display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+            else:
+                display_items(items, max_results, search_term, 
+                             display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
+                             display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
+                             display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
         try:
             choice = input(f"\nSelect item number (1-{len(items)}, 0 to cancel, 'l' to list, add 'g' to grab: 3g): ").strip()
             if choice == "0":
@@ -281,6 +309,111 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
                 return (items[idx], should_grab, idx) if return_index else (items[idx], should_grab)
             else:
                 print(f"Please enter a number between 1 and {len(items)}")
+        except (ValueError, KeyboardInterrupt):
+            print("\nCancelled")
+            return (None, False, None) if return_index else (None, False)
+        except EOFError:
+            return (None, False, None) if return_index else (None, False)
+
+
+def interactive_selection_with_pagination(items, max_results: int, search_term: str, grouped_items, display_opts: DisplayOptions, db, return_index: bool):
+    """Interactive selection with pagination support."""
+    total_items = len(items)
+    total_pages = (total_items + max_results - 1) // max_results
+    current_page = 0
+    first_display = True
+    
+    while True:
+        # Calculate page boundaries
+        start_idx = current_page * max_results
+        end_idx = min(start_idx + max_results, total_items)
+        page_items = items[start_idx:end_idx]
+        
+        # Display current page
+        if first_display:
+            first_display = False
+        else:
+            print()
+        if grouped_items:
+            # For grouped items, we need to reconstruct the groups for this page
+            page_grouped = []
+            current_collection = None
+            current_items = []
+            
+            for item in page_items:
+                # Find which collection this item belongs to
+                item_collection = None
+                for collection, collection_items in grouped_items:
+                    if item in collection_items:
+                        item_collection = collection
+                        break
+                
+                if item_collection != current_collection:
+                    # Save previous group if exists
+                    if current_collection is not None and current_items:
+                        page_grouped.append((current_collection, current_items))
+                    
+                    # Start new group
+                    current_collection = item_collection
+                    current_items = [item]
+                else:
+                    current_items.append(item)
+            
+            # Add final group
+            if current_collection is not None and current_items:
+                page_grouped.append((current_collection, current_items))
+            
+            display_grouped_items(page_grouped, max_results, search_term,
+                                display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
+                                display_opts.show_author, display_opts.show_created, display_opts.show_modified,
+                                display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+        else:
+            display_items(page_items, max_results, search_term,
+                         display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
+                         display_opts.show_author, display_opts.show_created, display_opts.show_modified,
+                         display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+        
+        # Show pagination info
+        print(f"\nShowing items {start_idx + 1}-{end_idx} of {total_items} total")
+        print(f"Page {current_page + 1} of {total_pages}")
+        
+        # Build prompt with navigation options
+        prompt_parts = [f"Select item number (1-{len(page_items)}"]
+        if current_page > 0:
+            prompt_parts.append("'p' for previous page")
+        if current_page < total_pages - 1:
+            prompt_parts.append("'n' for next page")
+        prompt_parts.extend(["'l' to re-list", "0 to cancel", "add 'g' to grab"])
+        prompt = ", ".join(prompt_parts) + "): "
+        
+        try:
+            choice = input(prompt).strip()
+            
+            if choice == "0":
+                return (None, False, None) if return_index else (None, False)
+            elif choice.lower() == "n" and current_page < total_pages - 1:
+                current_page += 1
+                continue
+            elif choice.lower() == "p" and current_page > 0:
+                current_page -= 1
+                continue
+            elif choice.lower() == "l":
+                # Re-list current page (already displayed above, just continue)
+                continue
+            
+            # Check for 'g' suffix
+            should_grab = choice.lower().endswith('g')
+            if should_grab:
+                choice = choice[:-1]  # Remove 'g'
+            
+            idx = int(choice) - 1
+            if 0 <= idx < len(page_items):
+                selected_item = page_items[idx]
+                # Calculate the global index for return_index
+                global_idx = start_idx + idx
+                return (selected_item, should_grab, global_idx) if return_index else (selected_item, should_grab)
+            else:
+                print(f"Please enter a number between 1 and {len(page_items)}")
         except (ValueError, KeyboardInterrupt):
             print("\nCancelled")
             return (None, False, None) if return_index else (None, False)
@@ -523,10 +656,28 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
     """Enhanced interactive collection browser with item selection and navigation."""
     zotero_data_dir = Path(args.zotero_database_path if hasattr(args, 'zotero_database_path') else str(db.db_path)).parent
     
+    # Use hierarchical pagination for interactive mode
+    current_page = 0
+    
     while True:
-        # Select collection
-        selected_collection = interactive_collection_selection(collections[:max_results])
-        if not selected_collection:
+        # Get paginated collections maintaining hierarchy
+        page_collections, has_previous, has_next, current_page, total_pages = \
+            get_paginated_collections(collections, max_results, current_page)
+        
+        # Display hierarchical collections with numbers for interactive selection
+        from .interactive import interactive_collection_selection_with_pagination
+        selected_collection = interactive_collection_selection_with_pagination(
+            page_collections, current_page, total_pages, has_previous, has_next, display_search_term
+        )
+        
+        # Handle pagination navigation
+        if selected_collection == "NEXT_PAGE":
+            current_page += 1
+            continue
+        elif selected_collection == "PREVIOUS_PAGE":
+            current_page -= 1
+            continue
+        elif not selected_collection:
             break
         
         # Get items from selected collection
@@ -628,14 +779,9 @@ def handle_non_interactive_list_mode(collections: List[ZoteroCollection], search
             # Display the current page
             display_hierarchical_search_results(page_collections, display_search_term, None)
             
-            # Calculate how many top-level collections are shown on this page
-            from .hierarchical_pagination import build_collection_hierarchy
-            page_hierarchy = build_collection_hierarchy(page_collections)
-            top_level_count = sum(len(lib_data['top_level_collections']) 
-                                for lib_data in page_hierarchy.values())
-            
+            # Calculate how many collections are shown on this page
             total_collections_shown = len(page_collections)
-            print(f"\nShowing {top_level_count} top-level collections ({total_collections_shown} total with sub-collections)")
+            print(f"\nShowing {total_collections_shown} collections")
             print(f"Page {current_page + 1} of {total_pages}")
             
             # If only one page, exit
@@ -740,11 +886,18 @@ def display_folder_results(folder_name: str, items_final: int, items_before_limi
 
 def handle_multiple_collections(db: ZoteroDatabase, folder_name: str, args, max_results: int, config: dict) -> int:
     """Handle folder command when multiple collections match."""
-    grouped_items, total_count = db.get_collection_items_grouped(
-        folder_name, args.only_attachments, 
-        args.after, args.before, args.books, args.articles, args.tag,
-        exact_match=args.exact
-    )
+    from .spinner import ProgressSpinner
+    
+    # Get collection count first for progress reporting
+    collections = db.search_collections(folder_name, exact_match=args.exact)
+    collection_count = len(collections)
+    
+    with ProgressSpinner(f"Loading items from {collection_count} collections") as spinner:
+        grouped_items, total_count = db.get_collection_items_grouped(
+            folder_name, args.only_attachments, 
+            args.after, args.before, args.books, args.articles, args.tag,
+            exact_match=args.exact
+        )
     
     if not grouped_items:
         print(f"No items found in folders matching '{folder_name}'")
@@ -782,16 +935,23 @@ def handle_multiple_collections(db: ZoteroDatabase, folder_name: str, args, max_
     
     if args.interactive:
         handle_interactive_mode(db, all_items, config, max_results, folder_name, grouped_items, args.showids, args.showtags, args.showyear, args.showauthor, args.showcreated, args.showmodified, args.showcollections, sort_by_author)
+    else:
+        # Enable pagination for folder results if requested
+        if not hasattr(args, 'pagination'):
+            args.pagination = False
     
     return 0
 
 def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_results: int, config: dict) -> int:
     """Handle folder command when single collection matches."""
-    items, total_count = db.get_collection_items(
-        folder_name, args.only_attachments, 
-        args.after, args.before, args.books, args.articles, args.tag,
-        exact_match=args.exact
-    )
+    from .spinner import Spinner
+    
+    with Spinner(f"Loading items from '{folder_name}'"):
+        items, total_count = db.get_collection_items(
+            folder_name, args.only_attachments, 
+            args.after, args.before, args.books, args.articles, args.tag,
+            exact_match=args.exact
+        )
     
     if not items:
         print(f"No items found in folder '{folder_name}'")
@@ -804,7 +964,6 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
     
     # Display results
     display_folder_results(folder_name, items_final, items_before_limit, duplicates_removed, total_count, args)
-    display_sorted_items(items, max_results, args, db=db)
     
     # Handle export if requested
     if args.export:
@@ -813,6 +972,12 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
     if args.interactive:
         sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
         handle_interactive_mode(db, items, config, max_results, folder_name, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, sort_by_author=sort_by_author)
+    else:
+        # Enable pagination for folder results if requested
+        if not hasattr(args, 'pagination'):
+            args.pagination = False
+        
+        display_sorted_items(items, max_results, args, db=db)
     
     return 0
 
@@ -1158,6 +1323,10 @@ def handle_subcollections_mode(collections: List[ZoteroCollection], folder_name:
 
 def handle_folder_command(db: ZoteroDatabase, args, max_results: int, config: dict) -> int:
     """Handle -f/--folder command."""
+    # Enable pagination automatically for interactive mode
+    if args.interactive:
+        args.pagination = True
+        
     folder_name, show_subcolls = parse_folder_parameters(args)
     
     # Check how many collections match
@@ -1260,21 +1429,27 @@ def get_highlight_term(args, name_search) -> str:
 
 def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: dict) -> int:
     """Handle -n/--name and -a/--author search commands."""
+    # Enable pagination automatically for interactive mode
+    if args.interactive:
+        args.pagination = True
+        
     # Process search parameters
     name_search, author_search, search_display = process_search_parameters(args)
     
-    # Execute search
-    items, total_count = db.search_items_combined(
-        name=name_search, 
-        author=author_search, 
-        exact_match=args.exact, 
-        only_attachments=args.only_attachments,
-        after_year=args.after,
-        before_year=args.before,
-        only_books=args.books,
-        only_articles=args.articles,
-        tags=args.tag
-    )
+    # Execute search with spinner
+    from .spinner import Spinner
+    with Spinner(f"Searching for '{search_display}'"):
+        items, total_count = db.search_items_combined(
+            name=name_search, 
+            author=author_search, 
+            exact_match=args.exact, 
+            only_attachments=args.only_attachments,
+            after_year=args.after,
+            before_year=args.before,
+            only_books=args.books,
+            only_articles=args.articles,
+            tags=args.tag
+        )
     
     if not items:
         print(f"No items found matching '{search_display}'")
@@ -1289,7 +1464,6 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
     display_search_results(search_display, items_final, items_before_limit, duplicates_removed, total_count, args)
     
     highlight_term = get_highlight_term(args, name_search)
-    display_sorted_items(items, max_results, args, db=db, search_term=highlight_term)
     
     # Handle export if requested
     if args.export:
@@ -1298,6 +1472,13 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
     if args.interactive:
         sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
         handle_interactive_mode(db, items, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, sort_by_author=sort_by_author)
+    else:
+        # Enable pagination for search results if requested
+        if not hasattr(args, 'pagination'):
+            args.pagination = False
+        
+        # Use pagination for non-interactive mode
+        display_sorted_items(items, max_results, args, db=db, search_term=highlight_term)
     
     return 0
 
