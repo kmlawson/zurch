@@ -52,7 +52,7 @@ uv tool install .
 zurch -l
 
 # List collections matching a pattern
-zurch -l "*japan*"
+zurch -l "%japan%"
 
 # Browse items in a folder
 zurch -f "Heritage"
@@ -335,7 +335,7 @@ The `-o` flag filters results to include only items with PDF or EPUB attachments
 ### Academic Research Workflow
 ```bash
 # Find all collections related to your research area
-zurch -l "*digital*"
+zurch -l "%digital%"
 
 # Browse a specific collection
 zurch -f "Digital Humanities"
