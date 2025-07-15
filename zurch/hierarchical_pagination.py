@@ -91,6 +91,9 @@ def get_paginated_collections(
 ) -> Tuple[List[ZoteroCollection], bool, bool, int, int]:
     """Get paginated collections maintaining hierarchical structure.
     
+    page_size refers to number of TOP-LEVEL collections per page, 
+    each shown with all their sub-collections.
+    
     Returns: (page_collections, has_previous, has_next, current_page, total_pages)
     """
     # Build hierarchy
@@ -110,75 +113,31 @@ def get_paginated_collections(
                 'library_key': library_key,
                 'library_name': library_data['name'],
                 'library_type': library_data['type'],
-                'collections': group_collections
+                'collections': group_collections,
+                'top_level_name': top_coll_data['collection'].name
             })
     
-    # Now paginate by top-level groups
-    total_groups = len(top_level_groups)
+    # Now paginate by top-level groups (page_size = number of top-level collections)
+    total_top_level = len(top_level_groups)
     
-    if total_groups == 0:
+    if total_top_level == 0:
         return [], False, False, 0, 0
     
-    # Calculate how many groups fit on each page
-    groups_per_page = 0
-    collections_count = 0
-    temp_groups = []
-    
-    for group in top_level_groups:
-        group_size = len(group['collections'])
-        if collections_count + group_size <= page_size:
-            temp_groups.append(group)
-            collections_count += group_size
-        else:
-            if not temp_groups:
-                # This group is too big for a page, but we need at least one
-                temp_groups.append(group)
-            break
-    
-    # Calculate actual pages based on groups
-    pages = []
-    current_page_groups = []
-    current_page_count = 0
-    
-    for group in top_level_groups:
-        group_size = len(group['collections'])
-        
-        # If this single group exceeds page_size, show it on its own page with a warning
-        if group_size > page_size:
-            if current_page_groups:
-                # Finish current page first
-                pages.append(current_page_groups)
-            
-            # Add the large group as its own page (will show warning during display)
-            pages.append([group])
-            current_page_groups = []
-            current_page_count = 0
-            
-        elif current_page_count + group_size > page_size and current_page_groups:
-            # Start new page
-            pages.append(current_page_groups)
-            current_page_groups = [group]
-            current_page_count = group_size
-        else:
-            current_page_groups.append(group)
-            current_page_count += group_size
-    
-    if current_page_groups:
-        pages.append(current_page_groups)
-    
-    total_pages = len(pages)
+    # Calculate pages based on top-level collections
+    total_pages = (total_top_level + page_size - 1) // page_size
     
     # Ensure current_page is valid
     current_page = max(0, min(current_page, total_pages - 1))
     
-    # Get collections for current page
-    if pages and 0 <= current_page < total_pages:
-        page_groups = pages[current_page]
-        page_collections = []
-        for group in page_groups:
-            page_collections.extend(group['collections'])
-    else:
-        page_collections = []
+    # Get the groups for this page
+    start_idx = current_page * page_size
+    end_idx = start_idx + page_size
+    page_groups = top_level_groups[start_idx:end_idx]
+    
+    # Flatten all collections from the selected groups
+    page_collections = []
+    for group in page_groups:
+        page_collections.extend(group['collections'])
     
     has_previous = current_page > 0
     has_next = current_page < total_pages - 1
