@@ -154,6 +154,10 @@ zurch -n "china"             # Finds "China", "China's History", "Modern China",
 # Exact matching with -k flag
 zurch -n "china" -k          # Finds only items with title exactly "china"
 
+# Handling special characters - quotes protect phrases
+zurch -n "People's" Republic     # AND search: items with BOTH "People's" AND "Republic"
+zurch -n "People's Republic"     # Phrase search: items containing exactly "People's Republic"
+
 # Wildcard patterns (for partial matching)
 zurch -n "china%"    # Titles starting with "china"
 zurch -n "%history"  # Titles ending with "history"  
@@ -164,11 +168,13 @@ zurch -n "%war%"     # Titles containing "war"
 ```bash
 # Search by author name (supports AND logic for multiple words)
 zurch -a smith       # Find items by authors named "smith"
-zurch -a john smith  # Find items by authors with BOTH "john" AND "smith"
+zurch -a john smith  # Find items with BOTH "john" AND "smith" in ANY author name
 zurch -a "john smith"# Find items by authors containing "john smith"
 
 # Exact matching with -k flag
 zurch -a "john smith" -k  # Find items by authors with exactly "john smith"
+
+# Note: -fa and -la flags for first/last name search are planned for future release
 
 # Works with first or last names
 zurch -a benjamin    # Finds Benjamin Franklin, Benjamin Netanyahu, etc.
