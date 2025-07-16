@@ -69,16 +69,20 @@ def get_single_char() -> str:
         return user_input[0] if user_input else ''
 
 
-def get_input_with_immediate_keys(prompt: str, immediate_keys: set) -> str:
+def get_input_with_immediate_keys(prompt: str, immediate_keys: set, first_char_only_immediate: set = None) -> str:
     """Get user input, responding immediately to certain keys.
     
     Args:
         prompt: The prompt to display
         immediate_keys: Set of keys that should return immediately
+        first_char_only_immediate: Set of keys that are immediate only when first character
         
     Returns:
         str: The user's input
     """
+    if first_char_only_immediate is None:
+        first_char_only_immediate = set()
+    
     print(prompt, end='', flush=True)
     
     # Build the input line character by character
@@ -89,6 +93,11 @@ def get_input_with_immediate_keys(prompt: str, immediate_keys: set) -> str:
         
         # Handle immediate keys
         if char in immediate_keys:
+            print(char)  # Echo the character
+            return char
+        
+        # Handle first-character-only immediate keys
+        if char in first_char_only_immediate and not input_line:
             print(char)  # Echo the character
             return char
         

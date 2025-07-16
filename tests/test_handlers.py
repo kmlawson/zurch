@@ -226,6 +226,7 @@ class TestHandleListCommand:
         args.exact = False
         
         with patch('zurch.handlers.display_hierarchical_search_results') as mock_display:
+            mock_display.return_value = 1  # Mock return value
             result = handle_list_command(mock_db, args, max_results=100)
             
             assert result == 0
@@ -247,6 +248,7 @@ class TestHandleListCommand:
         args.exact = False
         
         with patch('zurch.handlers.display_hierarchical_search_results') as mock_display:
+            mock_display.return_value = 1  # Mock return value
             result = handle_list_command(mock_db, args, max_results=100)
             
             assert result == 0

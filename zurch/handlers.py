@@ -293,10 +293,11 @@ def interactive_selection_simple(items, max_results: int, search_term: str, grou
             
             if is_terminal_interactive():
                 # Define keys that should respond immediately
-                immediate_keys = {'0'}
+                immediate_keys = set()
+                first_char_only_immediate = {'0'}
                 if show_go_back:
                     immediate_keys.update({'l', 'L'})
-                choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
+                choice = get_input_with_immediate_keys(prompt, immediate_keys, first_char_only_immediate).strip()
             else:
                 # Fallback to regular input (e.g., when piping input)
                 choice = input(prompt).strip()
@@ -411,10 +412,11 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
             
             if is_terminal_interactive():
                 # Define keys that should respond immediately
-                immediate_keys = {'0', 'n', 'N', 'b', 'B'}
+                immediate_keys = {'n', 'N', 'b', 'B'}
+                first_char_only_immediate = {'0'}
                 if show_go_back:
                     immediate_keys.update({'l', 'L'})
-                choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
+                choice = get_input_with_immediate_keys(prompt, immediate_keys, first_char_only_immediate).strip()
             else:
                 # Fallback to regular input (e.g., when piping input)
                 choice = input(prompt).strip()
@@ -541,7 +543,7 @@ def handle_metadata_navigation(db: ZoteroDatabase, items, current_index: int, zo
         # Build navigation prompt
         nav_options = []
         if current_index > 0:
-            nav_options.append("'p' for previous")
+            nav_options.append("'b' for previous")
         if current_index < len(items) - 1:
             nav_options.append("'n' for next")
         if has_attachment:
@@ -551,31 +553,39 @@ def handle_metadata_navigation(db: ZoteroDatabase, items, current_index: int, zo
         
         nav_text = ", ".join(nav_options)
         
-        try:
-            print(f"\nOptions: {nav_text}: ", end='', flush=True)
-            choice = get_single_char().lower()
-            print(choice if choice else "Enter")  # Echo the choice
-            
-            if choice == "0" or choice == "":
-                return -1  # Signal to exit completely (0 or Enter)
-            elif choice == "l":
-                return current_index  # Return to list
-            elif choice == "g" and has_attachment:
-                # Grab attachment for current item
-                grab_attachment(db, current_item, zotero_data_dir)
-                continue  # Stay in metadata navigation
-            elif choice == "n" and current_index < len(items) - 1:
-                current_index += 1
-                continue  # Show next item metadata
-            elif choice == "p" and current_index > 0:
-                current_index -= 1
-                continue  # Show previous item metadata
-            else:
-                print("Invalid option. Please try again.")
-                continue
+        # Inner loop for input handling that doesn't re-display metadata
+        while True:
+            try:
+                print(f"\nOptions: {nav_text}: ", end='', flush=True)
+                choice = get_single_char().lower()
+                print(choice if choice else "Enter")  # Echo the choice
                 
-        except (KeyboardInterrupt, EOFError):
-            return current_index  # Return to main menu on interrupt
+                if choice == "0" or choice == "":
+                    return -1  # Signal to exit completely (0 or Enter)
+                elif choice == "l":
+                    return current_index  # Return to list
+                elif choice == "g" and has_attachment:
+                    # Grab attachment for current item
+                    grab_attachment(db, current_item, zotero_data_dir)
+                    continue  # Stay in input loop, don't re-display metadata
+                elif choice == "n" and current_index < len(items) - 1:
+                    current_index += 1
+                    break  # Break inner loop to show next item metadata
+                elif choice == "b" and current_index > 0:
+                    current_index -= 1
+                    break  # Break inner loop to show previous item metadata
+                elif choice == "n" and current_index >= len(items) - 1:
+                    print("No more next items available.")
+                    continue  # Continue in input loop, don't re-display metadata
+                elif choice == "b" and current_index <= 0:
+                    print("No more previous items available.")
+                    continue  # Continue in input loop, don't re-display metadata
+                else:
+                    print("Invalid option. Please try again.")
+                    continue  # Continue in input loop, don't re-display metadata
+                    
+            except (KeyboardInterrupt, EOFError):
+                return current_index  # Return to main menu on interrupt
 
 def handle_id_command(db: ZoteroDatabase, item_id: int) -> int:
     """Handle --id flag - show metadata for specific item."""
@@ -660,15 +670,10 @@ def filter_collections(collections: List[ZoteroCollection], search_term: str, ex
         if exact_match:
             if search_term_lower == collection_name:
                 matching_collections.append(collection)
-        elif '%' in search_term:
-            # Handle % wildcard (convert to SQL LIKE pattern)
-            like_pattern = search_term.replace('%', '*')
-            import fnmatch
-            if fnmatch.fnmatch(collection_name, like_pattern):
-                matching_collections.append(collection)
         else:
-            # Default partial matching
-            if search_term_lower in collection_name:
+            # Use consistent wildcard matching from display.py
+            from .display import matches_search_term
+            if matches_search_term(collection.name, search_term):
                 matching_collections.append(collection)
     
     if show_subcolls:
@@ -766,8 +771,9 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
                 
                 if is_terminal_interactive():
                     # Define keys that should respond immediately
-                    immediate_keys = {'0', 'l', 'L'}
-                    choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
+                    immediate_keys = {'l', 'L'}
+                    first_char_only_immediate = {'0'}
+                    choice = get_input_with_immediate_keys(prompt, immediate_keys, first_char_only_immediate).strip()
                 else:
                     # Fallback to regular input (e.g., when piping input)
                     choice = input(prompt).strip()
@@ -838,11 +844,10 @@ def handle_non_interactive_list_mode(collections: List[ZoteroCollection], search
                 get_paginated_collections(collections, max_results, current_page)
             
             # Display the current page
-            display_hierarchical_search_results(page_collections, display_search_term, None)
+            displayed_count = display_hierarchical_search_results(page_collections, display_search_term, None)
             
             # Calculate how many collections are shown on this page
-            total_collections_shown = len(page_collections)
-            print(f"\nShowing {total_collections_shown} collections")
+            print(f"\nShowing {displayed_count} collections")
             print(f"Page {current_page + 1} of {total_pages}")
             
             # If only one page, exit
@@ -861,13 +866,20 @@ def handle_non_interactive_list_mode(collections: List[ZoteroCollection], search
                 current_page -= 1
     else:
         # Normal display with limit
-        if len(collections) > max_results:
-            if search_term:
-                print(f"Showing first {max_results} of {len(collections)} matches:")
-            else:
-                print(f"Showing first {max_results} of {len(collections)} collections:")
+        displayed_count = display_hierarchical_search_results(collections, display_search_term, max_results)
         
-        display_hierarchical_search_results(collections, display_search_term, max_results)
+        # Show count information after display
+        if displayed_count > 0:
+            if displayed_count < len(collections):
+                if search_term:
+                    print(f"\nShowing {displayed_count} of {len(collections)} matching collections")
+                else:
+                    print(f"\nShowing {displayed_count} of {len(collections)} collections")
+            else:
+                if search_term:
+                    print(f"\nShowing {displayed_count} matching collections")
+                else:
+                    print(f"\nShowing {displayed_count} collections")
 
 def handle_list_command(db: ZoteroDatabase, args, max_results: int) -> int:
     """Handle -l/--list command."""

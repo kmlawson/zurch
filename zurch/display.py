@@ -305,8 +305,11 @@ def matches_search_term(text: str, search_term: str) -> bool:
         # Default partial matching
         return search_lower in text_lower
 
-def display_hierarchical_search_results(collections: List, search_term: str, max_results: int = None) -> None:
-    """Display search results in hierarchical format showing parent structure with library grouping."""
+def display_hierarchical_search_results(collections: List, search_term: str, max_results: int = None) -> int:
+    """Display search results in hierarchical format showing parent structure with library grouping.
+    
+    Returns the number of collections actually displayed.
+    """
     # Group collections by library to avoid duplicates
     libraries = {}
     displayed_count = 0
@@ -420,6 +423,8 @@ def display_hierarchical_search_results(collections: List, search_term: str, max
         
         # Print the hierarchy for this library
         print_hierarchy(library_data['hierarchy'])
+    
+    return displayed_count
 
 def show_item_metadata(db, item: ZoteroItem) -> None:
     """Display full metadata for an item."""

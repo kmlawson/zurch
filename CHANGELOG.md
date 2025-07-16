@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.8] - 2025-07-16
+
+### Bug Fixes
+- **Fixed Collection List Command (`-l`)**: Multiple critical improvements to collection listing functionality
+  - Fixed collection count vs display mismatch where "1 of 23 collections" showed but only displayed 1 collection
+  - Fixed % wildcard handling (`zurch -l China%`) that was returning "No collections found" instead of matching collections
+  - Fixed "0" key immediate response issue where typing "30" would immediately cancel on "0" instead of allowing full number input
+  - Consolidated wildcard handling logic for consistency between filtering and display
+  - Interactive mode now properly respects `--nointeract` flag
+
+- **Enhanced Metadata Navigation**: Improved user experience in interactive metadata view
+  - Changed navigation from `'p' for previous` to `'b' for previous` to match pagination consistency
+  - Added boundary error messages ("No more next items available.", "No more previous items available.") 
+  - Fixed error messages to not re-display metadata unnecessarily
+  - Improved navigation logic with proper boundary checking
+
+- **Improved Keyboard Input Handling**: Enhanced multi-digit number input support
+  - "0" key now provides immediate cancellation only when first character typed
+  - Multi-digit numbers like "30" can now be typed without premature cancellation
+  - Added `first_char_only_immediate` parameter to keyboard input handling
+
+### Technical Improvements
+- **Display Function Return Values**: `display_hierarchical_search_results` now returns actual count of displayed items
+- **Enhanced Error Handling**: Better boundary navigation in both pagination and metadata views
+- **Code Consolidation**: Unified wildcard matching logic across different search contexts
+- **Test Coverage**: All 152 tests continue to pass with new functionality
+
 ## [0.7.7] - 2025-07-16
 
 ### Documentation

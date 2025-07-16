@@ -74,8 +74,9 @@ def interactive_collection_selection(collections: List[ZoteroCollection]) -> Opt
             
             if is_terminal_interactive():
                 # Define keys that should respond immediately
-                immediate_keys = {'0', 'q', 'Q'}
-                choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
+                immediate_keys = {'q', 'Q'}
+                first_char_only_immediate = {'0'}
+                choice = get_input_with_immediate_keys(prompt, immediate_keys, first_char_only_immediate).strip()
             else:
                 # Fallback to regular input (e.g., when piping input)
                 choice = input(prompt).strip()
@@ -237,8 +238,9 @@ def interactive_collection_selection_with_pagination(
             
             if is_terminal_interactive():
                 # Define keys that should respond immediately
-                immediate_keys = {'0', 'n', 'N', 'b', 'B', 'q', 'Q'}
-                choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
+                immediate_keys = {'n', 'N', 'b', 'B', 'q', 'Q'}
+                first_char_only_immediate = {'0'}
+                choice = get_input_with_immediate_keys(prompt, immediate_keys, first_char_only_immediate).strip()
             else:
                 # Fallback to regular input (e.g., when piping input)
                 choice = input(prompt).strip()
