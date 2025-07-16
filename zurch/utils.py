@@ -52,6 +52,29 @@ def safe_file_write(file_path: Path, content: str, encoding: str = 'utf-8') -> b
         logger.error(f"Error writing file {file_path}: {e}")
         return False
 
+def get_platform_capabilities() -> Dict[str, bool]:
+    """Get platform capabilities for cross-platform compatibility."""
+    capabilities = {
+        'ansi_colors': False,
+        'single_char_input': False,
+        'file_permissions': False,
+        'is_windows': os.name == 'nt',
+        'is_unix': os.name == 'posix'
+    }
+    
+    # Check ANSI color support
+    from .constants import _ANSI_SUPPORTED
+    capabilities['ansi_colors'] = _ANSI_SUPPORTED
+    
+    # Check single character input support
+    from .keyboard import HAS_TERMIOS, HAS_MSVCRT
+    capabilities['single_char_input'] = HAS_TERMIOS or HAS_MSVCRT
+    
+    # Check file permissions support (Unix-like systems)
+    capabilities['file_permissions'] = os.name == 'posix'
+    
+    return capabilities
+
 def get_config_dir() -> Path:
     """Get the appropriate config directory for the OS using standard paths."""
     if platform.system() == "Windows":

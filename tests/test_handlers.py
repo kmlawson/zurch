@@ -259,7 +259,7 @@ class TestHandleListCommand:
         mock_db.list_collections.return_value = collections
         mock_db.get_collection_items.return_value = ([], 0)
         
-        # Mock args
+        # Mock args with all required attributes
         args = MagicMock()
         args.list = ""
         args.interactive = True
@@ -269,13 +269,17 @@ class TestHandleListCommand:
         args.books = False
         args.articles = False
         args.showids = False
+        args.tag = None
+        args.exact = False
+        args.zotero_database_path = "/tmp/test.db"
         
-        with patch('zurch.handlers.interactive_collection_selection', return_value=collections[0]) as mock_interactive:
+        with patch('zurch.interactive.interactive_collection_selection_with_pagination', return_value=None) as mock_interactive:
             with patch('zurch.handlers.display_items') as mock_display:
-                result = handle_list_command(mock_db, args, max_results=100)
-                
-                assert result == 0
-                mock_interactive.assert_called_once()
+                with patch('builtins.input', return_value=''):
+                    result = handle_list_command(mock_db, args, max_results=100)
+                    
+                    assert result == 0
+                    mock_interactive.assert_called_once()
 
 
 class TestCommandHandlerIntegration:

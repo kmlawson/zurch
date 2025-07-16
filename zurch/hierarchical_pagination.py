@@ -89,55 +89,39 @@ def get_paginated_collections(
     page_size: int, 
     current_page: int = 0
 ) -> Tuple[List[ZoteroCollection], bool, bool, int, int]:
-    """Get paginated collections maintaining hierarchical structure.
+    """Get paginated collections with strict page size limit.
     
-    page_size refers to number of TOP-LEVEL collections per page, 
-    each shown with all their sub-collections.
+    page_size is the exact number of collections to show per page.
+    Hierarchies can be split across pages if needed.
     
     Returns: (page_collections, has_previous, has_next, current_page, total_pages)
     """
-    # Build hierarchy
+    # Build hierarchy and flatten to preserve order
     hierarchy = build_collection_hierarchy(collections)
     
-    # Flatten to top-level collection groups
-    top_level_groups = []
+    # Flatten all collections in hierarchical order
+    all_collections_ordered = []
     
     # Process user library first
     for library_key, library_data in sorted(hierarchy.items(), 
                                            key=lambda x: (x[1]['type'] != 'user', x[1]['name'])):
         for top_coll_data in library_data['top_level_collections']:
-            # Each top-level collection with all its children is one "group"
-            group_collections = []
-            flatten_collection_tree(top_coll_data, group_collections)
-            top_level_groups.append({
-                'library_key': library_key,
-                'library_name': library_data['name'],
-                'library_type': library_data['type'],
-                'collections': group_collections,
-                'top_level_name': top_coll_data['collection'].name
-            })
+            flatten_collection_tree(top_coll_data, all_collections_ordered)
     
-    # Now paginate by top-level groups (page_size = number of top-level collections)
-    total_top_level = len(top_level_groups)
-    
-    if total_top_level == 0:
+    if not all_collections_ordered:
         return [], False, False, 0, 0
     
-    # Calculate pages based on top-level collections
-    total_pages = (total_top_level + page_size - 1) // page_size
+    # Simple pagination: exactly page_size collections per page
+    total_collections = len(all_collections_ordered)
+    total_pages = (total_collections + page_size - 1) // page_size
     
     # Ensure current_page is valid
     current_page = max(0, min(current_page, total_pages - 1))
     
-    # Get the groups for this page
+    # Get collections for the current page
     start_idx = current_page * page_size
-    end_idx = start_idx + page_size
-    page_groups = top_level_groups[start_idx:end_idx]
-    
-    # Flatten all collections from the selected groups
-    page_collections = []
-    for group in page_groups:
-        page_collections.extend(group['collections'])
+    end_idx = min(start_idx + page_size, total_collections)
+    page_collections = all_collections_ordered[start_idx:end_idx]
     
     has_previous = current_page > 0
     has_next = current_page < total_pages - 1

@@ -1,40 +1,92 @@
 """Constants module for zurch - centralizes magic strings and numbers."""
 
+import os
+import sys
+
+def _supports_ansi_colors() -> bool:
+    """Check if the terminal supports ANSI color codes."""
+    # If we're not in a TTY, don't use colors
+    if not sys.stdout.isatty():
+        return False
+    
+    # Check for Windows
+    if os.name == 'nt':
+        # Windows Terminal, PowerShell, and newer cmd.exe support ANSI
+        term = os.environ.get('TERM', '').lower()
+        wt_session = os.environ.get('WT_SESSION')
+        
+        # Windows Terminal has WT_SESSION
+        if wt_session:
+            return True
+        
+        # Check if we're in a modern terminal
+        if term in ['xterm', 'xterm-256color', 'screen', 'tmux']:
+            return True
+        
+        # Check Windows version - Windows 10 1511+ supports ANSI in cmd.exe
+        try:
+            import platform
+            version = platform.version()
+            # Parse version string like "10.0.19041"
+            parts = version.split('.')
+            if len(parts) >= 3:
+                major = int(parts[0])
+                minor = int(parts[1])
+                build = int(parts[2])
+                # Windows 10 build 10586 (1511) and later support ANSI
+                if major >= 10 and build >= 10586:
+                    return True
+        except (ValueError, IndexError):
+            pass
+        
+        # Also check for COLORTERM environment variable
+        if os.environ.get('COLORTERM'):
+            return True
+        
+        # For older Windows systems, disable ANSI colors
+        return False
+    
+    # Unix-like systems generally support ANSI colors
+    return True
+
+# Check if ANSI colors are supported
+_ANSI_SUPPORTED = _supports_ansi_colors()
+
 # ANSI Color Codes
 class Colors:
     """ANSI color codes for terminal output."""
-    RESET = '\033[0m'
-    BOLD = '\033[1m'
+    RESET = '\033[0m' if _ANSI_SUPPORTED else ''
+    BOLD = '\033[1m' if _ANSI_SUPPORTED else ''
     
     # Foreground colors
-    BLACK = '\033[30m'
-    RED = '\033[31m'
-    GREEN = '\033[32m'
-    YELLOW = '\033[33m'
-    BLUE = '\033[34m'
-    MAGENTA = '\033[35m'
-    CYAN = '\033[36m'
-    WHITE = '\033[37m'
+    BLACK = '\033[30m' if _ANSI_SUPPORTED else ''
+    RED = '\033[31m' if _ANSI_SUPPORTED else ''
+    GREEN = '\033[32m' if _ANSI_SUPPORTED else ''
+    YELLOW = '\033[33m' if _ANSI_SUPPORTED else ''
+    BLUE = '\033[34m' if _ANSI_SUPPORTED else ''
+    MAGENTA = '\033[35m' if _ANSI_SUPPORTED else ''
+    CYAN = '\033[36m' if _ANSI_SUPPORTED else ''
+    WHITE = '\033[37m' if _ANSI_SUPPORTED else ''
     
     # Background colors
-    BG_BLACK = '\033[40m'
-    BG_RED = '\033[41m'
-    BG_GREEN = '\033[42m'
-    BG_YELLOW = '\033[43m'
-    BG_BLUE = '\033[44m'
-    BG_MAGENTA = '\033[45m'
-    BG_CYAN = '\033[46m'
-    BG_WHITE = '\033[47m'
+    BG_BLACK = '\033[40m' if _ANSI_SUPPORTED else ''
+    BG_RED = '\033[41m' if _ANSI_SUPPORTED else ''
+    BG_GREEN = '\033[42m' if _ANSI_SUPPORTED else ''
+    BG_YELLOW = '\033[43m' if _ANSI_SUPPORTED else ''
+    BG_BLUE = '\033[44m' if _ANSI_SUPPORTED else ''
+    BG_MAGENTA = '\033[45m' if _ANSI_SUPPORTED else ''
+    BG_CYAN = '\033[46m' if _ANSI_SUPPORTED else ''
+    BG_WHITE = '\033[47m' if _ANSI_SUPPORTED else ''
     
     # Bright colors
-    BRIGHT_BLACK = '\033[90m'
-    BRIGHT_RED = '\033[91m'
-    BRIGHT_GREEN = '\033[92m'
-    BRIGHT_YELLOW = '\033[93m'
-    BRIGHT_BLUE = '\033[94m'
-    BRIGHT_MAGENTA = '\033[95m'
-    BRIGHT_CYAN = '\033[96m'
-    BRIGHT_WHITE = '\033[97m'
+    BRIGHT_BLACK = '\033[90m' if _ANSI_SUPPORTED else ''
+    BRIGHT_RED = '\033[91m' if _ANSI_SUPPORTED else ''
+    BRIGHT_GREEN = '\033[92m' if _ANSI_SUPPORTED else ''
+    BRIGHT_YELLOW = '\033[93m' if _ANSI_SUPPORTED else ''
+    BRIGHT_BLUE = '\033[94m' if _ANSI_SUPPORTED else ''
+    BRIGHT_MAGENTA = '\033[95m' if _ANSI_SUPPORTED else ''
+    BRIGHT_CYAN = '\033[96m' if _ANSI_SUPPORTED else ''
+    BRIGHT_WHITE = '\033[97m' if _ANSI_SUPPORTED else ''
     
     # Common aliases
     GRAY = BRIGHT_BLACK
@@ -191,7 +243,7 @@ class Network:
     """Network and protocol constants."""
     HTTP_TIMEOUT = 30
     MAX_REDIRECTS = 5
-    USER_AGENT = "zurch/0.7.4 (Zotero CLI Tool)"
+    USER_AGENT = "zurch/0.7.5 (Zotero CLI Tool)"
 
 # Error Messages
 class ErrorMessages:

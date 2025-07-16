@@ -7,6 +7,9 @@ KEYFILES.md
 TODO.md
 tools/
 
+# Keep documentation
+!docs/
+
 # Python
 __pycache__/
 *.py[cod]

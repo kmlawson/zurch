@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.5] - 2025-07-16
+
+### Cross-Platform Improvements
+- **Windows Keyboard Support**: Added native Windows keyboard input using `msvcrt` 
+  - Interactive mode now works fluidly on Windows (no more pressing Enter after each key)
+  - Single-character navigation (n, b, l, 0) works immediately on Windows
+  - Proper handling of Ctrl+C, Ctrl+D, and special keys across all platforms
+- **Smart ANSI Color Detection**: Implemented intelligent terminal capability detection
+  - Automatically detects and disables ANSI escape codes in older Windows cmd.exe terminals
+  - Enables colors in modern terminals (Windows Terminal, PowerShell, Unix terminals)
+  - No more garbled text in legacy terminals
+- **Enhanced Export Reliability**: Improved export file permissions handling
+  - Graceful handling of `os.chmod()` failures on Windows systems
+  - Export functionality now works reliably across all platforms
+  - Maintains security on Unix systems where permissions are supported
+
+### Interactive Mode Enhancements
+- **Improved Error Handling**: Enhanced interactive mode input validation
+  - Invalid input now shows error message instead of exiting interactive mode
+  - Only '0', empty string, and Ctrl+C cause cancellation
+  - Users no longer get kicked out accidentally by typing wrong keys
+- **Boundary Navigation**: Fixed navigation behavior at page boundaries
+  - Pressing 'b' on first page or 'n' on last page shows error message instead of canceling
+  - Error messages appear immediately without re-displaying the full item list
+- **Conditional Navigation**: Improved context-aware navigation options
+  - 'l' (go back) option only appears when there's actually a previous context to return to
+  - Direct search (`-n`) no longer shows unnecessary "go back" option
+
+### Technical Improvements
+- **Platform Capability Detection**: Added `get_platform_capabilities()` function
+- **Enhanced Documentation**: Created comprehensive cross-platform compatibility guide
+- **No New Dependencies**: All improvements use standard library modules only
+
 ## [0.7.4] - 2025-07-15
 
 ### Bug Fixes

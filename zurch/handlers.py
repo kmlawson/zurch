@@ -238,7 +238,7 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
         print(f"Error copying attachment: {e}")
         return False
 
-def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, display_opts: DisplayOptions = None, db=None, return_index: bool = False):
+def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, display_opts: DisplayOptions = None, db=None, return_index: bool = False, show_go_back: bool = True):
     """Handle interactive item selection with automatic pagination.
     
     Returns (item, should_grab) tuple by default, or (item, should_grab, selected_index) if return_index=True.
@@ -257,12 +257,12 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
     needs_pagination = total_items > max_results
     
     if needs_pagination:
-        return interactive_selection_with_pagination(items, max_results, search_term, grouped_items, display_opts, db, return_index)
+        return interactive_selection_with_pagination(items, max_results, search_term, grouped_items, display_opts, db, return_index, show_go_back)
     else:
-        return interactive_selection_simple(items, max_results, search_term, grouped_items, display_opts, db, return_index)
+        return interactive_selection_simple(items, max_results, search_term, grouped_items, display_opts, db, return_index, show_go_back)
 
 
-def interactive_selection_simple(items, max_results: int, search_term: str, grouped_items, display_opts: DisplayOptions, db, return_index: bool):
+def interactive_selection_simple(items, max_results: int, search_term: str, grouped_items, display_opts: DisplayOptions, db, return_index: bool, show_go_back: bool = True):
     """Simple interactive selection without pagination."""
     first_display = True
     
@@ -284,19 +284,26 @@ def interactive_selection_simple(items, max_results: int, search_term: str, grou
             # Try to use immediate key response for navigation keys
             from .keyboard import get_input_with_immediate_keys, is_terminal_interactive
             
-            prompt = f"\nSelect item number (1-{len(items)}, 0 to cancel, 'l' to go back, add 'g' to grab: 3g): "
+            # Build prompt dynamically based on context
+            prompt_parts = [f"Select item number (1-{len(items)}", "0 to cancel"]
+            if show_go_back:
+                prompt_parts.append("'l' to go back")
+            prompt_parts.append("add 'g' to grab: 3g")
+            prompt = "\n" + ", ".join(prompt_parts) + "): "
             
             if is_terminal_interactive():
                 # Define keys that should respond immediately
-                immediate_keys = {'0', 'l', 'L'}
+                immediate_keys = {'0'}
+                if show_go_back:
+                    immediate_keys.update({'l', 'L'})
                 choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
             else:
                 # Fallback to regular input (e.g., when piping input)
                 choice = input(prompt).strip()
             
-            if choice == "0":
+            if choice == "0" or choice == "":
                 return (None, False, None) if return_index else (None, False)
-            elif choice.lower() == "l":
+            elif choice.lower() == "l" and show_go_back:
                 # Return special marker to indicate "go back"
                 return ("GO_BACK", False, None) if return_index else ("GO_BACK", False)
             
@@ -310,19 +317,25 @@ def interactive_selection_simple(items, max_results: int, search_term: str, grou
                 return (items[idx], should_grab, idx) if return_index else (items[idx], should_grab)
             else:
                 print(f"Please enter a number between 1 and {len(items)}")
-        except (ValueError, KeyboardInterrupt):
+        except ValueError:
+            print("Invalid input. Please enter a number or valid command.")
+            continue
+        except KeyboardInterrupt:
             print("\nCancelled")
             return (None, False, None) if return_index else (None, False)
         except EOFError:
             return (None, False, None) if return_index else (None, False)
 
 
-def interactive_selection_with_pagination(items, max_results: int, search_term: str, grouped_items, display_opts: DisplayOptions, db, return_index: bool):
+def interactive_selection_with_pagination(items, max_results: int, search_term: str, grouped_items, display_opts: DisplayOptions, db, return_index: bool, show_go_back: bool = True):
     """Interactive selection with pagination support."""
     total_items = len(items)
     total_pages = (total_items + max_results - 1) // max_results
     current_page = 0
     first_display = True
+    
+    # Track if we need to display the page
+    need_display = True
     
     while True:
         # Calculate page boundaries
@@ -330,53 +343,55 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
         end_idx = min(start_idx + max_results, total_items)
         page_items = items[start_idx:end_idx]
         
-        # Display current page
-        if first_display:
-            first_display = False
-        else:
-            print()
-        if grouped_items:
-            # For grouped items, we need to reconstruct the groups for this page
-            page_grouped = []
-            current_collection = None
-            current_items = []
-            
-            for item in page_items:
-                # Find which collection this item belongs to
-                item_collection = None
-                for collection, collection_items in grouped_items:
-                    if item in collection_items:
-                        item_collection = collection
-                        break
+        # Display current page only when needed
+        if need_display:
+            if first_display:
+                first_display = False
+            else:
+                print()
+            if grouped_items:
+                # For grouped items, we need to reconstruct the groups for this page
+                page_grouped = []
+                current_collection = None
+                current_items = []
                 
-                if item_collection != current_collection:
-                    # Save previous group if exists
-                    if current_collection is not None and current_items:
-                        page_grouped.append((current_collection, current_items))
+                for item in page_items:
+                    # Find which collection this item belongs to
+                    item_collection = None
+                    for collection, collection_items in grouped_items:
+                        if item in collection_items:
+                            item_collection = collection
+                            break
                     
-                    # Start new group
-                    current_collection = item_collection
-                    current_items = [item]
-                else:
-                    current_items.append(item)
+                    if item_collection != current_collection:
+                        # Save previous group if exists
+                        if current_collection is not None and current_items:
+                            page_grouped.append((current_collection, current_items))
+                        
+                        # Start new group
+                        current_collection = item_collection
+                        current_items = [item]
+                    else:
+                        current_items.append(item)
+                
+                # Add final group
+                if current_collection is not None and current_items:
+                    page_grouped.append((current_collection, current_items))
+                
+                display_grouped_items(page_grouped, max_results, search_term,
+                                    display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
+                                    display_opts.show_author, display_opts.show_created, display_opts.show_modified,
+                                    display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+            else:
+                display_items(page_items, max_results, search_term,
+                             display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
+                             display_opts.show_author, display_opts.show_created, display_opts.show_modified,
+                             display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
             
-            # Add final group
-            if current_collection is not None and current_items:
-                page_grouped.append((current_collection, current_items))
-            
-            display_grouped_items(page_grouped, max_results, search_term,
-                                display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
-                                display_opts.show_author, display_opts.show_created, display_opts.show_modified,
-                                display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
-        else:
-            display_items(page_items, max_results, search_term,
-                         display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
-                         display_opts.show_author, display_opts.show_created, display_opts.show_modified,
-                         display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
-        
-        # Show pagination info
-        print(f"\nShowing items {start_idx + 1}-{end_idx} of {total_items} total")
-        print(f"Page {current_page + 1} of {total_pages}")
+            # Show pagination info
+            print(f"\nShowing items {start_idx + 1}-{end_idx} of {total_items} total")
+            print(f"Page {current_page + 1} of {total_pages}")
+            need_display = False
         
         # Build prompt with navigation options
         prompt_parts = [f"Select item number (1-{len(page_items)}"]
@@ -384,7 +399,10 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
             prompt_parts.append("'b' for back a page")
         if current_page < total_pages - 1:
             prompt_parts.append("'n' for next page")
-        prompt_parts.extend(["'l' to go back", "0 to cancel", "add 'g' to grab"])
+        # Add navigation options based on context
+        if show_go_back:
+            prompt_parts.append("'l' to go back")
+        prompt_parts.extend(["0 to cancel", "add 'g' to grab"])
         prompt = ", ".join(prompt_parts) + "): "
         
         try:
@@ -393,21 +411,33 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
             
             if is_terminal_interactive():
                 # Define keys that should respond immediately
-                immediate_keys = {'0', 'n', 'N', 'b', 'B', 'l', 'L'}
+                immediate_keys = {'0', 'n', 'N', 'b', 'B'}
+                if show_go_back:
+                    immediate_keys.update({'l', 'L'})
                 choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
             else:
                 # Fallback to regular input (e.g., when piping input)
                 choice = input(prompt).strip()
             
-            if choice == "0":
+            if choice == "0" or choice == "":
                 return (None, False, None) if return_index else (None, False)
             elif choice.lower() == "n" and current_page < total_pages - 1:
                 current_page += 1
+                need_display = True
                 continue
             elif choice.lower() == "b" and current_page > 0:
                 current_page -= 1
+                need_display = True
                 continue
-            elif choice.lower() == "l":
+            elif choice.lower() == "n" and current_page >= total_pages - 1:
+                print("No more next pages available.")
+                # Don't set need_display = True, just re-prompt
+                continue
+            elif choice.lower() == "b" and current_page <= 0:
+                print("No more previous pages available.")
+                # Don't set need_display = True, just re-prompt
+                continue
+            elif choice.lower() == "l" and show_go_back:
                 # Return special marker to indicate "go back"
                 return ("GO_BACK", False, None) if return_index else ("GO_BACK", False)
             
@@ -424,21 +454,26 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
                 return (selected_item, should_grab, global_idx) if return_index else (selected_item, should_grab)
             else:
                 print(f"Please enter a number between 1 and {len(page_items)}")
-        except (ValueError, KeyboardInterrupt):
+                # Don't set need_display = True, just re-prompt
+        except ValueError:
+            print("Invalid input. Please enter a number or valid command.")
+            continue
+        except KeyboardInterrupt:
             print("\nCancelled")
             return (None, False, None) if return_index else (None, False)
         except EOFError:
             return (None, False, None) if return_index else (None, False)
 
-def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, sort_by_author: bool = False) -> None:
+def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, sort_by_author: bool = False, show_go_back: bool = True) -> None:
     """Handle interactive item selection and actions."""
     zotero_data_dir = Path(config['zotero_database_path']).parent
     current_index = None  # Track current item for next/previous navigation
+    current_page = 0  # Track current page for pagination context
     first_time = True
     
     while True:
         display_opts = DisplayOptions(show_ids=show_ids, show_tags=show_tags, show_year=show_year, show_author=show_author, show_created=show_created, show_modified=show_modified, show_collections=show_collections, sort_by_author=sort_by_author)
-        selected, should_grab, selected_index = interactive_selection(items, max_results, search_term, grouped_items, display_opts, db, return_index=True)
+        selected, should_grab, selected_index = interactive_selection(items, max_results, search_term, grouped_items, display_opts, db, return_index=True, show_go_back=show_go_back)
         
         # Handle special case of "go back"
         if selected == "GO_BACK":
@@ -459,14 +494,8 @@ def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results
                 break  # Exit completely
             current_index = result_index
             
-            # When returning from metadata navigation, redisplay the list
-            print()
-            if grouped_items:
-                display_grouped_items(grouped_items, max_results, search_term, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db=db, sort_by_author=sort_by_author)
-            else:
-                # Apply sorting if available
-                sorted_items = items
-                display_items(sorted_items, max_results, search_term, show_ids, show_tags, show_year, show_author, show_created, show_modified, show_collections, db=db, sort_by_author=sort_by_author)
+            # Don't redisplay the list here - let the pagination loop handle it
+            # The next iteration will use the preserved current_page
 
 def handle_metadata_navigation(db: ZoteroDatabase, items, current_index: int, zotero_data_dir: Path) -> int:
     """Handle metadata display with next/previous navigation.
@@ -768,7 +797,10 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
                 else:
                     print(f"Please enter a number between 1 and {len(items)}")
                     
-            except (ValueError, KeyboardInterrupt):
+            except ValueError:
+                print("Invalid input. Please enter a number or valid command.")
+                continue
+            except KeyboardInterrupt:
                 print("\nCancelled")
                 return
             except EOFError:
@@ -1311,7 +1343,7 @@ def select_collection_for_subcollections(collections: List[ZoteroCollection], fo
     while True:
         try:
             choice = input(f"\nSelect collection number (1-{len(collection_mapping)}, 0 to cancel): ").strip()
-            if choice == "0":
+            if choice == "0" or choice == "":
                 return None
             
             selection_num = int(choice)
@@ -1321,7 +1353,10 @@ def select_collection_for_subcollections(collections: List[ZoteroCollection], fo
                 return selected_collection
             else:
                 print(f"Please enter a number between 1 and {len(collection_mapping)}")
-        except (ValueError, KeyboardInterrupt):
+        except ValueError:
+            print("Invalid input. Please enter a number or valid command.")
+            continue
+        except KeyboardInterrupt:
             print("\nCancelled")
             return None
         except EOFError:
@@ -1492,7 +1527,7 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
     
     if args.interactive:
         sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
-        handle_interactive_mode(db, items, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, sort_by_author=sort_by_author)
+        handle_interactive_mode(db, items, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, sort_by_author=sort_by_author, show_go_back=False)
     else:
         # Enable pagination for search results if requested
         if not hasattr(args, 'pagination'):

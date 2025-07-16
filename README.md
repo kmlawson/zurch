@@ -16,8 +16,9 @@ Zotero is a powerful citation manager and research assistant for managing source
 - **Attachment Management**: Copy PDF, EPUB, and text attachments to your current directory
 - **Visual Indicators**: Icons show item types (📗 books, 📄 articles) and attachments (🔗 PDF/EPUB available)
 - **Fast Performance**: Optimized SQLite queries for quick results
-- Provides READ ONLY access to your Zotero database 
-- Designed for macOS, may work on Windows and Linux
+- **Cross-Platform**: Full support for Windows, macOS, and Linux with native keyboard input
+- **Smart Terminal Detection**: Automatically adapts to your terminal's capabilities
+- Provides READ ONLY access to your Zotero database
 
 ## Installation
 

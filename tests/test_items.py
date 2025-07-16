@@ -163,10 +163,23 @@ class TestItemServiceMocked:
             
             # Mock database responses - optimized queries now include attachment data
             mock_db.execute_single_query.return_value = (10,)  # total count
-            mock_db.execute_query.return_value = [
-                (1, "Test Item 1", "book", "application/pdf", "test.pdf"),
-                (2, "Test Item 2", "article", "application/epub+zip", "test.epub")
-            ]
+            
+            # Create proper row objects that support dict-style access
+            row1 = MagicMock()
+            row1.__getitem__ = MagicMock(side_effect=lambda k: {
+                'itemID': 1, 'title': 'Test Item 1', 'typeName': 'book', 
+                'contentType': 'application/pdf', 'path': 'test.pdf',
+                'dateAdded': '2023-01-01', 'dateModified': '2023-01-01'
+            }[k])
+            
+            row2 = MagicMock()
+            row2.__getitem__ = MagicMock(side_effect=lambda k: {
+                'itemID': 2, 'title': 'Test Item 2', 'typeName': 'article', 
+                'contentType': 'application/epub+zip', 'path': 'test.epub',
+                'dateAdded': '2023-01-02', 'dateModified': '2023-01-02'
+            }[k])
+            
+            mock_db.execute_query.return_value = [row1, row2]
             
             service = ItemService(mock_db)
             items, total_count = service.search_items_by_name("test")
@@ -219,10 +232,24 @@ class TestItemServiceMocked:
             ))
             
             # Mock database responses - optimized queries now include attachment data
-            mock_db.execute_query.return_value = [
-                (1, "Item 1", "book", 0, "application/pdf", "test.pdf"),
-                (2, "Item 2", "article", 1, None, None)
-            ]
+            # Create proper row objects that support dict-style access
+            row1 = MagicMock()
+            row1.__getitem__ = MagicMock(side_effect=lambda k: {
+                'itemID': 1, 'title': 'Item 1', 'typeName': 'book', 
+                'contentType': 'application/pdf', 'path': 'test.pdf',
+                'dateAdded': '2023-01-01', 'dateModified': '2023-01-01',
+                'orderIndex': 0
+            }[k])
+            
+            row2 = MagicMock()
+            row2.__getitem__ = MagicMock(side_effect=lambda k: {
+                'itemID': 2, 'title': 'Item 2', 'typeName': 'article', 
+                'contentType': None, 'path': None,
+                'dateAdded': '2023-01-02', 'dateModified': '2023-01-02',
+                'orderIndex': 1
+            }[k])
+            
+            mock_db.execute_query.return_value = [row1, row2]
             
             service = ItemService(mock_db)
             items = service.get_items_in_collection(1)

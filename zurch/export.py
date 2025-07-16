@@ -155,7 +155,13 @@ def export_to_csv(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path) 
         )
         
         # Set restrictive permissions (owner read/write only)
-        os.chmod(temp_path, 0o600)
+        # Note: On Windows, os.chmod has limited effect, but won't cause errors
+        try:
+            os.chmod(temp_path, 0o600)
+        except (OSError, NotImplementedError):
+            # On some systems, chmod might not be fully supported
+            # This is acceptable for temporary files
+            pass
         
         # Write to temp file
         with os.fdopen(temp_fd, 'w', newline='', encoding='utf-8') as csvfile:
@@ -355,7 +361,13 @@ def export_to_json(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path)
         )
         
         # Set restrictive permissions (owner read/write only)
-        os.chmod(temp_path, 0o600)
+        # Note: On Windows, os.chmod has limited effect, but won't cause errors
+        try:
+            os.chmod(temp_path, 0o600)
+        except (OSError, NotImplementedError):
+            # On some systems, chmod might not be fully supported
+            # This is acceptable for temporary files
+            pass
         
         # Write JSON file to temp location
         with os.fdopen(temp_fd, 'w', encoding='utf-8') as jsonfile:

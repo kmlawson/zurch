@@ -355,6 +355,10 @@ def display_hierarchical_search_results(collections: List, search_term: str, max
     # Display the hierarchy
     def print_hierarchy(level_dict, depth=0, parent_shown=False):
         nonlocal displayed_count
+        
+        # Different bullet points for different depths
+        bullet_points = ["•", "◦", "▪", "▫", "‣", "⁃", "◦", "▪"]
+        bullet = bullet_points[min(depth, len(bullet_points) - 1)]
         indent = "  " * depth
         
         for name, data in sorted(level_dict.items()):
@@ -376,14 +380,16 @@ def display_hierarchical_search_results(collections: List, search_term: str, max
                     # This is a leaf node (actual collection)
                     count_info = f" ({collection.item_count} items)" if collection.item_count > 0 else ""
                     highlighted_name = highlight_search_term(name, search_term)
-                    print(f"{indent}{highlighted_name}{count_info}")
+                    prefix = f"{indent}{bullet} " if depth > 0 else f"{indent}"
+                    print(f"{prefix}{highlighted_name}{count_info}")
                     if is_match:  # Only count actual matches, not parent nodes
                         displayed_count += 1
                 else:
                     # This is a parent node - show it if it has matching children
                     if has_matching_children:
                         highlighted_name = highlight_search_term(name, search_term)
-                        print(f"{indent}{highlighted_name}")
+                        prefix = f"{indent}{bullet} " if depth > 0 else f"{indent}"
+                        print(f"{prefix}{highlighted_name}")
                 
                 # Recursively print children
                 if data['_children'] and (not max_results or displayed_count < max_results):

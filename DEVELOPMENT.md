@@ -180,9 +180,11 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
 ### Code Style Guidelines
 - Type hints for function parameters and returns
 - Docstrings for all public functions
-- ANSI escape codes for terminal formatting:
+- ANSI escape codes for terminal formatting (with cross-platform detection):
   - Bold: `\033[1m` ... `\033[0m`
+  - Colors automatically disabled in older terminals
 - Error handling with custom exceptions (DatabaseError, DatabaseLockedError)
+- Cross-platform compatibility using standard library modules
 - NO comments in code unless specifically requested
 
 ### Common Development Tasks
@@ -211,6 +213,16 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
   - Special chars requiring quotes: `'` `"` `$` `` ` `` `\` `(` `)` `[` `]` `{` `}` `|` `&` `;` `<` `>` `*` `?`
   - Example: `zurch -n "China's Revolution"` not `zurch -n China's Revolution`
   - Unicode characters work without escaping: `zurch -n 中国`
+
+### Cross-Platform Support
+- **Windows**: Native keyboard input using `msvcrt` module
+- **Unix/Linux/macOS**: Uses `termios` and `tty` modules for keyboard input
+- **Terminal Detection**: Automatically detects terminal capabilities
+  - ANSI colors disabled in older cmd.exe terminals
+  - Full color support in Windows Terminal, PowerShell, and Unix terminals
+- **File Permissions**: Graceful handling of `os.chmod()` across platforms
+- **Path Handling**: Uses `pathlib` for cross-platform path operations
+- **Documentation**: See `docs/CROSS_PLATFORM_IMPROVEMENTS.md` for details
 
 ### Known Issues and Future Enhancements
 1. Full arrow key navigation (requires curses/termios)

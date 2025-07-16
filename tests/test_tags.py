@@ -67,7 +67,14 @@ class TestTagSearch:
                 [collection_id, tags[0]]
             ))
             mock_db_conn = MagicMock()
-            mock_db_conn.execute_query.return_value = [(1, "Test Item", "book", 0, None, None)]
+            # Create proper row object that supports dict-style access
+            row = MagicMock()
+            row.__getitem__ = MagicMock(side_effect=lambda k: {
+                'itemID': 1, 'title': 'Test Item', 'typeName': 'book', 
+                'orderIndex': 0, 'contentType': None, 'path': None,
+                'dateAdded': '2023-01-01', 'dateModified': '2023-01-01'
+            }[k])
+            mock_db_conn.execute_query.return_value = [row]
             item_service.db = mock_db_conn
 
             items = item_service.get_items_in_collection(1, tags=["testtag"])
@@ -83,7 +90,14 @@ class TestTagSearch:
             ))
             mock_db_conn = MagicMock()
             mock_db_conn.execute_single_query.return_value = (1,)
-            mock_db_conn.execute_query.return_value = [(1, "Test Item", "book", None, None)]
+            # Create proper row object that supports dict-style access
+            row = MagicMock()
+            row.__getitem__ = MagicMock(side_effect=lambda k: {
+                'itemID': 1, 'title': 'Test Item', 'typeName': 'book', 
+                'contentType': None, 'path': None,
+                'dateAdded': '2023-01-01', 'dateModified': '2023-01-01'
+            }[k])
+            mock_db_conn.execute_query.return_value = [row]
             item_service.db = mock_db_conn
 
             items, total_count = item_service.search_items_by_name("test", tags=["testtag"])
@@ -99,7 +113,14 @@ class TestTagSearch:
             ))
             mock_db_conn = MagicMock()
             mock_db_conn.execute_single_query.return_value = (1,)
-            mock_db_conn.execute_query.return_value = [(1, "Test Item", "book", None, None)]
+            # Create proper row object that supports dict-style access
+            row = MagicMock()
+            row.__getitem__ = MagicMock(side_effect=lambda k: {
+                'itemID': 1, 'title': 'Test Item', 'typeName': 'book', 
+                'contentType': None, 'path': None,
+                'dateAdded': '2023-01-01', 'dateModified': '2023-01-01'
+            }[k])
+            mock_db_conn.execute_query.return_value = [row]
             item_service.db = mock_db_conn
 
             items, total_count = item_service.search_items_by_author("test", tags=["testtag"])
@@ -139,7 +160,14 @@ class TestTagSearch:
             # Mock the database calls needed for combined query
             mock_db = MagicMock()
             mock_db.execute_single_query.return_value = (1,)
-            mock_db.execute_query.return_value = [(1, "Test Combined", "book", None, None)]
+            # Create proper row object that supports dict-style access
+            row = MagicMock()
+            row.__getitem__ = MagicMock(side_effect=lambda k: {
+                'itemID': 1, 'title': 'Test Combined', 'typeName': 'book', 
+                'contentType': None, 'attachment_path': None,
+                'dateAdded': '2023-01-01', 'dateModified': '2023-01-01'
+            }[k])
+            mock_db.execute_query.return_value = [row]
             item_service.db = mock_db
             
             items, total = item_service.search_items_combined(name="test", author="test", tags=["tag3"])

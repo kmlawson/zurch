@@ -1,15 +1,26 @@
 """Keyboard input utilities for immediate key response."""
 
 import sys
+import os
 from typing import Optional
 
-# Try to import Unix-specific modules
-try:
-    import termios
-    import tty
-    HAS_TERMIOS = True
-except ImportError:
-    HAS_TERMIOS = False
+# Try to import platform-specific modules
+HAS_TERMIOS = False
+HAS_MSVCRT = False
+
+if os.name == 'nt':  # Windows
+    try:
+        import msvcrt
+        HAS_MSVCRT = True
+    except ImportError:
+        pass
+else:  # Unix-like (Linux, macOS)
+    try:
+        import termios
+        import tty
+        HAS_TERMIOS = True
+    except ImportError:
+        pass
 
 
 def get_single_char() -> str:
@@ -18,23 +29,44 @@ def get_single_char() -> str:
     Returns:
         str: The character pressed
     """
-    if not HAS_TERMIOS:
-        # Fallback to regular input on Windows or when termios not available
-        return input()[0] if input() else ''
-    
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setraw(sys.stdin.fileno())
-        ch = sys.stdin.read(1)
-        # Handle special characters
-        if ch == '\x03':  # Ctrl+C
-            raise KeyboardInterrupt()
-        elif ch == '\x04':  # Ctrl+D (EOF)
-            raise EOFError()
-        return ch
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    if HAS_MSVCRT:
+        # Windows implementation using msvcrt
+        while True:
+            if msvcrt.kbhit():
+                ch = msvcrt.getch()
+                if isinstance(ch, bytes):
+                    ch = ch.decode('utf-8', errors='ignore')
+                
+                # Handle special characters
+                if ch == '\x03':  # Ctrl+C
+                    raise KeyboardInterrupt()
+                elif ch == '\x04':  # Ctrl+D (EOF)
+                    raise EOFError()
+                elif ch == '\x1a':  # Ctrl+Z (EOF on Windows)
+                    raise EOFError()
+                elif ch == '\r':  # Convert \r to \n for consistency
+                    return '\n'
+                
+                return ch
+    elif HAS_TERMIOS:
+        # Unix implementation using termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+            # Handle special characters
+            if ch == '\x03':  # Ctrl+C
+                raise KeyboardInterrupt()
+            elif ch == '\x04':  # Ctrl+D (EOF)
+                raise EOFError()
+            return ch
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    else:
+        # Fallback to regular input when no platform-specific modules available
+        user_input = input()
+        return user_input[0] if user_input else ''
 
 
 def get_input_with_immediate_keys(prompt: str, immediate_keys: set) -> str:
@@ -95,17 +127,21 @@ def is_terminal_interactive() -> bool:
     Returns:
         bool: True if terminal is interactive and supports raw mode
     """
-    if not HAS_TERMIOS:
+    # Check if stdin is a terminal
+    if not sys.stdin.isatty():
         return False
-        
-    try:
-        # Check if stdin is a terminal
-        if not sys.stdin.isatty():
-            return False
-        
-        # Try to get terminal settings (will fail if not supported)
-        fd = sys.stdin.fileno()
-        termios.tcgetattr(fd)
+    
+    if HAS_MSVCRT:
+        # Windows - we can use msvcrt for single character input
         return True
-    except:
+    elif HAS_TERMIOS:
+        # Unix-like - check if we can get terminal settings
+        try:
+            fd = sys.stdin.fileno()
+            termios.tcgetattr(fd)
+            return True
+        except:
+            return False
+    else:
+        # No platform-specific support available
         return False

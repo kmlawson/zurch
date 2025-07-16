@@ -140,13 +140,15 @@ class TestCollectionServiceMocked:
         row1 = MagicMock()
         row1.__getitem__ = MagicMock(side_effect=lambda k: {
             'collectionID': 1, 'collectionName': "Test Collection", 
-            'parentCollectionID': None, 'depth': 0, 'item_count': 5, 'path': "Test Collection"
+            'parentCollectionID': None, 'depth': 0, 'item_count': 5, 'path': "Test Collection",
+            'libraryID': 1, 'library_type': 'user', 'library_name': 'Personal Library'
         }[k])
         
         row2 = MagicMock()
         row2.__getitem__ = MagicMock(side_effect=lambda k: {
             'collectionID': 2, 'collectionName': "Sub Collection", 
-            'parentCollectionID': 1, 'depth': 1, 'item_count': 3, 'path': "Test Collection > Sub Collection"
+            'parentCollectionID': 1, 'depth': 1, 'item_count': 3, 'path': "Test Collection > Sub Collection",
+            'libraryID': 1, 'library_type': 'user', 'library_name': 'Personal Library'
         }[k])
         
         mock_db = MagicMock()

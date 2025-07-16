@@ -80,7 +80,7 @@ def interactive_collection_selection(collections: List[ZoteroCollection]) -> Opt
                 # Fallback to regular input (e.g., when piping input)
                 choice = input(prompt).strip()
             
-            if choice.lower() == 'q' or choice == "0":
+            if choice.lower() == 'q' or choice == "0" or choice == "":
                 return None
             
             idx = int(choice)
@@ -88,7 +88,10 @@ def interactive_collection_selection(collections: List[ZoteroCollection]) -> Opt
                 return collection_map[idx]
             else:
                 print(f"Please enter a number between 1 and {len(flat_collections)}")
-        except (ValueError, KeyboardInterrupt):
+        except ValueError:
+            print("Invalid input. Please enter a number or valid command.")
+            continue
+        except KeyboardInterrupt:
             print("\nCancelled")
             return None
         except EOFError:
@@ -236,19 +239,28 @@ def interactive_collection_selection_with_pagination(
                 # Fallback to regular input (e.g., when piping input)
                 choice = input(prompt).strip()
             
-            if choice.lower() == 'q' or choice == "0":
+            if choice.lower() == 'q' or choice == "0" or choice == "":
                 return None
             elif choice.lower() == 'n' and has_next:
                 return "NEXT_PAGE"
             elif choice.lower() == 'b' and has_previous:
                 return "PREVIOUS_PAGE"
+            elif choice.lower() == 'n' and not has_next:
+                print("No more next pages available.")
+                continue
+            elif choice.lower() == 'b' and not has_previous:
+                print("No more previous pages available.")
+                continue
             else:
                 idx = int(choice)
                 if idx in collection_map:
                     return collection_map[idx]
                 else:
                     print(f"Please enter a number between 1 and {len(collections)}")
-        except (ValueError, KeyboardInterrupt):
+        except ValueError:
+            print("Invalid input. Please enter a number or valid command.")
+            continue
+        except KeyboardInterrupt:
             print("\nCancelled")
             return None
         except EOFError:
