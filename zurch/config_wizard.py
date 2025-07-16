@@ -147,6 +147,7 @@ def run_config_wizard() -> int:
     print("Configure default display options for search results:")
     
     display_options = {
+        'interactive_mode': ('Enable interactive mode by default', current_config.get('interactive_mode', True)),
         'show_ids': ('Show item IDs by default', current_config.get('show_ids', False)),
         'show_tags': ('Show tags by default', current_config.get('show_tags', False)),
         'show_year': ('Show publication year by default', current_config.get('show_year', False)),
@@ -185,6 +186,7 @@ def run_config_wizard() -> int:
     print(f"Database path: {new_config['zotero_database_path']}")
     print(f"Max results: {new_config['max_results']}")
     print(f"Debug mode: {new_config['debug']}")
+    print(f"Interactive mode: {new_config['interactive_mode']}")
     print(f"Show IDs: {new_config['show_ids']}")
     print(f"Show tags: {new_config['show_tags']}")
     print(f"Show year: {new_config['show_year']}")

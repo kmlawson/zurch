@@ -73,18 +73,21 @@ zurch/
 
 3. **Version Bumping**:
    - Update version in: `pyproject.toml`, `zurch/__init__.py`, `zurch/cli.py`
+   - Fix the PyPI badge in README.md
    - Add entry to CHANGELOG.md
    - Commit with descriptive message
 
 ### Configuration System
-- **Config File**: `config.json` (not `zurch.json`)
+- **Config File**: `config.json` 
 - **Locations**:
   - macOS/Linux: `~/.config/zurch/config.json`
   - Windows: `%APPDATA%\zurch\config.json`
-- **Legacy Migration**: Automatically migrates from `~/.zurch-config/`
+- **Interactive Mode**: Can be configured as default via `interactive_mode` setting
+  - Priority: `--nointeract` > `-i` explicit > config setting > default (True)
 
 ### Database Access
-- **Read-only SQLite access** using URI mode: `sqlite3.connect(f'file:{path}?mode=ro', uri=True)`
+- **IMPORTANT Read-only SQLite access** using URI mode: `sqlite3.connect(f'file:{path}?mode=ro', uri=True)`
+- Never modify the Zotero database at any time
 - **Zotero Database Structure**:
   - Collections: Hierarchical folder structure
   - Items: Research items (books, articles, etc.)
@@ -123,6 +126,7 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
 ### Icon System
 - 📗 = Books (`item_type == "book"`)
 - 📄 = Journal articles (`item_type in ["journalarticle", "journal article"]`)
+- 🌐 = Websites
 - 🔗 = PDF/EPUB attachments available
 - 📚 = Other item types (default)
 - Purple icons = Duplicate items (debug mode only)
@@ -225,11 +229,7 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
 - **Documentation**: See `docs/CROSS_PLATFORM_IMPROVEMENTS.md` for details
 
 ### Known Issues and Future Enhancements
-1. Full arrow key navigation (requires curses/termios)
-2. Integration with Zotero API for remote access
-3. Caching for improved performance on large databases
-4. Shell argument pre-processing to auto-escape common characters
-5. Further handler refactoring for better modularity
+1. Add support for arrow key navigation of -i lists.
 
 ### Git Workflow
 ```bash
@@ -240,8 +240,7 @@ git commit -m "Clear description of changes
 - Detail 1
 - Detail 2
 
-🤖 Generated with [Claude Code](https://claude.ai/code)
-
+🤖 Generated with [Claude Code](https://claude.ai/code) 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
@@ -262,31 +261,17 @@ When bumping the version, update ALL of these locations:
 **Badge Notes**:
 - PyPI badge uses static format: `https://img.shields.io/badge/PyPI-v0.7.7-blue` (manually updated)
 - Badge must be updated manually before each PyPI deployment
-- Test badge is manual and needs updating when test count changes
 
 **PyPI Publishing Process**:
+
+Requires `.pypirc` file with PyPI API token
+
 1. Update all version locations above
 2. `rm -rf dist/ && uv build`
 3. `uv run twine upload dist/*`
 4. Package appears at: https://pypi.org/project/zurch/
 
-**Troubleshooting**:
-- If PyPI badge shows old version: Clear browser cache or wait 5-10 minutes
-- To force badge refresh: Add `?refresh=1` to badge URL temporarily
-- Verify PyPI deployment: Check https://pypi.org/project/zurch/ directly
-
-### PyPI Publishing 
-- Package name: `zurch`
-- Author: Konrad M. Lawson
-- Uses `twine upload` (not `uv publish` due to credential issues)
-- Requires `.pypirc` file with PyPI API token
-
 ## Quick Reference
-
-### Reinstall During Development
-```bash
-uv tool uninstall zurch && uv cache clean && uv tool install .
-```
 
 ### Run Quick Test
 ```bash

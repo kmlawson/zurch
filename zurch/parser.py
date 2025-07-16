@@ -27,7 +27,13 @@ def add_mode_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "-i", "--interactive", 
         action="store_true",
-        help="Enable interactive mode (append 'g' to item number to grab attachment)"
+        help="Enable interactive mode (default: enabled, append 'g' to item number to grab attachment)"
+    )
+    
+    parser.add_argument(
+        "--nointeract", 
+        action="store_true",
+        help="Disable interactive mode (return to simple list output)"
     )
     
     parser.add_argument(

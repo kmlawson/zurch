@@ -83,6 +83,17 @@ def main():
     # Override max_results from command line
     max_results = args.max_results or config.get('max_results', 100)
     
+    # Handle interactive mode defaults with config support
+    # Priority: --nointeract > -i explicit > config setting > default (True)
+    if args.nointeract:
+        args.interactive = False
+    elif args.interactive:
+        # -i was explicitly used, keep it True
+        args.interactive = True
+    else:
+        # Neither -i nor --nointeract was used, use config setting
+        args.interactive = config.get('interactive_mode', True)
+    
     # Apply display defaults from config if not explicitly set on command line
     if not hasattr(args, 'showids') or not args.showids:
         args.showids = config.get('show_ids', False)

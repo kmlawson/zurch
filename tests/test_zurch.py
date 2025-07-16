@@ -377,7 +377,7 @@ class TestCLIIntegration:
         assert "--name" in help_text
         assert "--list" in help_text
         assert "--interactive" in help_text
-        assert "append 'g' to item number to" in help_text  # Check for grab functionality in interactive mode
+        assert "append 'g'" in help_text  # Check for grab functionality in interactive mode
         assert "--exact" in help_text
     
     def test_display_items(self, capsys):

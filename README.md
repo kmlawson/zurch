@@ -67,17 +67,21 @@ zurch -f Heritage
 zurch -n "People's"
 zurch -n medicine
 
-# Interactive mode to select and view metadata or grab attachments for items in a folder
-zurch -f "Heritage" -i
-# Interactive mode works with other searches too:
-zurch -n "China" -i
-zurch -a "Smith" -i
+# Interactive mode is now the default - select and view metadata or grab attachments
+zurch -f "Heritage"
+# Interactive mode works with all searches:
+zurch -n "China"
+zurch -a "Smith"
+
+# Use --nointeract to disable interactive mode and get simple list output
+zurch -f "Heritage" --nointeract
+zurch -n "China" --nointeract
 
 # Show only hits with PDF/EPUB attachments
 zurch -n nationalism -o
 
-# Grabbing the PDF or EPUB attachment while in interactive mode:
-zurch -n "Introduction to" -i
+# Grabbing the PDF or EPUB attachment while in interactive mode (default):
+zurch -n "Introduction to"
 # Then type: 5g to grab attachment from item 5 if it includes one
 
 # Debug mode shows additional verbose logging, including duplicates in purple
@@ -151,8 +155,11 @@ zurch -f "Research/"            # Shows items from "Research" and all sub-collec
 # Limit results
 zurch -f "Digital Humanities" -x 10
 
-# Interactive mode
-zurch -f "Travel" -i
+# Interactive mode (default behavior)
+zurch -f "Travel"
+
+# Disable interactive mode
+zurch -f "Travel" --nointeract
 ```
 
 ### Search by Name (-n/--name)
@@ -212,11 +219,12 @@ zurch -a smith -t china  # Items by Smith tagged with china
 zurch -t "important" "methodology" "python"  # Items with all three tags
 ```
 
-### Interactive Mode (-i/--interactive)
-When combined with folder or name search, enables interactive selection:
+### Interactive Mode (Default Behavior)
+Interactive mode is enabled by default for all searches. It allows you to:
 - View detailed metadata for any item
 - Navigate through multiple items
 - Select an item and its attachment will be copied to current directory if you add g after the number
+- Use `--nointeract` to disable interactive mode and return to simple list output
 ```
 
 ### Pagination (-p/--pagination)
@@ -280,6 +288,8 @@ Shows:
 ### Other Options
 - `-x/--max-results N`: Limit number of results (default: 100) - **Applied as final step after all filtering and deduplication**
 - `-p/--pagination`: Enable pagination for long result lists (navigate with n/p/0)
+- `-i/--interactive`: Enable interactive mode (default: enabled)
+- `--nointeract`: Disable interactive mode and return to simple list output
 - `-d/--debug`: Enable detailed logging and show purple duplicates
 - `-v/--version`: Show version information
 - `-h/--help`: Show help message
@@ -308,6 +318,7 @@ zurch --config
 
 This will guide you through:
 - Auto-detecting your Zotero database location
+- Setting interactive mode default (enabled/disabled)
 - Setting default display options (IDs, tags, year, author)
 - Configuring search defaults
 - Setting maximum results limit
@@ -325,6 +336,7 @@ Example configuration:
   "zotero_database_path": "/path/to/Zotero/zotero.sqlite",
   "max_results": 100,
   "debug": false,
+  "interactive_mode": true,
   "show_ids": false,
   "show_tags": false,
   "show_year": false,
@@ -349,7 +361,7 @@ This means when you specify `-x 5`, you get exactly 5 items from the final proce
 ## Advanced Features
 
 ### Interactive Grab with Number Suffix
-In interactive mode (`-i`), you can append 'g' to any item number to immediately grab its attachment:
+In interactive mode (default), you can append 'g' to any item number to immediately grab its attachment:
 
 ```bash
 zurch -f "Papers" -i
@@ -362,7 +374,7 @@ zurch -f "Papers" -i
 # Type "1" to just view metadata for item 1
 ```
 
-This works for both `-f` (folder) and `-n` (name) searches with `-i`.
+This works for all searches by default (interactive mode is enabled by default).
 
 ### Filter by Attachments Only (-o)
 Show only items that have PDF or EPUB attachments:
@@ -372,8 +384,11 @@ Show only items that have PDF or EPUB attachments:
 zurch -f "Reading List" -o
 zurch -n "machine learning" -o
 
-# Combine with interactive mode
-zurch -f "Papers" -o -i  # Browse only items with attachments
+# Interactive mode works with attachment filtering (default)
+zurch -f "Papers" -o  # Browse only items with attachments interactively
+
+# Disable interactive mode with attachment filtering
+zurch -f "Papers" -o --nointeract
 ```
 
 The `-o` flag filters results to include only items with PDF or EPUB attachments, making it easy to find papers you can actually read.
@@ -394,8 +409,8 @@ zurch -n "network analysis"
 # Filter by tags to find specific types of papers
 zurch -n "social networks" -t "methodology"
 
-# Interactively review papers and grab PDFs (use '3g' to grab item 3)
-zurch -n "social networks" -i
+# Interactively review papers and grab PDFs (use '3g' to grab item 3) - default behavior
+zurch -n "social networks"
 ```
 
 ### Library Management

@@ -57,6 +57,9 @@ CONFIG_SCHEMA = {
         },
         "partial_collection_match": {
             "type": "boolean"
+        },
+        "interactive_mode": {
+            "type": "boolean"
         }
     },
     "required": [],
