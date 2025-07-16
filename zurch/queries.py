@@ -49,8 +49,7 @@ def build_collection_tree_query() -> str:
     FROM collection_tree ct
     JOIN libraries l ON ct.libraryID = l.libraryID
     LEFT JOIN groups g ON l.libraryID = g.libraryID
-    LEFT JOIN all_descendants ad ON ct.collectionID = ad.ancestor_id
-    LEFT JOIN collectionItems ci ON ad.descendant_id = ci.collectionID
+    LEFT JOIN collectionItems ci ON ct.collectionID = ci.collectionID
     GROUP BY ct.collectionID, ct.collectionName, ct.parentCollectionID, ct.depth, ct.path, ct.libraryID, l.type, g.name
     ORDER BY l.type DESC, ct.depth, ct.collectionName
     """
