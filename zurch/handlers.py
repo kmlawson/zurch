@@ -695,12 +695,12 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
         elif not selected_collection:
             break
         
-        # Get items from selected collection
-        items, total_count = db.get_collection_items(
-            selected_collection.name, args.only_attachments, 
-            args.after, args.before, args.books, args.articles, args.tag,
-            exact_match=args.exact
+        # Get items from selected collection using collection ID
+        items = db.items.get_items_in_collection(
+            selected_collection.collection_id, args.only_attachments, 
+            args.after, args.before, args.books, args.articles, args.tag
         )
+        total_count = len(items)
         
         # Display results
         if args.only_attachments:

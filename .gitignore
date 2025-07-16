@@ -5,6 +5,7 @@ zotero-database-example/
 GEMINI.md
 KEYFILES.md
 TODO.md
+tools/
 
 # Python
 __pycache__/
