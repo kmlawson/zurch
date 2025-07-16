@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.7] - 2025-07-16
+
+### Documentation
+- **Static PyPI Badge**: Switched from dynamic to static PyPI version badge
+  - Changed from `https://img.shields.io/pypi/v/zurch.svg` to `https://img.shields.io/badge/PyPI-v0.7.7-blue`
+  - Resolves caching issues where badge showed outdated version numbers
+  - Badge now requires manual updates before each PyPI deployment
+  - Updated DEVELOPMENT.md to reflect static badge management process
+
 ## [0.7.6] - 2025-07-16
 
 ### Documentation

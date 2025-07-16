@@ -57,7 +57,7 @@ zurch/
 ### Development Workflow
 1. **Always follow CLAUDE.md guidelines**:
    - Use uv for all package management
-   - Reinstall after changes: `uv tool uninstall zurch && uv cache clean && uv tool install .`
+   - Reinstall after changes: `tools/reinstall.sh`
    - Write tests before implementing features
    - Keep code files small and focused
    - Commit after completing features with updated CHANGELOG.md
@@ -257,13 +257,23 @@ When bumping the version, update ALL of these locations:
 
 **Documentation**:
 6. `README.md` - Test badge count (if tests changed)
-7. `README.md` - PyPI badge (now auto-updates with dynamic badge)
+7. `README.md` - PyPI badge (static badge, manually updated)
+
+**Badge Notes**:
+- PyPI badge uses static format: `https://img.shields.io/badge/PyPI-v0.7.7-blue` (manually updated)
+- Badge must be updated manually before each PyPI deployment
+- Test badge is manual and needs updating when test count changes
 
 **PyPI Publishing Process**:
 1. Update all version locations above
 2. `rm -rf dist/ && uv build`
 3. `uv run twine upload dist/*`
 4. Package appears at: https://pypi.org/project/zurch/
+
+**Troubleshooting**:
+- If PyPI badge shows old version: Clear browser cache or wait 5-10 minutes
+- To force badge refresh: Add `?refresh=1` to badge URL temporarily
+- Verify PyPI deployment: Check https://pypi.org/project/zurch/ directly
 
 ### PyPI Publishing 
 - Package name: `zurch`
