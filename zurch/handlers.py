@@ -381,7 +381,7 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
         # Build prompt with navigation options
         prompt_parts = [f"Select item number (1-{len(page_items)}"]
         if current_page > 0:
-            prompt_parts.append("'p' for previous page")
+            prompt_parts.append("'b' for back a page")
         if current_page < total_pages - 1:
             prompt_parts.append("'n' for next page")
         prompt_parts.extend(["'l' to go back", "0 to cancel", "add 'g' to grab"])
@@ -393,7 +393,7 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
             
             if is_terminal_interactive():
                 # Define keys that should respond immediately
-                immediate_keys = {'0', 'n', 'N', 'p', 'P', 'l', 'L'}
+                immediate_keys = {'0', 'n', 'N', 'b', 'B', 'l', 'L'}
                 choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
             else:
                 # Fallback to regular input (e.g., when piping input)
@@ -404,7 +404,7 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
             elif choice.lower() == "n" and current_page < total_pages - 1:
                 current_page += 1
                 continue
-            elif choice.lower() == "p" and current_page > 0:
+            elif choice.lower() == "b" and current_page > 0:
                 current_page -= 1
                 continue
             elif choice.lower() == "l":
@@ -722,7 +722,18 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
         # Interactive item selection loop
         while True:
             try:
-                choice = input(f"\nSelect item number (1-{len(items)}, 0 or Enter to cancel, 'l' to go back to collections, add 'g' to grab: 3g): ").strip()
+                # Try to use immediate key response for navigation keys
+                from .keyboard import get_input_with_immediate_keys, is_terminal_interactive
+                
+                prompt = f"\nSelect item number (1-{len(items)}, 0 or Enter to cancel, 'l' to go back to collections, add 'g' to grab: 3g): "
+                
+                if is_terminal_interactive():
+                    # Define keys that should respond immediately
+                    immediate_keys = {'0', 'l', 'L'}
+                    choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
+                else:
+                    # Fallback to regular input (e.g., when piping input)
+                    choice = input(prompt).strip()
                 
                 if choice == "0" or choice == "":
                     return  # Exit completely

@@ -219,7 +219,7 @@ def interactive_collection_selection_with_pagination(
         try:
             prompt_parts = [f"Select collection number (1-{len(collections)}"]
             if has_previous:
-                prompt_parts.append("'p' for previous page")
+                prompt_parts.append("'b' for back a page")
             if has_next:
                 prompt_parts.append("'n' for next page")
             prompt_parts.append("0 to cancel")
@@ -230,7 +230,7 @@ def interactive_collection_selection_with_pagination(
             
             if is_terminal_interactive():
                 # Define keys that should respond immediately
-                immediate_keys = {'0', 'n', 'N', 'p', 'P', 'q', 'Q'}
+                immediate_keys = {'0', 'n', 'N', 'b', 'B', 'q', 'Q'}
                 choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
             else:
                 # Fallback to regular input (e.g., when piping input)
@@ -240,7 +240,7 @@ def interactive_collection_selection_with_pagination(
                 return None
             elif choice.lower() == 'n' and has_next:
                 return "NEXT_PAGE"
-            elif choice.lower() == 'p' and has_previous:
+            elif choice.lower() == 'b' and has_previous:
                 return "PREVIOUS_PAGE"
             else:
                 idx = int(choice)
