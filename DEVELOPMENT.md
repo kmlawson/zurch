@@ -141,7 +141,7 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
 - `-g/--grab`: Copy attachments (requires -i)
 - `-o/--only-attachments`: Show only items with PDF/EPUB attachments
 - `-k/--exact`: Exact matching instead of partial
-- `-x/--max-results N`: Limit results (default 100)
+- `-x/--max-results N`: Limit results (default 100, 'all' or '0' for unlimited)
 - `-d/--debug`: Debug logging
 - `-v/--version`: Show version
 - `-h/--help`: Show help

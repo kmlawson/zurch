@@ -122,6 +122,10 @@ zurch -f "Papers" --sort author
 
 # Navigate through long results with pagination
 zurch -n "china" -p -x 5  # Show 5 items per page, navigate with n/p/0
+
+# Show all results without limit
+zurch -n "china" -x all  # Show all results
+zurch -l "Heritage" -x 0  # Show all Heritage collections
 ```
 
 ## Commands
@@ -286,7 +290,7 @@ Shows:
 - `--file PATH`: Specify output file path for export (defaults to current directory)
 
 ### Other Options
-- `-x/--max-results N`: Limit number of results (default: 100) - **Applied as final step after all filtering and deduplication**
+- `-x/--max-results N`: Limit number of results (default: 100, use 'all' or '0' for unlimited) - **Applied as final step after all filtering and deduplication**
 - `-p/--pagination`: Enable pagination for long result lists (navigate with n/p/0)
 - `-i/--interactive`: Enable interactive mode (default: enabled)
 - `--nointeract`: Disable interactive mode and return to simple list output

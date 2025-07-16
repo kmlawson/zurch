@@ -14,6 +14,28 @@ from .config_wizard import run_config_wizard
 
 __version__ = "0.7.7"
 
+def parse_max_results(value: str, config_default: int = 100) -> int:
+    """Parse max_results value, handling special cases like 'all' and '0'."""
+    if not value:
+        return config_default
+    
+    # Handle string values
+    if isinstance(value, str):
+        value = value.strip().lower()
+        if value in ['all', '0']:
+            return 999999999  # Use large number to represent unlimited
+        try:
+            return int(value)
+        except ValueError:
+            print(f"Invalid max-results value: {value}. Using default.")
+            return config_default
+    
+    # Handle numeric values
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return config_default
+
 def setup_logging(debug=False):
     level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
@@ -80,8 +102,8 @@ def main():
     # Load configuration
     config = load_config()
     
-    # Override max_results from command line
-    max_results = args.max_results or config.get('max_results', 100)
+    # Override max_results from command line, handling special values
+    max_results = parse_max_results(args.max_results, config.get('max_results', 100))
     
     # Handle interactive mode defaults with config support
     # Priority: --nointeract > -i explicit > config setting > default (True)

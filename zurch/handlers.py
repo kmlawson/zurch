@@ -705,8 +705,16 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
     
     while True:
         # Get paginated collections maintaining hierarchy
-        page_collections, has_previous, has_next, current_page, total_pages = \
-            get_paginated_collections(collections, max_results, current_page)
+        # If max_results is large enough to show all collections, bypass pagination
+        if max_results >= len(collections):
+            page_collections = collections
+            has_previous = False
+            has_next = False
+            current_page = 0
+            total_pages = 1
+        else:
+            page_collections, has_previous, has_next, current_page, total_pages = \
+                get_paginated_collections(collections, max_results, current_page)
         
         # Display hierarchical collections with numbers for interactive selection
         from .interactive import interactive_collection_selection_with_pagination

@@ -17,9 +17,9 @@ def add_basic_arguments(parser: argparse.ArgumentParser) -> None:
     
     parser.add_argument(
         "-x", "--max-results", 
-        type=int, 
-        default=100,
-        help="Maximum number of results to return (default: 100)"
+        type=str, 
+        default="100",
+        help="Maximum number of results to return (default: 100, use 'all' or '0' for unlimited)"
     )
 
 def add_mode_arguments(parser: argparse.ArgumentParser) -> None:
