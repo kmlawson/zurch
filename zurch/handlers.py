@@ -284,7 +284,7 @@ def interactive_selection_simple(items, max_results: int, search_term: str, grou
             # Try to use immediate key response for navigation keys
             from .keyboard import get_input_with_immediate_keys, is_terminal_interactive
             
-            prompt = f"\nSelect item number (1-{len(items)}, 0 to cancel, 'l' to list, add 'g' to grab: 3g): "
+            prompt = f"\nSelect item number (1-{len(items)}, 0 to cancel, 'l' to go back, add 'g' to grab: 3g): "
             
             if is_terminal_interactive():
                 # Define keys that should respond immediately
@@ -297,19 +297,8 @@ def interactive_selection_simple(items, max_results: int, search_term: str, grou
             if choice == "0":
                 return (None, False, None) if return_index else (None, False)
             elif choice.lower() == "l":
-                # Re-display the items
-                print()
-                if grouped_items:
-                    display_grouped_items(grouped_items, max_results, search_term, 
-                                         display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
-                                         display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
-                                         display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
-                else:
-                    display_items(items, max_results, search_term, 
-                                 display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
-                                 display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
-                                 display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
-                continue
+                # Return special marker to indicate "go back"
+                return ("GO_BACK", False, None) if return_index else ("GO_BACK", False)
             
             # Check for 'g' suffix
             should_grab = choice.lower().endswith('g')
@@ -395,7 +384,7 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
             prompt_parts.append("'p' for previous page")
         if current_page < total_pages - 1:
             prompt_parts.append("'n' for next page")
-        prompt_parts.extend(["'l' to re-list", "0 to cancel", "add 'g' to grab"])
+        prompt_parts.extend(["'l' to go back", "0 to cancel", "add 'g' to grab"])
         prompt = ", ".join(prompt_parts) + "): "
         
         try:
@@ -419,8 +408,8 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
                 current_page -= 1
                 continue
             elif choice.lower() == "l":
-                # Re-list current page (already displayed above, just continue)
-                continue
+                # Return special marker to indicate "go back"
+                return ("GO_BACK", False, None) if return_index else ("GO_BACK", False)
             
             # Check for 'g' suffix
             should_grab = choice.lower().endswith('g')
@@ -450,6 +439,11 @@ def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results
     while True:
         display_opts = DisplayOptions(show_ids=show_ids, show_tags=show_tags, show_year=show_year, show_author=show_author, show_created=show_created, show_modified=show_modified, show_collections=show_collections, sort_by_author=sort_by_author)
         selected, should_grab, selected_index = interactive_selection(items, max_results, search_term, grouped_items, display_opts, db, return_index=True)
+        
+        # Handle special case of "go back"
+        if selected == "GO_BACK":
+            return  # Return to previous context
+        
         if not selected:
             break
         
@@ -728,16 +722,11 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
         # Interactive item selection loop
         while True:
             try:
-                choice = input(f"\nSelect item number (1-{len(items)}, 0 or Enter to cancel, 'l' to re-list, 'b' to go back, add 'g' to grab: 3g): ").strip()
+                choice = input(f"\nSelect item number (1-{len(items)}, 0 or Enter to cancel, 'l' to go back to collections, add 'g' to grab: 3g): ").strip()
                 
                 if choice == "0" or choice == "":
                     return  # Exit completely
                 elif choice.lower() == "l":
-                    # Re-display the items
-                    print()
-                    display_sorted_items(items, max_results, args, db=db)
-                    continue
-                elif choice.lower() == "b":
                     # Go back to collection list
                     break
                 
