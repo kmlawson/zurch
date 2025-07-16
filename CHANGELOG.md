@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.6] - 2025-07-16
+
+### Documentation
+- **Updated Test Badge**: All 152/152 tests passing after cross-platform improvements
+- **Updated PyPI Badge**: Now uses dynamic PyPI version badge for automatic updates
+
 ## [0.7.5] - 2025-07-16
 
 ### Cross-Platform Improvements

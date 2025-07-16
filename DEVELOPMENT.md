@@ -245,11 +245,31 @@ git commit -m "Clear description of changes
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
-### PyPI Publishing (Future)
+### Version Updates
+When bumping the version, update ALL of these locations:
+
+**Core Version Files**:
+1. `pyproject.toml` - Main package version
+2. `zurch/__init__.py` - Package `__version__` variable
+3. `zurch/cli.py` - CLI `__version__` variable
+4. `zurch/constants.py` - Network `USER_AGENT` string
+5. `CHANGELOG.md` - Add new version entry
+
+**Documentation**:
+6. `README.md` - Test badge count (if tests changed)
+7. `README.md` - PyPI badge (now auto-updates with dynamic badge)
+
+**PyPI Publishing Process**:
+1. Update all version locations above
+2. `rm -rf dist/ && uv build`
+3. `uv run twine upload dist/*`
+4. Package appears at: https://pypi.org/project/zurch/
+
+### PyPI Publishing 
 - Package name: `zurch`
 - Author: Konrad M. Lawson
-- Structure already prepared for PyPI deployment
-- Use `uv build` to create wheel and source distributions
+- Uses `twine upload` (not `uv publish` due to credential issues)
+- Requires `.pypirc` file with PyPI API token
 
 ## Quick Reference
 
