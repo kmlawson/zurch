@@ -49,30 +49,44 @@ def get_input_with_immediate_keys(prompt: str, immediate_keys: set) -> str:
     """
     print(prompt, end='', flush=True)
     
-    # Get first character
-    first_char = get_single_char()
+    # Build the input line character by character
+    input_line = ""
     
-    # If it's an immediate key, return it right away
-    if first_char in immediate_keys:
-        print(first_char)  # Echo the character
-        return first_char
-    
-    # Otherwise, switch back to normal input mode
-    # First, restore the terminal and echo the character
-    print(first_char, end='', flush=True)
-    
-    # If it's Enter, return empty string
-    if first_char in ['\r', '\n']:
-        print()  # New line
-        return ''
-    
-    # Read the rest of the line normally
-    try:
-        rest = input()
-        return first_char + rest
-    except (KeyboardInterrupt, EOFError):
-        print()  # New line for cleaner output
-        raise
+    while True:
+        char = get_single_char()
+        
+        # Handle immediate keys
+        if char in immediate_keys:
+            print(char)  # Echo the character
+            return char
+        
+        # Handle Enter (return the accumulated input)
+        if char in ['\r', '\n']:
+            print()  # New line
+            return input_line
+        
+        # Handle backspace (DEL or BS)
+        if char in ['\x7f', '\x08']:  # DEL or BS
+            if input_line:
+                # Remove last character from input line
+                input_line = input_line[:-1]
+                # Move cursor back and erase character
+                print('\b \b', end='', flush=True)
+            continue
+        
+        # Handle Ctrl+C
+        if char == '\x03':
+            raise KeyboardInterrupt()
+        
+        # Handle Ctrl+D (EOF)
+        if char == '\x04':
+            raise EOFError()
+        
+        # Handle printable characters
+        if char.isprintable():
+            input_line += char
+            print(char, end='', flush=True)
+        # Ignore non-printable characters that aren't handled above
 
 
 def is_terminal_interactive() -> bool:
