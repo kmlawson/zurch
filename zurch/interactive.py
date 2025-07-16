@@ -104,7 +104,8 @@ def interactive_collection_selection_with_pagination(
     total_pages: int, 
     has_previous: bool, 
     has_next: bool, 
-    search_term: str = ""
+    search_term: str = "",
+    total_collections: int = None
 ) -> Optional[ZoteroCollection]:
     """Handle interactive collection selection with hierarchical pagination display."""
     if not collections:
@@ -214,7 +215,10 @@ def interactive_collection_selection_with_pagination(
         print_hierarchy_with_numbers(library_data['hierarchy'])
     
     # Show pagination info
-    print(f"\nShowing {len(collections)} collections")
+    if total_collections is not None:
+        print(f"\nShowing {len(collections)} of {total_collections} collections")
+    else:
+        print(f"\nShowing {len(collections)} collections")
     print(f"Page {current_page + 1} of {total_pages}")
     
     # Get selection

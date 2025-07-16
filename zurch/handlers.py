@@ -711,7 +711,7 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
         # Display hierarchical collections with numbers for interactive selection
         from .interactive import interactive_collection_selection_with_pagination
         selected_collection = interactive_collection_selection_with_pagination(
-            page_collections, current_page, total_pages, has_previous, has_next, display_search_term
+            page_collections, current_page, total_pages, has_previous, has_next, display_search_term, len(collections)
         )
         
         # Handle pagination navigation
