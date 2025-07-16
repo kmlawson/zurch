@@ -281,7 +281,19 @@ def interactive_selection_simple(items, max_results: int, search_term: str, grou
                              display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
                              display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
         try:
-            choice = input(f"\nSelect item number (1-{len(items)}, 0 to cancel, 'l' to list, add 'g' to grab: 3g): ").strip()
+            # Try to use immediate key response for navigation keys
+            from .keyboard import get_input_with_immediate_keys, is_terminal_interactive
+            
+            prompt = f"\nSelect item number (1-{len(items)}, 0 to cancel, 'l' to list, add 'g' to grab: 3g): "
+            
+            if is_terminal_interactive():
+                # Define keys that should respond immediately
+                immediate_keys = {'0', 'l', 'L'}
+                choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
+            else:
+                # Fallback to regular input (e.g., when piping input)
+                choice = input(prompt).strip()
+            
             if choice == "0":
                 return (None, False, None) if return_index else (None, False)
             elif choice.lower() == "l":
@@ -387,7 +399,16 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
         prompt = ", ".join(prompt_parts) + "): "
         
         try:
-            choice = input(prompt).strip()
+            # Try to use immediate key response for navigation keys
+            from .keyboard import get_input_with_immediate_keys, is_terminal_interactive
+            
+            if is_terminal_interactive():
+                # Define keys that should respond immediately
+                immediate_keys = {'0', 'n', 'N', 'p', 'P', 'l', 'L'}
+                choice = get_input_with_immediate_keys(prompt, immediate_keys).strip()
+            else:
+                # Fallback to regular input (e.g., when piping input)
+                choice = input(prompt).strip()
             
             if choice == "0":
                 return (None, False, None) if return_index else (None, False)
