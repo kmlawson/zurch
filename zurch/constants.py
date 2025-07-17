@@ -244,7 +244,7 @@ class Network:
     """Network and protocol constants."""
     HTTP_TIMEOUT = 30
     MAX_REDIRECTS = 5
-    USER_AGENT = "zurch/0.7.8 (Zotero CLI Tool)"
+    USER_AGENT = "zurch/0.7.9 (Zotero CLI Tool)"
 
 # Error Messages
 class ErrorMessages:

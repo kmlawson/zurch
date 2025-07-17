@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.9] - 2025-07-17
+
+### New Features
+- **Pydantic Model Integration**: Added comprehensive Pydantic models for enhanced data validation
+  - `ZurchConfigModel`: Configuration validation with field constraints and type checking
+  - `ZoteroItemModel`: Item data validation with publication year, dates, and attachment validation
+  - `ZoteroCollectionModel`: Collection data validation with hierarchy and library type validation
+  - `CLIArgumentsModel`: Command-line argument validation with sort options and export formats
+  - Backward compatibility maintained with legacy dataclass models
+
+### Development Improvements
+- **Enhanced Testing Infrastructure**: Added comprehensive Pydantic model tests (23 new tests)
+  - Tests validate real Pydantic functionality (no mocking)
+  - Proper test environment configuration for both `uv run pytest` and `uv run python -m pytest`
+  - Fixed test execution issues with uv tools isolated environments
+- **Pre-commit Hook**: Added ruff formatting hook (excludes test files)
+- **Makefile**: Added development automation with targets for testing, linting, and reinstallation
+- **Documentation**: Added detailed analysis of Pydantic testing environment issues
+
+### Technical Improvements
+- **Code Quality**: Fixed all critical ruff linting issues
+  - Removed duplicate function definitions
+  - Fixed bare except clauses to catch specific exceptions
+  - Improved import ordering and unused import cleanup
+- **Data Validation**: Enhanced configuration and data model validation
+- **Error Handling**: Better validation error messages and field constraints
+
 ## [0.7.8] - 2025-07-16
 
 ### Bug Fixes

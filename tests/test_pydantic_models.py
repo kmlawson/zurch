@@ -12,9 +12,25 @@ try:
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
-    pytestmark = pytest.mark.skip("Pydantic not available")
+    # Create dummy classes to avoid import errors
+    class ValidationError(Exception):
+        pass
+    class ZurchConfigModel:
+        pass
+    class CLIArgumentsModel:
+        pass
+    class ZoteroItemModel:
+        pass
+    class ZoteroCollectionModel:
+        pass
+    class ItemTypeEnum:
+        pass
+
+# Skip individual tests instead of entire module
+skip_if_no_pydantic = pytest.mark.skipif(not PYDANTIC_AVAILABLE, reason="Pydantic not available")
 
 
+@skip_if_no_pydantic
 class TestZurchConfigModel:
     """Test Pydantic configuration model validation."""
     
@@ -78,6 +94,7 @@ class TestZurchConfigModel:
             ZurchConfigModel(unknown_field="value")
 
 
+@skip_if_no_pydantic
 class TestZoteroItemModel:
     """Test Pydantic item model validation."""
     
@@ -163,6 +180,7 @@ class TestZoteroItemModel:
             )
 
 
+@skip_if_no_pydantic
 class TestZoteroCollectionModel:
     """Test Pydantic collection model validation."""
     
@@ -225,6 +243,7 @@ class TestZoteroCollectionModel:
             )
 
 
+@skip_if_no_pydantic
 class TestCLIArgumentsModel:
     """Test CLI arguments model validation."""
     
