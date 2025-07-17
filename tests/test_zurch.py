@@ -308,16 +308,25 @@ class TestUtilityFunctions:
     def test_load_config(self):
         """Test configuration loading."""
         config = load_config()
-        assert isinstance(config, dict)
-        
-        # Check for required keys
-        assert 'max_results' in config
-        assert 'debug' in config
-        assert 'zotero_database_path' in config
-        
-        # Check default values
-        assert config['max_results'] == 100
-        assert config['debug'] is False
+        # Should return a Pydantic model when available
+        try:
+            from zurch.config_models import ZurchConfigModel
+            assert isinstance(config, ZurchConfigModel)
+            # Check for required attributes
+            assert hasattr(config, 'max_results')
+            assert hasattr(config, 'debug')
+            assert hasattr(config, 'zotero_database_path')
+            # Check default values
+            assert config.max_results == 100
+            assert config.debug is False
+        except ImportError:
+            # Fallback to dictionary if Pydantic not available
+            assert isinstance(config, dict)
+            assert 'max_results' in config
+            assert 'debug' in config
+            assert 'zotero_database_path' in config
+            assert config['max_results'] == 100
+            assert config['debug'] is False
     
     def test_config_paths(self):
         """Test config directory paths are OS-appropriate."""
@@ -382,9 +391,9 @@ class TestCLIIntegration:
     def test_display_items(self, capsys):
         """Test item display functionality."""
         items = [
-            ZoteroItem(1, "Test Book", "book", "pdf"),
-            ZoteroItem(2, "Test Article", "journalArticle", None),
-            ZoteroItem(3, "Test Document", "document", "epub")
+            ZoteroItem(item_id=1, title="Test Book", item_type="book", attachment_type="pdf"),
+            ZoteroItem(item_id=2, title="Test Article", item_type="journalArticle", attachment_type=None),
+            ZoteroItem(item_id=3, title="Test Document", item_type="document", attachment_type="epub")
         ]
         
         display_items(items, 3)
@@ -401,8 +410,8 @@ class TestCLIIntegration:
     def test_interactive_selection(self, mock_input):
         """Test interactive item selection."""
         items = [
-            ZoteroItem(1, "Test Item 1", "book"),
-            ZoteroItem(2, "Test Item 2", "article")
+            ZoteroItem(item_id=1, title="Test Item 1", item_type="book"),
+            ZoteroItem(item_id=2, title="Test Item 2", item_type="article")
         ]
         
         # Test valid selection

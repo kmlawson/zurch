@@ -28,7 +28,7 @@ class TestGrabAttachment:
             mock_db = MagicMock()
             mock_db.get_item_attachment_path.return_value = attachment_path
             
-            item = ZoteroItem(1, "Test Item", "book")
+            item = ZoteroItem(item_id=1, title="Test Item", item_type="book")
             
             # Test grabbing
             result = grab_attachment(mock_db, item, zotero_data_dir)
@@ -47,7 +47,7 @@ class TestGrabAttachment:
         mock_db = MagicMock()
         mock_db.get_item_attachment_path.return_value = None
         
-        item = ZoteroItem(1, "Test Item", "book")
+        item = ZoteroItem(item_id=1, title="Test Item", item_type="book")
         zotero_data_dir = Path("/tmp")
         
         result = grab_attachment(mock_db, item, zotero_data_dir)
@@ -58,7 +58,7 @@ class TestGrabAttachment:
         mock_db = MagicMock()
         mock_db.get_item_attachment_path.return_value = Path("/nonexistent/file.pdf")
         
-        item = ZoteroItem(1, "Test Item", "book")
+        item = ZoteroItem(item_id=1, title="Test Item", item_type="book")
         zotero_data_dir = Path("/tmp")
         
         result = grab_attachment(mock_db, item, zotero_data_dir)
@@ -72,8 +72,8 @@ class TestInteractiveSelection:
     def test_interactive_selection_valid_choice(self, mock_input):
         """Test valid item selection."""
         items = [
-            ZoteroItem(1, "Item 1", "book"),
-            ZoteroItem(2, "Item 2", "article")
+            ZoteroItem(item_id=1, title="Item 1", item_type="book"),
+            ZoteroItem(item_id=2, title="Item 2", item_type="article")
         ]
         
         mock_input.return_value = "1"
@@ -85,7 +85,7 @@ class TestInteractiveSelection:
     @patch('zurch.handlers.input')
     def test_interactive_selection_with_grab(self, mock_input):
         """Test item selection with grab suffix."""
-        items = [ZoteroItem(1, "Item 1", "book")]
+        items = [ZoteroItem(item_id=1, title="Item 1", item_type="book")]
         
         mock_input.return_value = "1g"
         selected, should_grab = interactive_selection(items)
@@ -96,7 +96,7 @@ class TestInteractiveSelection:
     @patch('zurch.handlers.input')
     def test_interactive_selection_cancel(self, mock_input):
         """Test canceling selection."""
-        items = [ZoteroItem(1, "Item 1", "book")]
+        items = [ZoteroItem(item_id=1, title="Item 1", item_type="book")]
         
         mock_input.return_value = "0"
         selected, should_grab = interactive_selection(items)
@@ -107,7 +107,7 @@ class TestInteractiveSelection:
     @patch('zurch.handlers.input')
     def test_interactive_selection_invalid_number(self, mock_input):
         """Test invalid number input."""
-        items = [ZoteroItem(1, "Item 1", "book")]
+        items = [ZoteroItem(item_id=1, title="Item 1", item_type="book")]
         
         # First invalid input, then valid cancel
         mock_input.side_effect = ["999", "0"]
@@ -131,7 +131,7 @@ class TestInteractiveSelection:
     @patch('zurch.handlers.input')
     def test_interactive_selection_keyboard_interrupt(self, mock_input):
         """Test handling of KeyboardInterrupt."""
-        items = [ZoteroItem(1, "Item 1", "book")]
+        items = [ZoteroItem(item_id=1, title="Item 1", item_type="book")]
         
         mock_input.side_effect = KeyboardInterrupt()
         selected, should_grab = interactive_selection(items)
@@ -212,7 +212,7 @@ class TestHandleListCommand:
         """Test listing all collections."""
         mock_db = MagicMock()
         mock_db.list_collections.return_value = [
-            ZoteroCollection(1, "Test Collection", None, 0, 5, "Test Collection")
+            ZoteroCollection(collection_id=1, name="Test Collection", parent_id=None, depth=0, item_count=5, full_path="Test Collection")
         ]
         
         # Mock args
@@ -232,8 +232,8 @@ class TestHandleListCommand:
         """Test listing filtered collections."""
         mock_db = MagicMock()
         collections = [
-            ZoteroCollection(1, "Heritage Studies", None, 0, 5, "Heritage Studies"),
-            ZoteroCollection(2, "Modern History", None, 0, 3, "Modern History")
+            ZoteroCollection(collection_id=1, name="Heritage Studies", parent_id=None, depth=0, item_count=5, full_path="Heritage Studies"),
+            ZoteroCollection(collection_id=2, name="Modern History", parent_id=None, depth=0, item_count=3, full_path="Modern History")
         ]
         mock_db.list_collections.return_value = collections
         
@@ -253,7 +253,7 @@ class TestHandleListCommand:
     def test_handle_list_command_interactive(self):
         """Test interactive list command."""
         mock_db = MagicMock()
-        collections = [ZoteroCollection(1, "Test", None, 0, 5, "Test")]
+        collections = [ZoteroCollection(collection_id=1, name="Test", parent_id=None, depth=0, item_count=5, full_path="Test")]
         mock_db.list_collections.return_value = collections
         mock_db.get_collection_items.return_value = ([], 0)
         

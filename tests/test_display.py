@@ -14,9 +14,9 @@ class TestDisplayItems:
     def test_display_basic_items(self, capsys):
         """Test basic item display."""
         items = [
-            ZoteroItem(1, "Test Book", "book", "pdf"),
-            ZoteroItem(2, "Test Article", "journalArticle", None),
-            ZoteroItem(3, "Test Document", "document", "epub")
+            ZoteroItem(item_id=1, title="Test Book", item_type="book", attachment_type="pdf"),
+            ZoteroItem(item_id=2, title="Test Article", item_type="journalArticle", attachment_type=None),
+            ZoteroItem(item_id=3, title="Test Document", item_type="document", attachment_type="epub")
         ]
         
         display_items(items, 10)
@@ -32,8 +32,8 @@ class TestDisplayItems:
     def test_display_items_with_search_term(self, capsys):
         """Test item display with search term highlighting."""
         items = [
-            ZoteroItem(1, "China History Book", "book", "pdf"),
-            ZoteroItem(2, "Japanese Culture", "journalArticle", None)
+            ZoteroItem(item_id=1, title="China History Book", item_type="book", attachment_type="pdf"),
+            ZoteroItem(item_id=2, title="Japanese Culture", item_type="journalArticle", attachment_type=None)
         ]
         
         display_items(items, 10, search_term="china")
@@ -46,7 +46,7 @@ class TestDisplayItems:
     def test_display_items_with_ids(self, capsys):
         """Test item display with ID numbers."""
         items = [
-            ZoteroItem(123, "Test Item", "book", "pdf")
+            ZoteroItem(item_id=123, title="Test Item", item_type="book", attachment_type="pdf")
         ]
         
         display_items(items, 10, show_ids=True)
@@ -57,8 +57,8 @@ class TestDisplayItems:
     def test_display_items_with_duplicates(self, capsys):
         """Test display of duplicate items."""
         items = [
-            ZoteroItem(1, "Normal Item", "book", "pdf"),
-            ZoteroItem(2, "Duplicate Item", "book", "pdf", is_duplicate=True)
+            ZoteroItem(item_id=1, title="Normal Item", item_type="book", attachment_type="pdf"),
+            ZoteroItem(item_id=2, title="Duplicate Item", item_type="book", attachment_type="pdf", is_duplicate=True)
         ]
         
         display_items(items, 10)
@@ -70,7 +70,7 @@ class TestDisplayItems:
     
     def test_display_items_numbering(self, capsys):
         """Test proper numbering and padding."""
-        items = [ZoteroItem(i, f"Item {i}", "book") for i in range(1, 15)]
+        items = [ZoteroItem(item_id=i, title=f"Item {i}", item_type="book") for i in range(1, 15)]
         
         display_items(items, 20)
         captured = capsys.readouterr()
@@ -85,11 +85,11 @@ class TestDisplayGroupedItems:
     
     def test_display_grouped_items_basic(self, capsys):
         """Test basic grouped item display."""
-        collection1 = ZoteroCollection(1, "Collection 1", None, 0, 2, "Collection 1")
-        collection2 = ZoteroCollection(2, "Collection 2", None, 0, 1, "Collection 2")
+        collection1 = ZoteroCollection(collection_id=1, name="Collection 1", parent_id=None, depth=0, item_count=2, full_path="Collection 1")
+        collection2 = ZoteroCollection(collection_id=2, name="Collection 2", parent_id=None, depth=0, item_count=1, full_path="Collection 2")
         
-        items1 = [ZoteroItem(1, "Item 1", "book"), ZoteroItem(2, "Item 2", "article")]
-        items2 = [ZoteroItem(3, "Item 3", "book")]
+        items1 = [ZoteroItem(item_id=1, title="Item 1", item_type="book"), ZoteroItem(item_id=2, title="Item 2", item_type="article")]
+        items2 = [ZoteroItem(item_id=3, title="Item 3", item_type="book")]
         
         grouped_items = [(collection1, items1), (collection2, items2)]
         
@@ -113,8 +113,8 @@ class TestDisplayGroupedItems:
     
     def test_display_grouped_items_with_limit(self, capsys):
         """Test grouped item display with max_results limit."""
-        collection = ZoteroCollection(1, "Collection", None, 0, 3, "Collection")
-        items = [ZoteroItem(i, f"Item {i}", "book") for i in range(1, 4)]
+        collection = ZoteroCollection(collection_id=1, name="Collection", parent_id=None, depth=0, item_count=3, full_path="Collection")
+        items = [ZoteroItem(item_id=i, title=f"Item {i}", item_type="book") for i in range(1, 4)]
         grouped_items = [(collection, items)]
         
         result = display_grouped_items(grouped_items, 2)  # Limit to 2 items
@@ -127,8 +127,8 @@ class TestDisplayGroupedItems:
     
     def test_display_grouped_items_hierarchical_paths(self, capsys):
         """Test display with hierarchical collection paths."""
-        collection = ZoteroCollection(1, "Child", 0, 1, 2, "Parent > Child")
-        items = [ZoteroItem(1, "Item", "book")]
+        collection = ZoteroCollection(collection_id=1, name="Child", parent_id=1, depth=1, item_count=2, full_path="Parent > Child")
+        items = [ZoteroItem(item_id=1, title="Item", item_type="book")]
         grouped_items = [(collection, items)]
         
         display_grouped_items(grouped_items, 10)
@@ -138,11 +138,11 @@ class TestDisplayGroupedItems:
     
     def test_display_grouped_items_continuous_numbering(self, capsys):
         """Test that numbering is continuous across collections."""
-        collection1 = ZoteroCollection(1, "Coll1", None, 0, 2, "Coll1")
-        collection2 = ZoteroCollection(2, "Coll2", None, 0, 2, "Coll2")
+        collection1 = ZoteroCollection(collection_id=1, name="Coll1", parent_id=None, depth=0, item_count=2, full_path="Coll1")
+        collection2 = ZoteroCollection(collection_id=2, name="Coll2", parent_id=None, depth=0, item_count=2, full_path="Coll2")
         
-        items1 = [ZoteroItem(1, "Item 1", "book"), ZoteroItem(2, "Item 2", "book")]
-        items2 = [ZoteroItem(3, "Item 3", "book"), ZoteroItem(4, "Item 4", "book")]
+        items1 = [ZoteroItem(item_id=1, title="Item 1", item_type="book"), ZoteroItem(item_id=2, title="Item 2", item_type="book")]
+        items2 = [ZoteroItem(item_id=3, title="Item 3", item_type="book"), ZoteroItem(item_id=4, title="Item 4", item_type="book")]
         
         grouped_items = [(collection1, items1), (collection2, items2)]
         
@@ -192,8 +192,8 @@ class TestDisplayHierarchicalSearchResults:
     def test_display_hierarchical_flat_collections(self, capsys):
         """Test display of flat collections."""
         collections = [
-            ZoteroCollection(1, "China", None, 0, 5, "China"),
-            ZoteroCollection(2, "Japan", None, 0, 3, "Japan")
+            ZoteroCollection(collection_id=1, name="China", parent_id=None, depth=0, item_count=5, full_path="China"),
+            ZoteroCollection(collection_id=2, name="Japan", parent_id=None, depth=0, item_count=3, full_path="Japan")
         ]
         
         display_hierarchical_search_results(collections, "china", max_results=10)
@@ -208,10 +208,10 @@ class TestDisplayHierarchicalSearchResults:
     def test_display_hierarchical_nested_collections(self, capsys):
         """Test display of nested collections."""
         collections = [
-            ZoteroCollection(1, "Asia", None, 0, 10, "Asia"),
-            ZoteroCollection(2, "China", 1, 1, 5, "Asia > China"),
-            ZoteroCollection(3, "History", 2, 2, 3, "Asia > China > History"),
-            ZoteroCollection(4, "Japan", 1, 1, 2, "Asia > Japan")
+            ZoteroCollection(collection_id=1, name="Asia", parent_id=None, depth=0, item_count=10, full_path="Asia"),
+            ZoteroCollection(collection_id=2, name="China", parent_id=1, depth=1, item_count=5, full_path="Asia > China"),
+            ZoteroCollection(collection_id=3, name="History", parent_id=2, depth=2, item_count=3, full_path="Asia > China > History"),
+            ZoteroCollection(collection_id=4, name="Japan", parent_id=1, depth=1, item_count=2, full_path="Asia > Japan")
         ]
         
         display_hierarchical_search_results(collections, "china", max_results=10)
@@ -225,9 +225,9 @@ class TestDisplayHierarchicalSearchResults:
     def test_display_hierarchical_with_limit(self, capsys):
         """Test hierarchical display with max_results limit."""
         collections = [
-            ZoteroCollection(1, "China 1", None, 0, 5, "China 1"),
-            ZoteroCollection(2, "China 2", None, 0, 3, "China 2"),
-            ZoteroCollection(3, "China 3", None, 0, 1, "China 3")
+            ZoteroCollection(collection_id=1, name="China 1", parent_id=None, depth=0, item_count=5, full_path="China 1"),
+            ZoteroCollection(collection_id=2, name="China 2", parent_id=None, depth=0, item_count=3, full_path="China 2"),
+            ZoteroCollection(collection_id=3, name="China 3", parent_id=None, depth=0, item_count=1, full_path="China 3")
         ]
         
         display_hierarchical_search_results(collections, "china", max_results=2)
@@ -240,8 +240,8 @@ class TestDisplayHierarchicalSearchResults:
     def test_display_hierarchical_no_matches(self, capsys):
         """Test hierarchical display with no matches."""
         collections = [
-            ZoteroCollection(1, "Japan", None, 0, 5, "Japan"),
-            ZoteroCollection(2, "Korea", None, 0, 3, "Korea")
+            ZoteroCollection(collection_id=1, name="Japan", parent_id=None, depth=0, item_count=5, full_path="Japan"),
+            ZoteroCollection(collection_id=2, name="Korea", parent_id=None, depth=0, item_count=3, full_path="Korea")
         ]
         
         display_hierarchical_search_results(collections, "china", max_results=10)
@@ -272,7 +272,7 @@ class TestShowItemMetadata:
         }
         mock_db.get_item_collections.return_value = ['Collection 1', 'Collection 2']
         
-        item = ZoteroItem(1, "Test Book", "book")
+        item = ZoteroItem(item_id=1, title="Test Book", item_type="book")
         show_item_metadata(mock_db, item)
         captured = capsys.readouterr()
         
@@ -305,7 +305,7 @@ class TestShowItemMetadata:
         }
         mock_db.get_item_collections.return_value = []
         
-        item = ZoteroItem(1, "Test Article", "journalArticle")
+        item = ZoteroItem(item_id=1, title="Test Article", item_type="journalArticle")
         show_item_metadata(mock_db, item)
         captured = capsys.readouterr()
         
@@ -324,7 +324,7 @@ class TestShowItemMetadata:
         }
         mock_db.get_item_collections.return_value = []
         
-        item = ZoteroItem(1, "Test Book", "book")
+        item = ZoteroItem(item_id=1, title="Test Book", item_type="book")
         show_item_metadata(mock_db, item)
         captured = capsys.readouterr()
         
@@ -336,7 +336,7 @@ class TestShowItemMetadata:
         mock_db = MagicMock()
         mock_db.get_item_metadata.side_effect = Exception("Database error")
         
-        item = ZoteroItem(1, "Test Book", "book")
+        item = ZoteroItem(item_id=1, title="Test Book", item_type="book")
         show_item_metadata(mock_db, item)
         captured = capsys.readouterr()
         
@@ -358,7 +358,7 @@ class TestShowItemMetadata:
         }
         mock_db.get_item_collections.return_value = []
         
-        item = ZoteroItem(1, "Test Book", "book")
+        item = ZoteroItem(item_id=1, title="Test Book", item_type="book")
         show_item_metadata(mock_db, item)
         captured = capsys.readouterr()
         

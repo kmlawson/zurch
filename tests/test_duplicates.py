@@ -118,7 +118,7 @@ class TestCreateDuplicateKey:
             'date': '2023-01-01'
         }
         
-        item = ZoteroItem(1, "Test Title", "book")
+        item = ZoteroItem(item_id=1, title="Test Title", item_type="book")
         key = create_duplicate_key(mock_db, item)
         
         assert key.title == "test title"
@@ -130,7 +130,7 @@ class TestCreateDuplicateKey:
         mock_db = MagicMock()
         mock_db.get_item_metadata.side_effect = Exception("Error")
         
-        item = ZoteroItem(1, "Test Title", "book")
+        item = ZoteroItem(item_id=1, title="Test Title", item_type="book")
         key = create_duplicate_key(mock_db, item)
         
         assert key.title == "test title"
@@ -144,7 +144,7 @@ class TestSelectBestDuplicate:
     def test_select_best_single_item(self):
         """Test selection with single item."""
         mock_db = MagicMock()
-        item = ZoteroItem(1, "Test", "book")
+        item = ZoteroItem(item_id=1, title="Test", item_type="book")
         
         result = select_best_duplicate(mock_db, [item])
         assert result == item
@@ -157,8 +157,8 @@ class TestSelectBestDuplicate:
             'dateAdded': '2023-01-01'
         }
         
-        item_no_attach = ZoteroItem(1, "Test", "book", None)
-        item_with_pdf = ZoteroItem(2, "Test", "book", "pdf")
+        item_no_attach = ZoteroItem(item_id=1, title="Test", item_type="book", attachment_type=None)
+        item_with_pdf = ZoteroItem(item_id=2, title="Test", item_type="book", attachment_type="pdf")
         
         result = select_best_duplicate(mock_db, [item_no_attach, item_with_pdf])
         assert result == item_with_pdf
@@ -175,8 +175,8 @@ class TestSelectBestDuplicate:
         
         mock_db.get_item_metadata.side_effect = mock_metadata
         
-        item_old = ZoteroItem(1, "Test", "book", "pdf")
-        item_new = ZoteroItem(2, "Test", "book", "pdf")
+        item_old = ZoteroItem(item_id=1, title="Test", item_type="book", attachment_type="pdf")
+        item_new = ZoteroItem(item_id=2, title="Test", item_type="book", attachment_type="pdf")
         
         result = select_best_duplicate(mock_db, [item_old, item_new])
         assert result == item_new
@@ -196,8 +196,8 @@ class TestDeduplicateItems:
             ]
             
             items = [
-                ZoteroItem(1, "Title 1", "book"),
-                ZoteroItem(2, "Title 2", "book")
+                ZoteroItem(item_id=1, title="Title 1", item_type="book"),
+                ZoteroItem(item_id=2, title="Title 2", item_type="book")
             ]
             
             result, removed_count = deduplicate_items(mock_db, items)
@@ -219,8 +219,8 @@ class TestDeduplicateItems:
             mock_create_key.return_value = duplicate_key
             
             items = [
-                ZoteroItem(1, "Same Title", "book", None),
-                ZoteroItem(2, "Same Title", "book", "pdf")  # Has attachment, should be preferred
+                ZoteroItem(item_id=1, title="Same Title", item_type="book", attachment_type=None),
+                ZoteroItem(item_id=2, title="Same Title", item_type="book", attachment_type="pdf")  # Has attachment, should be preferred
             ]
             
             result, removed_count = deduplicate_items(mock_db, items)
@@ -242,8 +242,8 @@ class TestDeduplicateItems:
             mock_create_key.return_value = duplicate_key
             
             items = [
-                ZoteroItem(1, "Same Title", "book", None),
-                ZoteroItem(2, "Same Title", "book", "pdf")
+                ZoteroItem(item_id=1, title="Same Title", item_type="book", attachment_type=None),
+                ZoteroItem(item_id=2, title="Same Title", item_type="book", attachment_type="pdf")
             ]
             
             result, removed_count = deduplicate_items(mock_db, items, debug_mode=True)
@@ -277,11 +277,11 @@ class TestDeduplicateGroupedItems:
         """Test deduplicating grouped items."""
         mock_db = MagicMock()
         
-        collection1 = ZoteroCollection(1, "Collection 1", None, 0, 2, "Collection 1")
-        collection2 = ZoteroCollection(2, "Collection 2", None, 0, 1, "Collection 2")
+        collection1 = ZoteroCollection(collection_id=1, name="Collection 1", parent_id=None, depth=0, item_count=2, full_path="Collection 1")
+        collection2 = ZoteroCollection(collection_id=2, name="Collection 2", parent_id=None, depth=0, item_count=1, full_path="Collection 2")
         
-        items1 = [ZoteroItem(1, "Item 1", "book"), ZoteroItem(2, "Item 2", "book")]
-        items2 = [ZoteroItem(3, "Item 3", "book")]
+        items1 = [ZoteroItem(item_id=1, title="Item 1", item_type="book"), ZoteroItem(item_id=2, title="Item 2", item_type="book")]
+        items2 = [ZoteroItem(item_id=3, title="Item 3", item_type="book")]
         
         grouped_items = [(collection1, items1), (collection2, items2)]
         

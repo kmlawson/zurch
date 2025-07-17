@@ -14,7 +14,7 @@ class TestNotesService:
         mock_db.execute_query.return_value = [{"count": 1}]
         
         notes_service = NotesService(mock_db)
-        item = ZoteroItem(1, "Test Item", "book")
+        item = ZoteroItem(item_id=1, title="Test Item", item_type="book")
         
         result = notes_service.has_notes(item.item_id)
         assert result is True
@@ -32,7 +32,7 @@ class TestNotesService:
         mock_db.execute_query.return_value = [{"count": 0}]
         
         notes_service = NotesService(mock_db)
-        item = ZoteroItem(1, "Test Item", "book")
+        item = ZoteroItem(item_id=1, title="Test Item", item_type="book")
         
         result = notes_service.has_notes(item.item_id)
         assert result is False
@@ -46,7 +46,7 @@ class TestNotesService:
         ]
         
         notes_service = NotesService(mock_db)
-        item = ZoteroItem(1, "Test Item", "book")
+        item = ZoteroItem(item_id=1, title="Test Item", item_type="book")
         
         result = notes_service.get_notes_content(item.item_id)
         assert len(result) == 2
@@ -59,7 +59,7 @@ class TestNotesService:
         mock_db.execute_query.return_value = []
         
         notes_service = NotesService(mock_db)
-        item = ZoteroItem(1, "Test Item", "book")
+        item = ZoteroItem(item_id=1, title="Test Item", item_type="book")
         
         result = notes_service.get_notes_content(item.item_id)
         assert result == []
@@ -72,7 +72,7 @@ class TestNotesService:
         ]
         
         notes_service = NotesService(mock_db)
-        item = ZoteroItem(1, "Test Item", "book")
+        item = ZoteroItem(item_id=1, title="Test Item", item_type="book")
         
         result = notes_service.get_notes_content(item.item_id, strip_html=True)
         assert len(result) == 1
@@ -87,7 +87,7 @@ class TestNotesService:
         ]
         
         notes_service = NotesService(mock_db)
-        item = ZoteroItem(1, "Test Item", "book")
+        item = ZoteroItem(item_id=1, title="Test Item", item_type="book")
         
         with patch('pathlib.Path.write_text') as mock_write:
             result = notes_service.save_notes_to_file(item.item_id, Path("test_notes.txt"))
@@ -105,7 +105,7 @@ class TestNotesService:
         mock_db.execute_query.return_value = []
         
         notes_service = NotesService(mock_db)
-        item = ZoteroItem(1, "Test Item", "book")
+        item = ZoteroItem(item_id=1, title="Test Item", item_type="book")
         
         result = notes_service.save_notes_to_file(item.item_id, Path("test_notes.txt"))
         assert result is False

@@ -199,11 +199,11 @@ class TestItemServiceMocked:
         
         # Mock the individual search methods
         service.search_items_by_name = MagicMock(return_value=(
-            [ZoteroItem(1, "Test", "book")], 
+            [ZoteroItem(item_id=1, title="Test", item_type="book")], 
             1
         ))
         service.search_items_by_author = MagicMock(return_value=(
-            [ZoteroItem(2, "Test Author", "article")], 
+            [ZoteroItem(item_id=2, title="Test Author", item_type="article")], 
             1
         ))
         

@@ -17,8 +17,8 @@ class TestInteractiveCollectionSelection:
     def test_valid_selection(self, mock_input):
         """Test valid collection selection."""
         collections = [
-            ZoteroCollection(1, "Collection 1", None, 0, 5, "Collection 1"),
-            ZoteroCollection(2, "Collection 2", None, 0, 3, "Collection 2")
+            ZoteroCollection(collection_id=1, name="Collection 1", parent_id=None, depth=0, item_count=5, full_path="Collection 1"),
+            ZoteroCollection(collection_id=2, name="Collection 2", parent_id=None, depth=0, item_count=3, full_path="Collection 2")
         ]
         
         mock_input.return_value = "1"
@@ -31,7 +31,7 @@ class TestInteractiveCollectionSelection:
     def test_cancel_selection(self, mock_input):
         """Test canceling selection with 0."""
         collections = [
-            ZoteroCollection(1, "Collection 1", None, 0, 5, "Collection 1")
+            ZoteroCollection(collection_id=1, name="Collection 1", parent_id=None, depth=0, item_count=5, full_path="Collection 1")
         ]
         
         mock_input.return_value = "0"
@@ -43,7 +43,7 @@ class TestInteractiveCollectionSelection:
     def test_quit_selection(self, mock_input):
         """Test quitting selection with 'q'."""
         collections = [
-            ZoteroCollection(1, "Collection 1", None, 0, 5, "Collection 1")
+            ZoteroCollection(collection_id=1, name="Collection 1", parent_id=None, depth=0, item_count=5, full_path="Collection 1")
         ]
         
         mock_input.return_value = "q"
@@ -55,8 +55,8 @@ class TestInteractiveCollectionSelection:
     def test_invalid_number_then_valid(self, mock_input):
         """Test invalid number followed by valid selection."""
         collections = [
-            ZoteroCollection(1, "Collection 1", None, 0, 5, "Collection 1"),
-            ZoteroCollection(2, "Collection 2", None, 0, 3, "Collection 2")
+            ZoteroCollection(collection_id=1, name="Collection 1", parent_id=None, depth=0, item_count=5, full_path="Collection 1"),
+            ZoteroCollection(collection_id=2, name="Collection 2", parent_id=None, depth=0, item_count=3, full_path="Collection 2")
         ]
         
         # First invalid number (too high), then valid selection
@@ -69,7 +69,7 @@ class TestInteractiveCollectionSelection:
     def test_invalid_input_then_cancel(self, mock_input):
         """Test invalid input followed by cancel."""
         collections = [
-            ZoteroCollection(1, "Collection 1", None, 0, 5, "Collection 1")
+            ZoteroCollection(collection_id=1, name="Collection 1", parent_id=None, depth=0, item_count=5, full_path="Collection 1")
         ]
         
         mock_input.side_effect = ["invalid", "0"]
@@ -81,7 +81,7 @@ class TestInteractiveCollectionSelection:
     def test_keyboard_interrupt(self, mock_input):
         """Test handling of KeyboardInterrupt (Ctrl+C)."""
         collections = [
-            ZoteroCollection(1, "Collection 1", None, 0, 5, "Collection 1")
+            ZoteroCollection(collection_id=1, name="Collection 1", parent_id=None, depth=0, item_count=5, full_path="Collection 1")
         ]
         
         mock_input.side_effect = KeyboardInterrupt()
@@ -93,7 +93,7 @@ class TestInteractiveCollectionSelection:
     def test_eof_error(self, mock_input):
         """Test handling of EOFError."""
         collections = [
-            ZoteroCollection(1, "Collection 1", None, 0, 5, "Collection 1")
+            ZoteroCollection(collection_id=1, name="Collection 1", parent_id=None, depth=0, item_count=5, full_path="Collection 1")
         ]
         
         mock_input.side_effect = EOFError()
@@ -104,10 +104,10 @@ class TestInteractiveCollectionSelection:
     def test_hierarchical_display(self, capsys):
         """Test hierarchical display of collections."""
         collections = [
-            ZoteroCollection(1, "Parent", None, 0, 5, "Parent"),
-            ZoteroCollection(2, "Child", 1, 1, 3, "Parent > Child"),
-            ZoteroCollection(3, "Grandchild", 2, 2, 1, "Parent > Child > Grandchild"),
-            ZoteroCollection(4, "Other", None, 0, 2, "Other")
+            ZoteroCollection(collection_id=1, name="Parent", parent_id=None, depth=0, item_count=5, full_path="Parent"),
+            ZoteroCollection(collection_id=2, name="Child", parent_id=1, depth=1, item_count=3, full_path="Parent > Child"),
+            ZoteroCollection(collection_id=3, name="Grandchild", parent_id=2, depth=2, item_count=1, full_path="Parent > Child > Grandchild"),
+            ZoteroCollection(collection_id=4, name="Other", parent_id=None, depth=0, item_count=2, full_path="Other")
         ]
         
         with patch('zurch.interactive.input', side_effect=["0"]):  # Cancel
@@ -124,8 +124,8 @@ class TestInteractiveCollectionSelection:
     def test_collection_count_display(self, capsys):
         """Test that item counts are displayed correctly."""
         collections = [
-            ZoteroCollection(1, "With Items", None, 0, 5, "With Items"),
-            ZoteroCollection(2, "No Items", None, 0, 0, "No Items")
+            ZoteroCollection(collection_id=1, name="With Items", parent_id=None, depth=0, item_count=5, full_path="With Items"),
+            ZoteroCollection(collection_id=2, name="No Items", parent_id=None, depth=0, item_count=0, full_path="No Items")
         ]
         
         with patch('zurch.interactive.input', side_effect=["0"]):  # Cancel
@@ -146,7 +146,7 @@ class TestInteractiveCollectionSelection:
         collections = []
         for i in range(5):
             collections.append(
-                ZoteroCollection(i + 1, f"Collection {i + 1}", None, 0, 1, f"Collection {i + 1}")
+                ZoteroCollection(collection_id=i + 1, name=f"Collection {i + 1}", parent_id=None, depth=0, item_count=1, full_path=f"Collection {i + 1}")
             )
         
         mock_input.return_value = "3"  # Select the 3rd collection
@@ -158,12 +158,12 @@ class TestInteractiveCollectionSelection:
     def test_complex_hierarchy(self, capsys):
         """Test with complex hierarchy structure."""
         collections = [
-            ZoteroCollection(1, "Research", None, 0, 10, "Research"),
-            ZoteroCollection(2, "History", 1, 1, 8, "Research > History"),
-            ZoteroCollection(3, "Ancient", 2, 2, 3, "Research > History > Ancient"),
-            ZoteroCollection(4, "Modern", 2, 2, 5, "Research > History > Modern"),
-            ZoteroCollection(5, "Science", 1, 1, 2, "Research > Science"),
-            ZoteroCollection(6, "Personal", None, 0, 3, "Personal")
+            ZoteroCollection(collection_id=1, name="Research", parent_id=None, depth=0, item_count=10, full_path="Research"),
+            ZoteroCollection(collection_id=2, name="History", parent_id=1, depth=1, item_count=8, full_path="Research > History"),
+            ZoteroCollection(collection_id=3, name="Ancient", parent_id=2, depth=2, item_count=3, full_path="Research > History > Ancient"),
+            ZoteroCollection(collection_id=4, name="Modern", parent_id=2, depth=2, item_count=5, full_path="Research > History > Modern"),
+            ZoteroCollection(collection_id=5, name="Science", parent_id=1, depth=1, item_count=2, full_path="Research > Science"),
+            ZoteroCollection(collection_id=6, name="Personal", parent_id=None, depth=0, item_count=3, full_path="Personal")
         ]
         
         with patch('zurch.interactive.input', side_effect=["0"]):  # Cancel

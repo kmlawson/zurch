@@ -72,7 +72,8 @@ zurch/
    ```
 
 3. **Version Bumping**:
-   - Update version in: `pyproject.toml`, `zurch/__init__.py`, `zurch/cli.py`
+   - **Automated**: Use `make versionbump` (see Makefile section below)
+   - **Manual**: Update version in: `pyproject.toml`, `zurch/__init__.py`, `zurch/cli.py`
    - Fix the PyPI badge in README.md
    - Add entry to CHANGELOG.md
    - Commit with descriptive message
@@ -244,8 +245,93 @@ git commit -m "Clear description of changes
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
-### Version Updates
-When bumping the version, update ALL of these locations:
+### Makefile Development Automation
+
+The project includes a comprehensive Makefile with automated development tasks:
+
+#### Core Development Commands
+```bash
+make help           # Show all available targets
+make test           # Run all tests
+make test-verbose   # Run tests with verbose output
+make lint           # Run ruff linting checks
+make lint-fix       # Run ruff linting with auto-fix
+make check-all      # Run all checks (lint + tests)
+```
+
+#### Installation & Building
+```bash
+make install        # Install zurch using uv
+make dev-install    # Install zurch in development mode
+make reinstall      # Reinstall zurch (uninstall, clean cache, install)
+make build          # Build the package
+make clean          # Clean build artifacts
+```
+
+#### Version Management - `make versionbump`
+
+The `make versionbump` target provides automated version bumping with two usage modes:
+
+**Auto-increment Mode** (recommended):
+```bash
+make versionbump
+```
+- Automatically increments the patch version (e.g., 0.7.9 → 0.7.10)
+- Reads current version from `pyproject.toml`
+- Uses `awk` to increment the third number: `awk -F. '{print $1"."$2"."$3+1}'`
+
+**Manual Version Mode**:
+```bash
+make versionbump VERSION=1.0.0
+```
+- Sets version to specified value
+- Useful for major/minor version bumps
+
+#### How `make versionbump` Works
+
+1. **Version Detection**: 
+   ```bash
+   CURRENT_VERSION=$(grep 'version = ' pyproject.toml | cut -d'"' -f2)
+   ```
+
+2. **Auto-increment Logic**:
+   ```bash
+   NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{print $1"."$2"."$3+1}')
+   ```
+
+3. **File Updates** (using `sed` with macOS-compatible syntax):
+   - `pyproject.toml`: Main package version
+   - `zurch/__init__.py`: Package `__version__` variable
+   - `zurch/cli.py`: CLI `__version__` variable  
+   - `zurch/constants.py`: Network `USER_AGENT` string
+   - `README.md`: PyPI badge (`PyPI-v0.7.9-blue`)
+   - `CHANGELOG.md`: Adds new version header with current date
+
+4. **Changelog Template**: 
+   ```markdown
+   ## [0.7.10] - 2025-07-17
+   
+   ### Changes
+   - TBD
+   ```
+
+5. **Helpful Reminders**: Shows next steps for completion
+
+#### Additional Makefile Targets
+```bash
+make test-pydantic   # Run Pydantic model tests only
+make test-database   # Run database tests only
+make test-handlers   # Run handler tests only
+make test-fast       # Run tests with fail-fast (-x)
+make test-coverage   # Run tests with coverage report
+make install-hooks   # Install git pre-commit hooks
+make version         # Show current version
+make dev-cycle       # Run lint-fix + test
+make release-check   # Run check-all + build
+```
+
+### Version Updates (Manual Process)
+When bumping the version manually, update ALL of these locations:
 
 **Core Version Files**:
 1. `pyproject.toml` - Main package version
@@ -259,17 +345,34 @@ When bumping the version, update ALL of these locations:
 7. `README.md` - PyPI badge (static badge, manually updated)
 
 **Badge Notes**:
-- PyPI badge uses static format: `https://img.shields.io/badge/PyPI-v0.7.7-blue` (manually updated)
+- PyPI badge uses static format: `https://img.shields.io/badge/PyPI-v0.7.9-blue` (manually updated)
 - Badge must be updated manually before each PyPI deployment
 
 **PyPI Publishing Process**:
 
 Requires `.pypirc` file with PyPI API token
 
-1. Update all version locations above
+1. Update all version locations above (or use `make versionbump`)
 2. `rm -rf dist/ && uv build`
 3. `uv run twine upload dist/*`
 4. Package appears at: https://pypi.org/project/zurch/
+
+**Recommended Workflow**:
+```bash
+# 1. Bump version automatically
+make versionbump
+
+# 2. Edit CHANGELOG.md to replace "TBD" with actual changes
+
+# 3. Commit and push
+git add .
+git commit -m "Bump version to 0.7.10"
+git push origin main
+
+# 4. Build and deploy
+make clean build
+uv run twine upload dist/*
+```
 
 ## Quick Reference
 

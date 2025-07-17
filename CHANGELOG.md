@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tests validate real Pydantic functionality (no mocking)
   - Proper test environment configuration for both `uv run pytest` and `uv run python -m pytest`
   - Fixed test execution issues with uv tools isolated environments
+- **Complete Test Suite Overhaul**: Fixed all test compatibility issues with Pydantic models
+  - Updated 202 test cases to use keyword arguments for model constructors
+  - Fixed validation constraints (item_id > 0, parent_id validation)
+  - Enhanced configuration loading tests for both Pydantic and legacy modes
+  - All tests now pass (202/202 passing, 1 skipped)
 - **Pre-commit Hook**: Added ruff formatting hook (excludes test files)
 - **Makefile**: Added development automation with targets for testing, linting, and reinstallation
 - **Documentation**: Added detailed analysis of Pydantic testing environment issues
@@ -31,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved import ordering and unused import cleanup
 - **Data Validation**: Enhanced configuration and data model validation
 - **Error Handling**: Better validation error messages and field constraints
+- **Test Coverage**: Expanded test suite from 152 to 202 tests with comprehensive validation
 
 ## [0.7.8] - 2025-07-16
 

@@ -172,9 +172,9 @@ class TestCollectionServiceMocked:
         # Mock list_collections call
         service = CollectionService(mock_db)
         service.list_collections = MagicMock(return_value=[
-            ZoteroCollection(1, "Heritage Studies", None, 0, 5, "Heritage Studies"),
-            ZoteroCollection(2, "World Heritage", None, 0, 3, "World Heritage"),
-            ZoteroCollection(3, "Modern History", None, 0, 2, "Modern History")
+            ZoteroCollection(collection_id=1, name="Heritage Studies", parent_id=None, depth=0, item_count=5, full_path="Heritage Studies"),
+            ZoteroCollection(collection_id=2, name="World Heritage", parent_id=None, depth=0, item_count=3, full_path="World Heritage"),
+            ZoteroCollection(collection_id=3, name="Modern History", parent_id=None, depth=0, item_count=2, full_path="Modern History")
         ])
         
         results = service.search_collections("Heritage")

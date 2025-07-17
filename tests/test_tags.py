@@ -129,10 +129,10 @@ class TestTagSearch:
     def test_search_items_combined_with_tags(self, item_service):
         with pytest.MonkeyPatch().context() as m:
             m.setattr("zurch.items.ItemService.search_items_by_name", MagicMock(return_value=(
-                [ZoteroItem(1, "Test", "book")], 1
+                [ZoteroItem(item_id=1, title="Test", item_type="book")], 1
             )))
             m.setattr("zurch.items.ItemService.search_items_by_author", MagicMock(return_value=(
-                [ZoteroItem(2, "Test Author", "article")], 1
+                [ZoteroItem(item_id=2, title="Test Author", item_type="article")], 1
             )))
 
             # Test name and tags

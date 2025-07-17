@@ -135,7 +135,7 @@ class TestExportSecurity:
         many_items = []
         for i in range(100000):  # Should exceed 100MB limit
             many_items.append(ZoteroItem(
-                item_id=i,
+                item_id=i+1,
                 title=f"Item {i}" * 100,  # Long title
                 item_type="book",
                 attachment_type=None,
