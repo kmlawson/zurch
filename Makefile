@@ -18,7 +18,7 @@ help:
 	@echo "  build        - Build the package"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  install-hooks - Install git pre-commit hooks"
-	@echo "  versionbump  - Bump version number in all files (requires VERSION=x.y.z)"
+	@echo "  versionbump  - Bump version number in all files (auto-increments patch or use VERSION=x.y.z)"
 
 # Installation targets
 install:
@@ -141,29 +141,37 @@ release-check: check-all build
 
 # Version management
 versionbump:
-	@if [ -z "$(VERSION)" ]; then \
-		echo "Error: VERSION is required. Usage: make versionbump VERSION=x.y.z"; \
-		exit 1; \
-	fi
-	@echo "Bumping version to $(VERSION)..."
-	@# Get current date in YYYY-MM-DD format
-	@TODAY=$$(date +%Y-%m-%d); \
+	@# Get current version from pyproject.toml
+	@CURRENT_VERSION=$$(grep 'version = ' pyproject.toml | cut -d'"' -f2); \
+	if [ -z "$(VERSION)" ]; then \
+		echo "No VERSION specified, auto-incrementing patch version..."; \
+		NEW_VERSION=$$(echo $$CURRENT_VERSION | awk -F. '{print $$1"."$$2"."$$3+1}'); \
+		echo "Current version: $$CURRENT_VERSION"; \
+		echo "New version: $$NEW_VERSION"; \
+	else \
+		NEW_VERSION="$(VERSION)"; \
+		echo "Current version: $$CURRENT_VERSION"; \
+		echo "Specified version: $$NEW_VERSION"; \
+	fi; \
+	echo "Bumping version to $$NEW_VERSION..."; \
+	# Get current date in YYYY-MM-DD format \
+	TODAY=$$(date +%Y-%m-%d); \
 	# Update pyproject.toml \
-	sed -i '' 's/version = "[^"]*"/version = "$(VERSION)"/' pyproject.toml; \
+	sed -i '' "s/version = \"[^\"]*\"/version = \"$$NEW_VERSION\"/" pyproject.toml; \
 	# Update __init__.py \
-	sed -i '' 's/__version__ = "[^"]*"/__version__ = "$(VERSION)"/' zurch/__init__.py; \
+	sed -i '' "s/__version__ = \"[^\"]*\"/__version__ = \"$$NEW_VERSION\"/" zurch/__init__.py; \
 	# Update cli.py \
-	sed -i '' 's/__version__ = "[^"]*"/__version__ = "$(VERSION)"/' zurch/cli.py; \
+	sed -i '' "s/__version__ = \"[^\"]*\"/__version__ = \"$$NEW_VERSION\"/" zurch/cli.py; \
 	# Update constants.py \
-	sed -i '' 's/zurch\/[^"]*"/zurch\/$(VERSION)"/' zurch/constants.py; \
+	sed -i '' "s/zurch\/[^\"]*\"/zurch\/$$NEW_VERSION\"/" zurch/constants.py; \
 	# Update README.md badge \
-	sed -i '' 's/PyPI-v[^-]*-blue/PyPI-v$(VERSION)-blue/' README.md; \
+	sed -i '' "s/PyPI-v[^-]*-blue/PyPI-v$$NEW_VERSION-blue/" README.md; \
 	# Update CHANGELOG.md (add new version header) \
-	sed -i '' "1,/^## \[/s/^## \[.*/## [$(VERSION)] - $$TODAY\n\n### Changes\n- TBD\n\n&/" CHANGELOG.md; \
-	echo "Version bumped to $(VERSION) in all files"
+	sed -i '' "1,/^## \[/s/^## \[.*/## [$$NEW_VERSION] - $$TODAY\n\n### Changes\n- TBD\n\n&/" CHANGELOG.md; \
+	echo "Version bumped to $$NEW_VERSION in all files"
 	@echo "Remember to:"
 	@echo "  1. Update CHANGELOG.md with actual changes"
-	@echo "  2. Commit changes: git add . && git commit -m 'Bump version to $(VERSION)'"
+	@echo "  2. Commit changes: git add . && git commit -m 'Bump version to $$NEW_VERSION'"
 	@echo "  3. Build and deploy: make clean build && uv run twine upload dist/*"
 
 # Default target when no arguments provided
