@@ -1,6 +1,6 @@
 # Makefile for zurch project
 
-.PHONY: help install test test-verbose lint lint-fix format clean build dev-install reinstall check-all
+.PHONY: help install test test-verbose lint lint-fix format clean build dev-install reinstall check-all versionbump
 
 # Default target
 help:
@@ -18,6 +18,7 @@ help:
 	@echo "  build        - Build the package"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  install-hooks - Install git pre-commit hooks"
+	@echo "  versionbump  - Bump version number in all files (requires VERSION=x.y.z)"
 
 # Installation targets
 install:
@@ -137,6 +138,33 @@ dev-cycle: lint-fix test
 release-check: check-all build
 	@echo "Release checks passed!"
 	@echo "Ready for release!"
+
+# Version management
+versionbump:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION is required. Usage: make versionbump VERSION=x.y.z"; \
+		exit 1; \
+	fi
+	@echo "Bumping version to $(VERSION)..."
+	@# Get current date in YYYY-MM-DD format
+	@TODAY=$$(date +%Y-%m-%d); \
+	# Update pyproject.toml \
+	sed -i '' 's/version = "[^"]*"/version = "$(VERSION)"/' pyproject.toml; \
+	# Update __init__.py \
+	sed -i '' 's/__version__ = "[^"]*"/__version__ = "$(VERSION)"/' zurch/__init__.py; \
+	# Update cli.py \
+	sed -i '' 's/__version__ = "[^"]*"/__version__ = "$(VERSION)"/' zurch/cli.py; \
+	# Update constants.py \
+	sed -i '' 's/zurch\/[^"]*"/zurch\/$(VERSION)"/' zurch/constants.py; \
+	# Update README.md badge \
+	sed -i '' 's/PyPI-v[^-]*-blue/PyPI-v$(VERSION)-blue/' README.md; \
+	# Update CHANGELOG.md (add new version header) \
+	sed -i '' "1,/^## \[/s/^## \[.*/## [$(VERSION)] - $$TODAY\n\n### Changes\n- TBD\n\n&/" CHANGELOG.md; \
+	echo "Version bumped to $(VERSION) in all files"
+	@echo "Remember to:"
+	@echo "  1. Update CHANGELOG.md with actual changes"
+	@echo "  2. Commit changes: git add . && git commit -m 'Bump version to $(VERSION)'"
+	@echo "  3. Build and deploy: make clean build && uv run twine upload dist/*"
 
 # Default target when no arguments provided
 .DEFAULT_GOAL := help
