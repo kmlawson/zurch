@@ -2,7 +2,6 @@
 
 import sys
 import os
-from typing import Optional
 
 # Try to import platform-specific modules
 HAS_TERMIOS = False
@@ -149,7 +148,7 @@ def is_terminal_interactive() -> bool:
             fd = sys.stdin.fileno()
             termios.tcgetattr(fd)
             return True
-        except:
+        except (ValueError, termios.error):
             return False
     else:
         # No platform-specific support available

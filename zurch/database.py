@@ -6,7 +6,7 @@ and robust interface for executing queries.
 import sqlite3
 import logging
 from pathlib import Path
-from typing import Optional, Any, List, Tuple, Iterable
+from typing import Optional, Any, List, Iterable
 from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)

@@ -1,12 +1,9 @@
-import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 import tempfile
 
 from zurch.handlers import (
-    grab_attachment, interactive_selection, handle_interactive_mode,
-    handle_id_command, handle_getbyid_command, handle_list_command,
-    handle_folder_command, handle_search_command
+    grab_attachment, interactive_selection, handle_id_command, handle_getbyid_command, handle_list_command
 )
 from zurch.models import ZoteroItem, ZoteroCollection
 
@@ -16,18 +13,22 @@ class TestGrabAttachment:
     
     def test_grab_attachment_success(self):
         """Test successful attachment grabbing."""
-        # Create a temporary file to simulate attachment
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp.write(b"fake pdf content")
-            attachment_path = Path(tmp.name)
-        
-        try:
+        # Create a temporary directory structure that matches Zotero's storage
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create zotero data directory with storage subdirectory
+            zotero_data_dir = Path(temp_dir) / "zotero"
+            storage_dir = zotero_data_dir / "storage"
+            storage_dir.mkdir(parents=True)
+            
+            # Create attachment file within storage directory
+            attachment_path = storage_dir / "test.pdf"
+            attachment_path.write_bytes(b"fake pdf content")
+            
             # Mock database and item
             mock_db = MagicMock()
             mock_db.get_item_attachment_path.return_value = attachment_path
             
             item = ZoteroItem(1, "Test Item", "book")
-            zotero_data_dir = Path(tmp.name).parent
             
             # Test grabbing
             result = grab_attachment(mock_db, item, zotero_data_dir)
@@ -40,11 +41,6 @@ class TestGrabAttachment:
             # Clean up
             if target_path.exists():
                 target_path.unlink()
-        
-        finally:
-            # Clean up temp file
-            if attachment_path.exists():
-                attachment_path.unlink()
     
     def test_grab_attachment_not_found(self):
         """Test grabbing attachment when none exists."""

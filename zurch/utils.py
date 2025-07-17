@@ -3,7 +3,7 @@ import os
 import platform
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +173,7 @@ def load_config() -> Dict[str, Any]:
         if not is_valid:
             logger.error(f"Invalid configuration in {config_file}: {error_msg}")
             print(f"Warning: Configuration file is invalid: {error_msg}")
-            print(f"Using default configuration. Run 'zurch --config' to fix.")
+            print("Using default configuration. Run 'zurch --config' to fix.")
             return default_config
         
         # Merge with defaults to ensure all keys exist
@@ -221,7 +221,7 @@ def save_config(config: Dict[str, Any]) -> None:
         # Clean up temp file on error
         try:
             os.unlink(temp_path)
-        except:
+        except OSError:
             pass
         logger.error(f"Error saving config: {e}")
         raise
@@ -273,6 +273,12 @@ def format_attachment_link_icon(attachment_type: Optional[str]) -> str:
         return "🔗 "  # Link icon for PDF/EPUB attachments (space after)
     else:
         return ""
+
+
+def format_notes_icon(has_notes: bool) -> str:
+    """Format the notes icon for display."""
+    from .constants import Icons
+    return f"{Icons.NOTES} " if has_notes else ""
 
 def find_zotero_database() -> Optional[Path]:
     """Attempt to find the Zotero database automatically."""
@@ -361,9 +367,6 @@ def format_metadata_field(field_name: str, value: str) -> str:
 
 def sort_items(items, sort_by: str, db=None):
     """Sort items by specified criteria."""
-    from typing import List
-    from .models import ZoteroItem
-    
     if not sort_by or not items:
         return items
     

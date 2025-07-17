@@ -3,9 +3,10 @@ import json
 import os
 import logging
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from .models import ZoteroItem
 from .search import ZoteroDatabase
+from .constants import Defaults, ErrorMessages, SuccessMessages
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,27 @@ def is_safe_path(file_path: Path) -> bool:
         # Get absolute path to resolve any relative paths
         abs_path = file_path.resolve()
         
+        # Additional security check: ensure the resolved path hasn't escaped upwards
+        # by checking if it would traverse outside any reasonable bounds
+        path_parts = abs_path.parts
+        if len(path_parts) < 2:  # Root or single directory
+            logger.warning(f"Path {abs_path} is too shallow")
+            return False
+            
+        # Check for dangerous system paths
+        dangerous_prefixes = ['/etc', '/bin', '/sbin', '/usr/bin', '/usr/sbin', 
+                             '/System', '/Library', '/Applications', '/private/etc',
+                             '/var/log', '/var/db', '/var/root', '/root']
+        
+        if os.name == 'nt':  # Windows
+            dangerous_prefixes.extend(['C:\\Windows', 'C:\\System32', 
+                                     'C:\\Program Files', 'C:\\Program Files (x86)'])
+        
+        for dangerous in dangerous_prefixes:
+            if str(abs_path).startswith(dangerous):
+                logger.warning(f"Path {abs_path} is in dangerous system directory")
+                return False
+        
         # Get list of safe base directories
         safe_dirs = get_safe_base_directories()
         
@@ -127,7 +149,8 @@ def generate_export_filename(export_format: str, search_term: str = "") -> str:
     """Generate a default filename for export."""
     from datetime import datetime
     
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Include milliseconds for uniqueness
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # Trim to milliseconds
     
     if search_term:
         # Sanitize search term for filename
@@ -141,6 +164,11 @@ def export_to_csv(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path) 
     """Export items to CSV format with atomic file creation."""
     import tempfile
     import os
+    
+    # Prevent overwriting existing files
+    if file_path.exists():
+        logger.warning(f"Export file already exists: {file_path}")
+        return False
     
     # Create temporary file in same directory as target (for atomic rename)
     temp_fd = None
@@ -262,11 +290,20 @@ def export_to_csv(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path) 
                         'URL': ''
                     })
         
-        # Atomic rename - this will fail if target exists
-        os.rename(temp_path, file_path)
-        temp_path = None  # Successfully moved
-        
-        return True
+        # Atomic rename with exclusive creation
+        try:
+            # Use os.link + unlink for atomic operation on Unix
+            if hasattr(os, 'link'):
+                os.link(temp_path, file_path)
+                os.unlink(temp_path)
+            else:
+                # Fallback to rename on Windows
+                os.rename(temp_path, file_path)
+            temp_path = None  # Successfully moved
+            return True
+        except FileExistsError:
+            logger.warning(f"File created during export: {file_path}")
+            return False
         
     except Exception as e:
         logger.error(f"Error exporting to CSV: {e}")
@@ -276,18 +313,23 @@ def export_to_csv(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path) 
         if temp_fd is not None:
             try:
                 os.close(temp_fd)
-            except:
+            except OSError:
                 pass
         if temp_path and os.path.exists(temp_path):
             try:
                 os.unlink(temp_path)
-            except:
+            except OSError:
                 pass
 
 def export_to_json(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path) -> bool:
     """Export items to JSON format with atomic file creation."""
     import tempfile
     import os
+    
+    # Prevent overwriting existing files  
+    if file_path.exists():
+        logger.warning(f"Export file already exists: {file_path}")
+        return False
     
     # Create temporary file in same directory as target (for atomic rename)
     temp_fd = None
@@ -374,11 +416,20 @@ def export_to_json(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path)
             temp_fd = None  # fdopen takes ownership
             json.dump(export_data, jsonfile, indent=2, ensure_ascii=False)
         
-        # Atomic rename - this will fail if target exists
-        os.rename(temp_path, file_path)
-        temp_path = None  # Successfully moved
-        
-        return True
+        # Atomic rename with exclusive creation
+        try:
+            # Use os.link + unlink for atomic operation on Unix
+            if hasattr(os, 'link'):
+                os.link(temp_path, file_path)
+                os.unlink(temp_path)
+            else:
+                # Fallback to rename on Windows
+                os.rename(temp_path, file_path)
+            temp_path = None  # Successfully moved
+            return True
+        except FileExistsError:
+            logger.warning(f"File created during export: {file_path}")
+            return False
         
     except Exception as e:
         logger.error(f"Error exporting to JSON: {e}")
@@ -388,15 +439,13 @@ def export_to_json(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path)
         if temp_fd is not None:
             try:
                 os.close(temp_fd)
-            except:
+            except OSError:
                 pass
         if temp_path and os.path.exists(temp_path):
             try:
                 os.unlink(temp_path)
-            except:
+            except OSError:
                 pass
-
-from .constants import Defaults, ErrorMessages, SuccessMessages
 
 # Maximum export file size 
 MAX_EXPORT_SIZE = Defaults.MAX_EXPORT_SIZE
@@ -433,11 +482,11 @@ def export_items(items: List[ZoteroItem], db: ZoteroDatabase, export_format: str
         safe_dirs = get_safe_base_directories()
         safe_dir_list = '\n  '.join(str(d) for d in safe_dirs[:5])  # Show first 5 safe directories
         print(f"Error: Cannot export to {output_path}")
-        print(f"For security, exports are only allowed to safe directories such as:")
+        print("For security, exports are only allowed to safe directories such as:")
         print(f"  {safe_dir_list}")
         if len(safe_dirs) > 5:
             print(f"  ... and {len(safe_dirs) - 5} other safe locations")
-        print(f"Try exporting to a subdirectory of your home directory or current working directory.")
+        print("Try exporting to a subdirectory of your home directory or current working directory.")
         return False
     
     # Check if file exists (no overwriting)
@@ -468,14 +517,14 @@ def export_items(items: List[ZoteroItem], db: ZoteroDatabase, export_format: str
                 logger.error(f"Export ended up in unsafe location: {final_path}")
                 try:
                     os.unlink(final_path)
-                except:
+                except OSError:
                     pass
-                print(f"Error: Export failed - file created in unsafe location")
+                print("Error: Export failed - file created in unsafe location")
                 return False
             
             # Verify file exists and has reasonable size
             if not final_path.exists():
-                print(f"Error: Export file was not created")
+                print("Error: Export file was not created")
                 return False
                 
             file_size = final_path.stat().st_size
@@ -484,7 +533,7 @@ def export_items(items: List[ZoteroItem], db: ZoteroDatabase, export_format: str
                 logger.error(f"Export file too large: {file_size} bytes")
                 try:
                     os.unlink(final_path)
-                except:
+                except OSError:
                     pass
                 print(f"Error: Export file exceeded size limit ({file_size / 1024 / 1024:.1f}MB)")
                 return False
@@ -494,7 +543,7 @@ def export_items(items: List[ZoteroItem], db: ZoteroDatabase, export_format: str
             
         except Exception as e:
             logger.error(f"Error verifying export: {e}")
-            print(f"Error: Could not verify export file")
+            print("Error: Could not verify export file")
             return False
     else:
         print(f"Failed to export items to {output_path}")

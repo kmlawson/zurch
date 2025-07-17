@@ -1,7 +1,6 @@
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
-import logging
 
 from zurch.database import DatabaseConnection
 from zurch.items import ItemService
@@ -62,7 +61,7 @@ class TestTagSearch:
     def test_get_items_in_collection_with_tags(self, item_service):
         # Mock the query builder to control SQL output for testing
         with pytest.MonkeyPatch().context() as m:
-            m.setattr("zurch.queries.build_collection_items_query", lambda collection_id, only_attachments, after_year, before_year, only_books, only_articles, tags: (
+            m.setattr("zurch.queries.build_collection_items_query", lambda collection_id, only_attachments, after_year, before_year, only_books, only_articles, tags, withnotes: (
                 "SELECT i.itemID, 'Title', 'book', 0, NULL, NULL FROM items i WHERE i.itemID = ? AND EXISTS (SELECT 1 FROM itemTags it0 JOIN tags t0 ON it0.tagID = t0.tagID WHERE it0.itemID = i.itemID AND LOWER(t0.name) = LOWER(?))",
                 [collection_id, tags[0]]
             ))
@@ -83,7 +82,7 @@ class TestTagSearch:
 
     def test_search_items_by_name_with_tags(self, item_service):
         with pytest.MonkeyPatch().context() as m:
-            m.setattr("zurch.queries.build_name_search_query", lambda name, exact_match, only_attachments, after_year, before_year, only_books, only_articles, tags: (
+            m.setattr("zurch.queries.build_name_search_query", lambda name, exact_match, only_attachments, after_year, before_year, only_books, only_articles, tags, withnotes: (
                 "SELECT COUNT(*) FROM items",
                 "SELECT i.itemID, 'Title', 'book', NULL, NULL FROM items i WHERE LOWER(idv.value) LIKE LOWER(?) AND EXISTS (SELECT 1 FROM itemTags it0 JOIN tags t0 ON it0.tagID = t0.tagID WHERE it0.itemID = i.itemID AND LOWER(t0.name) = LOWER(?))",
                 ["%test%", tags[0]]
@@ -106,7 +105,7 @@ class TestTagSearch:
 
     def test_search_items_by_author_with_tags(self, item_service):
         with pytest.MonkeyPatch().context() as m:
-            m.setattr("zurch.queries.build_author_search_query", lambda author, exact_match, only_attachments, after_year, before_year, only_books, only_articles, tags: (
+            m.setattr("zurch.queries.build_author_search_query", lambda author, exact_match, only_attachments, after_year, before_year, only_books, only_articles, tags, withnotes: (
                 "SELECT COUNT(*) FROM items",
                 "SELECT i.itemID, 'Title', 'book', NULL, NULL FROM items i WHERE LOWER(c.lastName) LIKE LOWER(?) AND EXISTS (SELECT 1 FROM itemTags it0 JOIN tags t0 ON it0.tagID = t0.tagID WHERE it0.itemID = i.itemID AND LOWER(t0.name) = LOWER(?))",
                 ["%test%", tags[0]]
@@ -140,7 +139,7 @@ class TestTagSearch:
             items, total = item_service.search_items_combined(name="test", tags=["tag1"])
             assert len(items) == 1
             item_service.search_items_by_name.assert_called_once_with(
-                "test", False, False, None, None, False, False, ["tag1"]
+                "test", False, False, None, None, False, False, ["tag1"], False
             )
 
             item_service.search_items_by_name.reset_mock()
@@ -150,7 +149,7 @@ class TestTagSearch:
             items, total = item_service.search_items_combined(author="test", tags=["tag2"])
             assert len(items) == 1
             item_service.search_items_by_author.assert_called_once_with(
-                "test", False, False, None, None, False, False, ["tag2"]
+                "test", False, False, None, None, False, False, ["tag2"], False
             )
 
             item_service.search_items_by_name.reset_mock()

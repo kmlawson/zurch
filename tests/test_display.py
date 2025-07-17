@@ -1,6 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
-from io import StringIO
+from unittest.mock import MagicMock
 
 from zurch.display import (
     display_items, display_grouped_items, matches_search_term,

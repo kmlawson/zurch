@@ -57,7 +57,7 @@ def build_collection_tree_query() -> str:
 def build_collection_items_query(collection_id: int, only_attachments: bool = False, 
                                 after_year: int = None, before_year: int = None, 
                                 only_books: bool = False, only_articles: bool = False, 
-                                tags: Optional[List[str]] = None) -> Tuple[str, List]:
+                                tags: Optional[List[str]] = None, withnotes: bool = False) -> Tuple[str, List]:
     """Build query for items in a specific collection with filters and attachment data."""
     # Build date filtering conditions
     date_conditions = []
@@ -90,6 +90,11 @@ def build_collection_items_query(collection_id: int, only_attachments: bool = Fa
         tag_conditions, tag_params = build_tag_conditions(tags)
         query_params.extend(tag_params)
 
+    # Add notes filtering
+    notes_conditions = []
+    if withnotes:
+        notes_conditions.append("EXISTS (SELECT 1 FROM items note_items WHERE note_items.parentItemID = i.itemID AND note_items.itemTypeID = (SELECT itemTypeID FROM itemTypes WHERE typeName = 'note'))")
+
     # Combine all conditions
     where_conditions = ["ci.collectionID = ?"]
     if date_conditions:
@@ -100,6 +105,8 @@ def build_collection_items_query(collection_id: int, only_attachments: bool = Fa
         where_conditions.extend(attachment_conditions)
     if tag_conditions:
         where_conditions.extend(tag_conditions)
+    if notes_conditions:
+        where_conditions.extend(notes_conditions)
     
     where_clause = "WHERE " + " AND ".join(where_conditions)
     
@@ -156,11 +163,7 @@ def build_search_conditions(search_terms, exact_match: bool = False) -> Tuple[Li
         # Multiple keywords - each must be present (AND logic)
         for keyword in search_terms:
             if '%' in keyword or '_' in keyword:
-                # User provided wildcards
-                if not keyword.startswith('%'):
-                    keyword = '%' + keyword
-                if not keyword.endswith('%'):
-                    keyword = keyword + '%'
+                # User provided wildcards - use them as-is
                 search_conditions.append("LOWER(idv.value) LIKE LOWER(?)")
                 search_params.append(keyword)
             else:
@@ -179,11 +182,7 @@ def build_search_conditions(search_terms, exact_match: bool = False) -> Tuple[Li
             search_params.append(search_terms)
         else:
             if '%' in search_terms or '_' in search_terms:
-                # User provided wildcards
-                if not search_terms.startswith('%'):
-                    search_terms = '%' + search_terms
-                if not search_terms.endswith('%'):
-                    search_terms = search_terms + '%'
+                # User provided wildcards - use them as-is
                 search_conditions.append("LOWER(idv.value) LIKE LOWER(?)")
                 search_params.append(search_terms)
             else:
@@ -205,56 +204,8 @@ def build_author_search_conditions(author_terms, exact_match: bool = False) -> T
         for keyword in author_terms:
             if '%' in keyword or '_' in keyword:
                 # User provided wildcards
-                if not keyword.startswith('%'):
-                    keyword = '%' + keyword
-                if not keyword.endswith('%'):
-                    keyword = keyword + '%'
-                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
-                search_params.extend([keyword, keyword])
-            else:
-                from .utils import escape_sql_like_pattern
-                escaped_keyword = escape_sql_like_pattern(keyword)
-                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
-                search_params.extend([f"%{escaped_keyword}%", f"%{escaped_keyword}%"])
-    else:
-        # Single keyword or phrase search
-        if isinstance(author_terms, list):
-            author_terms = ' '.join(author_terms)
-            
-        if exact_match:
-            search_conditions.append("(LOWER(c.firstName) = LOWER(?) OR LOWER(c.lastName) = LOWER(?))")
-            search_params.extend([author_terms, author_terms])
-        else:
-            if '%' in author_terms or '_' in author_terms:
-                # User provided wildcards
-                if not author_terms.startswith('%'):
-                    author_terms = '%' + author_terms
-                if not author_terms.endswith('%'):
-                    author_terms = author_terms + '%'
-                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
-                search_params.extend([author_terms, author_terms])
-            else:
-                from .utils import escape_sql_like_pattern
-                escaped_author = escape_sql_like_pattern(author_terms)
-                search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
-                search_params.extend([f"%{escaped_author}%", f"%{escaped_author}%"])
-    
-    return search_conditions, search_params
-
-def build_author_search_conditions(author_terms, exact_match: bool = False) -> Tuple[List[str], List]:
-    """Build search conditions for author searches."""
-    search_conditions = []
-    search_params = []
-    
-    if isinstance(author_terms, list) and len(author_terms) > 1 and not exact_match:
-        # Multiple keywords - each must be present in author names (AND logic)
-        for keyword in author_terms:
-            if '%' in keyword or '_' in keyword:
-                # User provided wildcards
-                if not keyword.startswith('%'):
-                    keyword = '%' + keyword
-                if not keyword.endswith('%'):
-                    keyword = keyword + '%'
+                # Use wildcards as-is when provided by user
+                pass
                 search_conditions.append("(LOWER(c.firstName) LIKE LOWER(?) OR LOWER(c.lastName) LIKE LOWER(?))")
                 search_params.extend([keyword, keyword])
             else:
@@ -300,7 +251,7 @@ def build_tag_conditions(tags: List[str]) -> Tuple[List[str], List]:
 def build_name_search_query(name, exact_match: bool = False, only_attachments: bool = False,
                           after_year: int = None, before_year: int = None, 
                           only_books: bool = False, only_articles: bool = False, 
-                          tags: Optional[List[str]] = None) -> Tuple[str, str, List]:
+                          tags: Optional[List[str]] = None, withnotes: bool = False) -> Tuple[str, str, List]:
     """Build title search query with all filters and attachment data."""
     search_conditions, search_params = build_search_conditions(name, exact_match)
     
@@ -333,6 +284,10 @@ def build_name_search_query(name, exact_match: bool = False, only_attachments: b
         JOIN itemAttachments ia_filter ON (i.itemID = ia_filter.parentItemID OR i.itemID = ia_filter.itemID)
         """
         where_clause += " AND ia_filter.contentType IN ('application/pdf', 'application/epub+zip')"
+    
+    # Add notes filtering if specified
+    if withnotes:
+        where_clause += " AND EXISTS (SELECT 1 FROM items note_items WHERE note_items.parentItemID = i.itemID AND note_items.itemTypeID = (SELECT itemTypeID FROM itemTypes WHERE typeName = 'note'))"
     
     # Count query
     count_query = f"""
@@ -381,7 +336,7 @@ def build_name_search_query(name, exact_match: bool = False, only_attachments: b
 def build_author_search_query(author, exact_match: bool = False, only_attachments: bool = False,
                             after_year: int = None, before_year: int = None,
                             only_books: bool = False, only_articles: bool = False, 
-                            tags: Optional[List[str]] = None) -> Tuple[str, str, List]:
+                            tags: Optional[List[str]] = None, withnotes: bool = False) -> Tuple[str, str, List]:
     """Build author search query with all filters and attachment data."""
     author_conditions, search_params = build_author_search_conditions(author, exact_match)
     
@@ -420,6 +375,10 @@ def build_author_search_query(author, exact_match: bool = False, only_attachment
         JOIN itemAttachments ia_filter ON (i.itemID = ia_filter.parentItemID OR i.itemID = ia_filter.itemID)
         """
         where_conditions.append("ia_filter.contentType IN ('application/pdf', 'application/epub+zip')")
+    
+    # Add notes filtering if specified
+    if withnotes:
+        where_conditions.append("EXISTS (SELECT 1 FROM items note_items WHERE note_items.parentItemID = i.itemID AND note_items.itemTypeID = (SELECT itemTypeID FROM itemTypes WHERE typeName = 'note'))")
     
     where_clause = "WHERE " + " AND ".join(where_conditions)
     
@@ -650,7 +609,8 @@ def build_stats_publication_decades_query() -> str:
 def build_combined_search_query(name=None, author=None, exact_match: bool = False, 
                                only_attachments: bool = False, after_year: int = None, 
                                before_year: int = None, only_books: bool = False, 
-                               only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[str, str, List]:
+                               only_articles: bool = False, tags: Optional[List[str]] = None, 
+                               withnotes: bool = False) -> Tuple[str, str, List]:
     """Build combined name and author search query with all filters and attachment data."""
     
     # Build conditions
@@ -700,6 +660,11 @@ def build_combined_search_query(name=None, author=None, exact_match: bool = Fals
     if only_attachments:
         where_clause += " AND " if where_clause else "WHERE "
         where_clause += "ia.itemID IS NOT NULL"
+    
+    # Add notes filtering
+    if withnotes:
+        where_clause += " AND " if where_clause else "WHERE "
+        where_clause += "EXISTS (SELECT 1 FROM items note_items WHERE note_items.parentItemID = i.itemID AND note_items.itemTypeID = (SELECT itemTypeID FROM itemTypes WHERE typeName = 'note'))"
     
     # Build count query
     count_query = f"""

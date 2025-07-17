@@ -1,8 +1,6 @@
 """Interactive configuration wizard for zurch."""
 
-import os
 from pathlib import Path
-from typing import Dict, Any, Optional
 from .utils import get_config_file, load_config, save_config, find_zotero_database
 
 

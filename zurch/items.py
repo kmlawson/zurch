@@ -1,8 +1,7 @@
 from typing import List, Tuple, Optional
 from .database import DatabaseConnection, get_attachment_type
 from .queries import (
-    build_collection_items_query, build_name_search_query, build_author_search_query,
-    build_attachment_query
+    build_collection_items_query, build_name_search_query, build_author_search_query
 )
 from .models import ZoteroItem
 
@@ -15,10 +14,11 @@ class ItemService:
     def get_items_in_collection(self, collection_id: int, 
                               only_attachments: bool = False, after_year: int = None, 
                               before_year: int = None, only_books: bool = False, 
-                              only_articles: bool = False, tags: Optional[List[str]] = None) -> List[ZoteroItem]:
+                              only_articles: bool = False, tags: Optional[List[str]] = None, 
+                              withnotes: bool = False) -> List[ZoteroItem]:
         """Get items in a specific collection."""
         query, params = build_collection_items_query(
-            collection_id, only_attachments, after_year, before_year, only_books, only_articles, tags
+            collection_id, only_attachments, after_year, before_year, only_books, only_articles, tags, withnotes
         )
         
         results = self.db.execute_query(query, params)
@@ -54,10 +54,11 @@ class ItemService:
     def search_items_by_name(self, name, exact_match: bool = False, 
                            only_attachments: bool = False, after_year: int = None, 
                            before_year: int = None, only_books: bool = False, 
-                           only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
+                           only_articles: bool = False, tags: Optional[List[str]] = None, 
+                           withnotes: bool = False) -> Tuple[List[ZoteroItem], int]:
         """Search items by title content. Returns (items, total_count)."""
         count_query, items_query, search_params = build_name_search_query(
-            name, exact_match, only_attachments, after_year, before_year, only_books, only_articles, tags
+            name, exact_match, only_attachments, after_year, before_year, only_books, only_articles, tags, withnotes
         )
         
         # Get total count
@@ -97,10 +98,11 @@ class ItemService:
     def search_items_by_author(self, author, exact_match: bool = False,
                              only_attachments: bool = False, after_year: int = None,
                              before_year: int = None, only_books: bool = False,
-                             only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
+                             only_articles: bool = False, tags: Optional[List[str]] = None, 
+                             withnotes: bool = False) -> Tuple[List[ZoteroItem], int]:
         """Search items by author name. Returns (items, total_count)."""
         count_query, items_query, search_params = build_author_search_query(
-            author, exact_match, only_attachments, after_year, before_year, only_books, only_articles, tags
+            author, exact_match, only_attachments, after_year, before_year, only_books, only_articles, tags, withnotes
         )
         
         # Get total count
@@ -141,14 +143,14 @@ class ItemService:
                             exact_match: bool = False, only_attachments: bool = False,
                             after_year: int = None, before_year: int = None,
                             only_books: bool = False, only_articles: bool = False, 
-                            tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
+                            tags: Optional[List[str]] = None, withnotes: bool = False) -> Tuple[List[ZoteroItem], int]:
         """Search items by combined criteria (title and/or author). Returns (items, total_count)."""
         if name and author:
             # Use proper combined query
             from .queries import build_combined_search_query
             count_query, main_query, params = build_combined_search_query(
                 name, author, exact_match, only_attachments,
-                after_year, before_year, only_books, only_articles, tags
+                after_year, before_year, only_books, only_articles, tags, withnotes
             )
             
             # Get count
@@ -187,17 +189,17 @@ class ItemService:
         elif name:
             return self.search_items_by_name(
                 name, exact_match, only_attachments,
-                after_year, before_year, only_books, only_articles, tags
+                after_year, before_year, only_books, only_articles, tags, withnotes
             )
         elif author:
             return self.search_items_by_author(
                 author, exact_match, only_attachments,
-                after_year, before_year, only_books, only_articles, tags
+                after_year, before_year, only_books, only_articles, tags, withnotes
             )
         elif tags: # Handle case where only tags are provided
             return self.search_items_by_name(
                 None, exact_match, only_attachments,
-                after_year, before_year, only_books, only_articles, tags
+                after_year, before_year, only_books, only_articles, tags, withnotes
             )
         else:
             return [], 0

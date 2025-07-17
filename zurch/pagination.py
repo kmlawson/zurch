@@ -87,7 +87,7 @@ def get_pagination_input(has_previous, has_next):
             # Build error message with valid options
             valid_options = [f"'{c}'" for c in valid_chars if c != '0']
             valid_options.append("'0' to exit")
-            print(f"Invalid input. Use " + ", ".join(valid_options) + ".")
+            print("Invalid input. Use " + ", ".join(valid_options) + ".")
             return get_pagination_input(has_previous, has_next)  # Try again
             
     except (EOFError, KeyboardInterrupt):
@@ -101,7 +101,7 @@ def get_pagination_input(has_previous, has_next):
             else:
                 valid_options = [f"'{c}'" for c in valid_chars if c != '0']
                 valid_options.append("'0' to exit")
-                print(f"Invalid input. Use " + ", ".join(valid_options) + ".")
+                print("Invalid input. Use " + ", ".join(valid_options) + ".")
                 return get_pagination_input(has_previous, has_next)  # Try again
         except (EOFError, KeyboardInterrupt):
             return '0'

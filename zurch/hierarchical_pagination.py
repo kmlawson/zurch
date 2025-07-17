@@ -1,5 +1,5 @@
 """Hierarchical pagination for collections display."""
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple
 from .models import ZoteroCollection
 
 

@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from .database import DatabaseConnection
 from .queries import (
     build_stats_total_counts_query, build_stats_item_types_query,

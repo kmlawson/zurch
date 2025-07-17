@@ -1,11 +1,12 @@
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
-from .database import DatabaseConnection, DatabaseError, DatabaseLockedError
+from .database import DatabaseConnection
 from .collections import CollectionService
 from .items import ItemService
 from .metadata import MetadataService
 from .stats import StatsService
+from .notes import NotesService
 from .models import ZoteroItem, ZoteroCollection
 
 class ZoteroDatabase:
@@ -18,6 +19,7 @@ class ZoteroDatabase:
         self.items = ItemService(self.db_connection)
         self.metadata = MetadataService(self.db_connection)
         self.stats = StatsService(self.db_connection)
+        self.notes = NotesService(self.db_connection)
     
     # Collection methods
     def list_collections(self) -> List[ZoteroCollection]:
@@ -37,7 +39,7 @@ class ZoteroDatabase:
                            only_attachments: bool = False, after_year: int = None, 
                            before_year: int = None, only_books: bool = False, 
                            only_articles: bool = False, tags: Optional[List[str]] = None,
-                           exact_match: bool = False) -> Tuple[List[ZoteroItem], int]:
+                           exact_match: bool = False, withnotes: bool = False) -> Tuple[List[ZoteroItem], int]:
         """Get items from collections matching the given name. Returns (items, total_count)."""
         collections = self.search_collections(collection_name, exact_match=exact_match)
         
@@ -50,7 +52,7 @@ class ZoteroDatabase:
         for collection in collections:
             items = self.items.get_items_in_collection(
                 collection.collection_id, only_attachments,
-                after_year, before_year, only_books, only_articles, tags
+                after_year, before_year, only_books, only_articles, tags, withnotes
             )
             all_items.extend(items)
 
@@ -60,7 +62,7 @@ class ZoteroDatabase:
                                    only_attachments: bool = False, after_year: int = None, 
                                    before_year: int = None, only_books: bool = False, 
                                    only_articles: bool = False, tags: Optional[List[str]] = None,
-                                   exact_match: bool = False) -> Tuple[List[Tuple[ZoteroCollection, List[ZoteroItem]]], int]:
+                                   exact_match: bool = False, withnotes: bool = False) -> Tuple[List[Tuple[ZoteroCollection, List[ZoteroItem]]], int]:
         """Get items from collections matching the given name, grouped by collection. Returns (grouped_items, total_count)."""
         collections = self.search_collections(collection_name, exact_match=exact_match)
         
@@ -74,7 +76,7 @@ class ZoteroDatabase:
         for collection in collections:
             items = self.items.get_items_in_collection(
                 collection.collection_id, only_attachments,
-                after_year, before_year, only_books, only_articles, tags
+                after_year, before_year, only_books, only_articles, tags, withnotes
             )
             
             if items:  # Only add if there are items
@@ -86,32 +88,34 @@ class ZoteroDatabase:
     def search_items_by_name(self, name, exact_match: bool = False,
                            only_attachments: bool = False, after_year: int = None,
                            before_year: int = None, only_books: bool = False,
-                           only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
+                           only_articles: bool = False, tags: Optional[List[str]] = None, 
+                           withnotes: bool = False) -> Tuple[List[ZoteroItem], int]:
         """Search items by title content. Returns (items, total_count)."""
         return self.items.search_items_by_name(
             name, exact_match, only_attachments,
-            after_year, before_year, only_books, only_articles, tags
+            after_year, before_year, only_books, only_articles, tags, withnotes
         )
     
     def search_items_by_author(self, author, exact_match: bool = False,
                              only_attachments: bool = False, after_year: int = None,
                              before_year: int = None, only_books: bool = False,
-                             only_articles: bool = False, tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
+                             only_articles: bool = False, tags: Optional[List[str]] = None, 
+                             withnotes: bool = False) -> Tuple[List[ZoteroItem], int]:
         """Search items by author name. Returns (items, total_count)."""
         return self.items.search_items_by_author(
             author, exact_match, only_attachments,
-            after_year, before_year, only_books, only_articles, tags
+            after_year, before_year, only_books, only_articles, tags, withnotes
         )
     
     def search_items_combined(self, name=None, author=None, 
                             exact_match: bool = False, only_attachments: bool = False,
                             after_year: int = None, before_year: int = None,
                             only_books: bool = False, only_articles: bool = False, 
-                            tags: Optional[List[str]] = None) -> Tuple[List[ZoteroItem], int]:
+                            tags: Optional[List[str]] = None, withnotes: bool = False) -> Tuple[List[ZoteroItem], int]:
         """Search items by combined criteria (title and/or author). Returns (items, total_count)."""
         return self.items.search_items_combined(
             name, author, exact_match, only_attachments,
-            after_year, before_year, only_books, only_articles, tags
+            after_year, before_year, only_books, only_articles, tags, withnotes
         )
     
     # Metadata methods

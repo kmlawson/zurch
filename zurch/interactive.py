@@ -1,6 +1,6 @@
 """Interactive mode functionality for zurch."""
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from .utils import pad_number, highlight_search_term
 from .search import ZoteroCollection
 

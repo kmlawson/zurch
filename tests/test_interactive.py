@@ -1,6 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
-from io import StringIO
+from unittest.mock import patch
 
 from zurch.interactive import interactive_collection_selection
 from zurch.models import ZoteroCollection

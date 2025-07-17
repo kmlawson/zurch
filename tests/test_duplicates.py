@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from pathlib import Path
 
 from zurch.duplicates import (
     DuplicateKey, extract_year_from_date, get_authors_from_metadata,

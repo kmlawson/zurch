@@ -2,21 +2,21 @@ import shutil
 import logging
 import re
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Any, Optional, List, Tuple
 
-logger = logging.getLogger(__name__)
 from .search import ZoteroDatabase
 from .models import ZoteroItem, ZoteroCollection
 from .display import (
     display_items, display_grouped_items, display_hierarchical_search_results, 
     show_item_metadata, display_database_stats
 )
-from .interactive import interactive_collection_selection
 from .duplicates import deduplicate_items, deduplicate_grouped_items
 from .export import export_items
 from .utils import sort_items
 from .pagination import handle_pagination_loop
 from .hierarchical_pagination import get_paginated_collections
+
+logger = logging.getLogger(__name__)
 
 class DisplayOptions:
     """Container for display options to reduce parameter passing."""
@@ -29,6 +29,7 @@ class DisplayOptions:
             self.show_created = getattr(args, 'showcreated', False)
             self.show_modified = getattr(args, 'showmodified', False)
             self.show_collections = getattr(args, 'showcollections', False)
+            self.show_notes = getattr(args, 'shownotes', False)
             self.sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
         else:
             self.show_ids = kwargs.get('show_ids', False)
@@ -38,6 +39,7 @@ class DisplayOptions:
             self.show_created = kwargs.get('show_created', False)
             self.show_modified = kwargs.get('show_modified', False)
             self.show_collections = kwargs.get('show_collections', False)
+            self.show_notes = kwargs.get('show_notes', False)
             self.sort_by_author = kwargs.get('sort_by_author', False)
 
 def display_sorted_items(items, max_results, args, db=None, search_term="", display_opts: DisplayOptions = None):
@@ -57,7 +59,7 @@ def display_sorted_items(items, max_results, args, db=None, search_term="", disp
             display_items(page_items, max_results, search_term, 
                          display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
                          display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
-                         display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+                         display_opts.show_collections, display_opts.show_notes, db=db, sort_by_author=display_opts.sort_by_author)
         
         handle_pagination_loop(items, max_results, display_page, search_term, display_opts, db, max_results)
     else:
@@ -65,7 +67,7 @@ def display_sorted_items(items, max_results, args, db=None, search_term="", disp
         display_items(items[:max_results], max_results, search_term, 
                      display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
                      display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
-                     display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+                     display_opts.show_collections, display_opts.show_notes, db=db, sort_by_author=display_opts.sort_by_author)
 
 
 def display_sorted_grouped_items(grouped_items, max_results, args, db=None, search_term="", display_opts: DisplayOptions = None):
@@ -115,7 +117,7 @@ def display_sorted_grouped_items(grouped_items, max_results, args, db=None, sear
             display_grouped_items(reconstructed_groups, max_results, search_term,
                                 display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
                                 display_opts.show_author, display_opts.show_created, display_opts.show_modified,
-                                display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+                                display_opts.show_collections, display_opts.show_notes, db=db, sort_by_author=display_opts.sort_by_author)
         
         handle_pagination_loop(all_items, max_results, display_grouped_page, search_term, display_opts, db, max_results)
     else:
@@ -123,7 +125,7 @@ def display_sorted_grouped_items(grouped_items, max_results, args, db=None, sear
         display_grouped_items(grouped_items, max_results, search_term,
                             display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
                             display_opts.show_author, display_opts.show_created, display_opts.show_modified,
-                            display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+                            display_opts.show_collections, display_opts.show_notes, db=db, sort_by_author=display_opts.sort_by_author)
 
 def sanitize_filename(filename: str, max_length: int = 100) -> str:
     """Sanitize filename for cross-platform compatibility."""
@@ -210,7 +212,7 @@ def generate_attachment_filename(db: ZoteroDatabase, item: ZoteroItem, original_
         return original_filename
 
 def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path) -> bool:
-    """Copy attachment file to current directory with improved filename."""
+    """Copy attachment file to current directory with improved filename and security checks."""
     attachment_path = db.get_item_attachment_path(item.item_id, zotero_data_dir)
     
     if not attachment_path:
@@ -218,6 +220,28 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
         return False
     
     try:
+        # Security check: Ensure attachment path is within Zotero storage directory
+        storage_dir = zotero_data_dir / "storage"
+        resolved_attachment = attachment_path.resolve()
+        resolved_storage = storage_dir.resolve()
+        
+        try:
+            # Check if the attachment path is within the storage directory
+            resolved_attachment.relative_to(resolved_storage)
+        except ValueError:
+            logger.error(f"Attachment path {resolved_attachment} is not within storage directory {resolved_storage}")
+            print("Error: Attachment path is not safe - outside Zotero storage directory")
+            return False
+        
+        # Additional security check: ensure the file actually exists and is readable
+        if not resolved_attachment.exists():
+            print(f"Error: Attachment file does not exist: {resolved_attachment}")
+            return False
+        
+        if not resolved_attachment.is_file():
+            print(f"Error: Attachment path is not a file: {resolved_attachment}")
+            return False
+        
         # Generate a better filename using author and title
         new_filename = generate_attachment_filename(db, item, attachment_path.name)
         target_path = Path.cwd() / new_filename
@@ -231,10 +255,12 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
             target_path = Path.cwd() / f"{stem} ({counter}){suffix}"
             counter += 1
         
-        shutil.copy2(attachment_path, target_path)
+        # Use the resolved path for copying to prevent any path traversal
+        shutil.copy2(resolved_attachment, target_path)
         print(f"Copied attachment to: {target_path}")
         return True
     except Exception as e:
+        logger.error(f"Error copying attachment: {e}")
         print(f"Error copying attachment: {e}")
         return False
 

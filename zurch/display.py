@@ -1,13 +1,13 @@
-from typing import List, Optional, Tuple
+from typing import List
 import fnmatch
-from .models import ZoteroItem, ZoteroCollection
+from .models import ZoteroItem
 from .stats import DatabaseStats
 from .utils import (
     format_item_type_icon, format_attachment_link_icon, pad_number, 
     highlight_search_term, format_duplicate_title, format_metadata_field
 )
 
-def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, db=None, sort_by_author: bool = False) -> None:
+def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, show_notes: bool = False, db=None, sort_by_author: bool = False) -> None:
     """Display items with numbering and icons."""
     for i, item in enumerate(items, 1):
         # Item type icon (books and journal articles)
@@ -15,6 +15,16 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
         
         # Link icon for PDF/EPUB attachments
         attachment_icon = format_attachment_link_icon(item.attachment_type)
+        
+        # Notes icon if requested
+        notes_icon = ""
+        if show_notes and db:
+            try:
+                has_notes = db.notes.has_notes(item.item_id)
+                from .utils import format_notes_icon
+                notes_icon = format_notes_icon(has_notes)
+            except Exception:
+                notes_icon = ""
         
         number = pad_number(i, min(len(items), max_results))
         title = highlight_search_term(item.title, search_term) if search_term else item.title
@@ -55,11 +65,11 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
                     if pub_year:
                         year_display = f" ({pub_year})"
                 
-                print(f"{number}. {type_icon}{attachment_icon}{author_prefix}{title}{year_display}{id_display}")
+                print(f"{number}. {type_icon}{attachment_icon}{notes_icon}{author_prefix}{title}{year_display}{id_display}")
                 
-            except Exception as e:
+            except Exception:
                 # If metadata retrieval fails, show title only
-                print(f"{number}. {type_icon}{attachment_icon}{title}{id_display}")
+                print(f"{number}. {type_icon}{attachment_icon}{notes_icon}{title}{id_display}")
         else:
             # Standard display format
             # Add year and author if requested
@@ -95,11 +105,11 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
                                         author_display = f" - {author_name}"
                                         break
                     
-                except Exception as e:
+                except Exception:
                     # If metadata retrieval fails, continue without year/author
                     pass
             
-            print(f"{number}. {type_icon}{attachment_icon}{title}{year_display}{author_display}{id_display}")
+            print(f"{number}. {type_icon}{attachment_icon}{notes_icon}{title}{year_display}{author_display}{id_display}")
         
         # Show tags if requested
         if show_tags and db:
@@ -135,7 +145,7 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
                 collection_text = f"{GRAY}    Collections: {' | '.join(collections)}{RESET}"
                 print(collection_text)
 
-def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, db=None, sort_by_author: bool = False) -> List[ZoteroItem]:
+def display_grouped_items(grouped_items: List[tuple], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, show_notes: bool = False, db=None, sort_by_author: bool = False) -> List[ZoteroItem]:
     """Display items grouped by collection with separators. Returns flat list for interactive mode."""
     all_items = []
     item_counter = 1
@@ -161,6 +171,16 @@ def display_grouped_items(grouped_items: List[tuple], max_results: int, search_t
             
             # Link icon for PDF/EPUB attachments
             attachment_icon = format_attachment_link_icon(item.attachment_type)
+            
+            # Notes icon if requested
+            notes_icon = ""
+            if show_notes and db:
+                try:
+                    has_notes = db.notes.has_notes(item.item_id)
+                    from .utils import format_notes_icon
+                    notes_icon = format_notes_icon(has_notes)
+                except Exception:
+                    notes_icon = ""
             
             number = pad_number(item_counter, max_results)
             title = highlight_search_term(item.title, search_term) if search_term else item.title
@@ -201,11 +221,11 @@ def display_grouped_items(grouped_items: List[tuple], max_results: int, search_t
                         if pub_year:
                             year_display = f" ({pub_year})"
                     
-                    print(f"{number}. {type_icon}{attachment_icon}{author_prefix}{title}{year_display}{id_display}")
+                    print(f"{number}. {type_icon}{attachment_icon}{notes_icon}{author_prefix}{title}{year_display}{id_display}")
                     
-                except Exception as e:
+                except Exception:
                     # If metadata retrieval fails, show title only
-                    print(f"{number}. {type_icon}{attachment_icon}{title}{id_display}")
+                    print(f"{number}. {type_icon}{attachment_icon}{notes_icon}{title}{id_display}")
             else:
                 # Standard display format
                 # Add year and author if requested
@@ -241,11 +261,11 @@ def display_grouped_items(grouped_items: List[tuple], max_results: int, search_t
                                             author_display = f" - {author_name}"
                                             break
                         
-                    except Exception as e:
+                    except Exception:
                         # If metadata retrieval fails, continue without year/author
                         pass
                 
-                print(f"{number}. {type_icon}{attachment_icon}{title}{year_display}{author_display}{id_display}")
+                print(f"{number}. {type_icon}{attachment_icon}{notes_icon}{title}{year_display}{author_display}{id_display}")
             
             # Show tags if requested
             if show_tags and db:

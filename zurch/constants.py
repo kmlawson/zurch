@@ -194,6 +194,7 @@ class Icons:
     STATS = "📊"
     DATABASE = "🗃️"
     ATTACHMENT = "📎"
+    NOTES = "📝"
     
     # Spinner characters for loading
     SPINNER_CHARS = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']

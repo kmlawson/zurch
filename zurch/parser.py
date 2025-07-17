@@ -79,6 +79,18 @@ def add_search_arguments(parser: argparse.ArgumentParser) -> None:
         nargs='+',
         help="Filter by tags (multiple tags = AND search, case-insensitive)"
     )
+    
+    parser.add_argument(
+        "--shownotes", 
+        action="store_true",
+        help="Show notes icon (📝) for items with notes in search results"
+    )
+    
+    parser.add_argument(
+        "--withnotes", 
+        action="store_true",
+        help="Show only items that have notes attached"
+    )
 
 def add_filter_arguments(parser: argparse.ArgumentParser) -> None:
     """Add filtering arguments."""
@@ -137,6 +149,12 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
         type=int,
         nargs='+',
         help="Grab attachments for specific item IDs"
+    )
+    
+    parser.add_argument(
+        "--getnotes", 
+        type=int,
+        help="Copy notes for specific item ID to current directory"
     )
     
     parser.add_argument(
@@ -212,8 +230,6 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Launch interactive configuration wizard"
     )
-
-from . import __version__
 
 def create_parser():
     parser = argparse.ArgumentParser(

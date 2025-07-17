@@ -1,7 +1,7 @@
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from zurch.database import DatabaseConnection, DatabaseError, DatabaseLockedError, get_attachment_type
 

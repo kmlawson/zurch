@@ -1,13 +1,11 @@
 import pytest
-import tempfile
-import shutil
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from zurch.search import ZoteroDatabase
 from zurch.models import ZoteroItem, ZoteroCollection
-from zurch.database import DatabaseError, DatabaseLockedError
-from zurch.utils import load_config, format_attachment_icon, pad_number, find_zotero_database
+from zurch.database import DatabaseError
+from zurch.utils import load_config, format_attachment_icon, pad_number
 from zurch import cli
 from zurch.display import display_items
 from zurch.handlers import interactive_selection
