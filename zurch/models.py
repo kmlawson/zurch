@@ -1,10 +1,30 @@
+"""Data models for Zotero items and collections.
+
+This module provides both Pydantic models (recommended) and legacy dataclass models
+for backward compatibility.
+"""
+
 from dataclasses import dataclass
 from typing import Optional
 from enum import Enum
 
+# Import Pydantic models
+from .pydantic_models import (
+    ZoteroItemModel, 
+    ZoteroCollectionModel, 
+    ItemTypeEnum, 
+    AttachmentTypeEnum
+)
 
-class ItemType(Enum):
-    """Enum for item types to avoid string typos."""
+# Use Pydantic models as the default
+ZoteroItem = ZoteroItemModel
+ZoteroCollection = ZoteroCollectionModel
+ItemType = ItemTypeEnum
+AttachmentType = AttachmentTypeEnum
+
+# Legacy dataclass models for backward compatibility
+class LegacyItemType(Enum):
+    """Legacy enum for item types."""
     BOOK = "book"
     JOURNAL_ARTICLE = "journalArticle"
     DOCUMENT = "document"
@@ -13,7 +33,7 @@ class ItemType(Enum):
     WEBPAGE = "webpage"
     
     @classmethod
-    def from_string(cls, value: str) -> 'ItemType':
+    def from_string(cls, value: str) -> 'LegacyItemType':
         """Convert string to ItemType, defaulting to DOCUMENT."""
         for item_type in cls:
             if item_type.value.lower() == value.lower():
@@ -21,14 +41,14 @@ class ItemType(Enum):
         return cls.DOCUMENT
 
 
-class AttachmentType(Enum):
-    """Enum for attachment types."""
+class LegacyAttachmentType(Enum):
+    """Legacy enum for attachment types."""
     PDF = "pdf"
     EPUB = "epub"
     TXT = "txt"
     
     @classmethod
-    def from_string(cls, value: Optional[str]) -> Optional['AttachmentType']:
+    def from_string(cls, value: Optional[str]) -> Optional['LegacyAttachmentType']:
         """Convert string to AttachmentType."""
         if not value:
             return None
@@ -39,8 +59,8 @@ class AttachmentType(Enum):
 
 
 @dataclass(slots=True)
-class ZoteroItem:
-    """Represents a Zotero item with optimized memory usage."""
+class LegacyZoteroItem:
+    """Legacy dataclass for Zotero items."""
     item_id: int
     title: str
     item_type: str
@@ -50,13 +70,13 @@ class ZoteroItem:
     date_added: Optional[str] = None
     date_modified: Optional[str] = None
     
-    def get_item_type_enum(self) -> ItemType:
+    def get_item_type_enum(self) -> LegacyItemType:
         """Get ItemType enum for this item."""
-        return ItemType.from_string(self.item_type)
+        return LegacyItemType.from_string(self.item_type)
     
-    def get_attachment_type_enum(self) -> Optional[AttachmentType]:
+    def get_attachment_type_enum(self) -> Optional[LegacyAttachmentType]:
         """Get AttachmentType enum for this item."""
-        return AttachmentType.from_string(self.attachment_type)
+        return LegacyAttachmentType.from_string(self.attachment_type)
     
     def has_attachment(self) -> bool:
         """Check if item has a readable attachment."""
@@ -64,8 +84,8 @@ class ZoteroItem:
 
 
 @dataclass(slots=True)
-class ZoteroCollection:
-    """Represents a Zotero collection with optimized memory usage."""
+class LegacyZoteroCollection:
+    """Legacy dataclass for Zotero collections."""
     collection_id: int
     name: str
     parent_id: Optional[int] = None
@@ -93,3 +113,33 @@ class ZoteroCollection:
     def get_path_components(self) -> list[str]:
         """Get collection path as list of components."""
         return self.full_path.split(' > ') if self.full_path else [self.name]
+
+
+# Utility functions for model conversion
+def convert_to_pydantic_item(legacy_item: LegacyZoteroItem) -> ZoteroItemModel:
+    """Convert legacy dataclass item to Pydantic model."""
+    return ZoteroItemModel(
+        item_id=legacy_item.item_id,
+        title=legacy_item.title,
+        item_type=legacy_item.item_type,
+        attachment_type=legacy_item.attachment_type,
+        attachment_path=legacy_item.attachment_path,
+        is_duplicate=legacy_item.is_duplicate,
+        date_added=legacy_item.date_added,
+        date_modified=legacy_item.date_modified
+    )
+
+
+def convert_to_pydantic_collection(legacy_collection: LegacyZoteroCollection) -> ZoteroCollectionModel:
+    """Convert legacy dataclass collection to Pydantic model."""
+    return ZoteroCollectionModel(
+        collection_id=legacy_collection.collection_id,
+        name=legacy_collection.name,
+        parent_id=legacy_collection.parent_id,
+        depth=legacy_collection.depth,
+        item_count=legacy_collection.item_count,
+        full_path=legacy_collection.full_path,
+        library_id=legacy_collection.library_id,
+        library_type=legacy_collection.library_type,
+        library_name=legacy_collection.library_name
+    )

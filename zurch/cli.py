@@ -2,7 +2,8 @@ import sys
 import logging
 from pathlib import Path
 
-from .utils import load_config, save_config, find_zotero_database
+from .utils import find_zotero_database
+from .config_pydantic import load_config, save_config
 from .search import ZoteroDatabase
 from .database import DatabaseError, DatabaseLockedError
 from .parser import create_parser
