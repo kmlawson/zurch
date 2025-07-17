@@ -17,6 +17,7 @@ help:
 	@echo "  check-all    - Run all checks (lint + tests)"
 	@echo "  build        - Build the package"
 	@echo "  clean        - Clean build artifacts"
+	@echo "  install-hooks - Install git pre-commit hooks"
 
 # Installation targets
 install:
@@ -111,11 +112,9 @@ test-handlers:
 # Git hooks
 install-hooks:
 	@echo "Installing git hooks..."
-	@if [ ! -f .git/hooks/pre-commit ]; then \
-		echo "Pre-commit hook not found. Run 'make' to see available targets."; \
-		exit 1; \
-	fi
-	@echo "Pre-commit hook already installed."
+	@cp scripts/pre-commit .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "Pre-commit hook installed successfully."
 
 # Documentation
 docs:

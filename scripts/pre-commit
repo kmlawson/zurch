@@ -1,0 +1,26 @@
+#!/bin/bash
+# Pre-commit hook to run ruff fixes (excluding tests directory)
+# 
+# To install this hook:
+# cp scripts/pre-commit .git/hooks/pre-commit
+# chmod +x .git/hooks/pre-commit
+
+# Exit on any error
+set -e
+
+echo "Running pre-commit ruff fixes..."
+
+# Check if ruff is available
+if ! command -v ruff &> /dev/null; then
+    echo "Warning: ruff not found, skipping pre-commit fixes"
+    exit 0
+fi
+
+# Run ruff fix on staged files, excluding tests directory
+echo "Running ruff check --fix on staged files (excluding tests)..."
+ruff check --fix --exclude tests .
+
+# Add any files that may have been modified by ruff
+git add -u
+
+echo "Pre-commit ruff fixes complete."
