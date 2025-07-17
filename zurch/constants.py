@@ -31,7 +31,7 @@ def _supports_ansi_colors() -> bool:
             parts = version.split('.')
             if len(parts) >= 3:
                 major = int(parts[0])
-                minor = int(parts[1])
+                int(parts[1])
                 build = int(parts[2])
                 # Windows 10 build 10586 (1511) and later support ANSI
                 if major >= 10 and build >= 10586:

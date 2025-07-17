@@ -8,19 +8,23 @@ from dataclasses import dataclass
 from typing import Optional
 from enum import Enum
 
-# Import Pydantic models
-from .pydantic_models import (
-    ZoteroItemModel, 
-    ZoteroCollectionModel, 
-    ItemTypeEnum, 
-    AttachmentTypeEnum
-)
-
-# Use Pydantic models as the default
-ZoteroItem = ZoteroItemModel
-ZoteroCollection = ZoteroCollectionModel
-ItemType = ItemTypeEnum
-AttachmentType = AttachmentTypeEnum
+# Try to import Pydantic models, fall back to legacy if not available
+try:
+    from .pydantic_models import (
+        ZoteroItemModel, 
+        ZoteroCollectionModel, 
+        ItemTypeEnum, 
+        AttachmentTypeEnum
+    )
+    # Use Pydantic models as the default
+    ZoteroItem = ZoteroItemModel
+    ZoteroCollection = ZoteroCollectionModel
+    ItemType = ItemTypeEnum
+    AttachmentType = AttachmentTypeEnum
+    PYDANTIC_AVAILABLE = True
+except ImportError:
+    # Fallback to legacy models if Pydantic not available
+    PYDANTIC_AVAILABLE = False
 
 # Legacy dataclass models for backward compatibility
 class LegacyItemType(Enum):
@@ -115,31 +119,40 @@ class LegacyZoteroCollection:
         return self.full_path.split(' > ') if self.full_path else [self.name]
 
 
-# Utility functions for model conversion
-def convert_to_pydantic_item(legacy_item: LegacyZoteroItem) -> ZoteroItemModel:
-    """Convert legacy dataclass item to Pydantic model."""
-    return ZoteroItemModel(
-        item_id=legacy_item.item_id,
-        title=legacy_item.title,
-        item_type=legacy_item.item_type,
-        attachment_type=legacy_item.attachment_type,
-        attachment_path=legacy_item.attachment_path,
-        is_duplicate=legacy_item.is_duplicate,
-        date_added=legacy_item.date_added,
-        date_modified=legacy_item.date_modified
-    )
+# Utility functions for model conversion (only if Pydantic available)
+if PYDANTIC_AVAILABLE:
+    def convert_to_pydantic_item(legacy_item: LegacyZoteroItem) -> ZoteroItemModel:
+        """Convert legacy dataclass item to Pydantic model."""
+        return ZoteroItemModel(
+            item_id=legacy_item.item_id,
+            title=legacy_item.title,
+            item_type=legacy_item.item_type,
+            attachment_type=legacy_item.attachment_type,
+            attachment_path=legacy_item.attachment_path,
+            is_duplicate=legacy_item.is_duplicate,
+            date_added=legacy_item.date_added,
+            date_modified=legacy_item.date_modified
+        )
 
 
-def convert_to_pydantic_collection(legacy_collection: LegacyZoteroCollection) -> ZoteroCollectionModel:
-    """Convert legacy dataclass collection to Pydantic model."""
-    return ZoteroCollectionModel(
-        collection_id=legacy_collection.collection_id,
-        name=legacy_collection.name,
-        parent_id=legacy_collection.parent_id,
-        depth=legacy_collection.depth,
-        item_count=legacy_collection.item_count,
-        full_path=legacy_collection.full_path,
-        library_id=legacy_collection.library_id,
-        library_type=legacy_collection.library_type,
-        library_name=legacy_collection.library_name
-    )
+    def convert_to_pydantic_collection(legacy_collection: LegacyZoteroCollection) -> ZoteroCollectionModel:
+        """Convert legacy dataclass collection to Pydantic model."""
+        return ZoteroCollectionModel(
+            collection_id=legacy_collection.collection_id,
+            name=legacy_collection.name,
+            parent_id=legacy_collection.parent_id,
+            depth=legacy_collection.depth,
+            item_count=legacy_collection.item_count,
+            full_path=legacy_collection.full_path,
+            library_id=legacy_collection.library_id,
+            library_type=legacy_collection.library_type,
+            library_name=legacy_collection.library_name
+        )
+
+
+# Set fallback models if Pydantic not available
+if not PYDANTIC_AVAILABLE:
+    ZoteroItem = LegacyZoteroItem
+    ZoteroCollection = LegacyZoteroCollection
+    ItemType = LegacyItemType
+    AttachmentType = LegacyAttachmentType

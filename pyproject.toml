@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 [project.scripts]
-zurch = "zurch.cli:main"
+zurch = "zurch:main"
 
 [project.urls]
 Homepage = "https://github.com/kmlawson/zurch"
@@ -45,6 +45,7 @@ build-backend = "hatchling.build"
 dev-dependencies = [
     "zurch",
     "pytest>=6.0",
+    "pydantic>=2.0.0",
 ]
 
 [tool.uv.sources]

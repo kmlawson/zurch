@@ -496,8 +496,6 @@ def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results
     """Handle interactive item selection and actions."""
     zotero_data_dir = Path(config['zotero_database_path']).parent
     current_index = None  # Track current item for next/previous navigation
-    current_page = 0  # Track current page for pagination context
-    first_time = True
     
     while True:
         display_opts = DisplayOptions(show_ids=show_ids, show_tags=show_tags, show_year=show_year, show_author=show_author, show_created=show_created, show_modified=show_modified, show_collections=show_collections, sort_by_author=sort_by_author)
@@ -991,7 +989,7 @@ def handle_multiple_collections(db: ZoteroDatabase, folder_name: str, args, max_
     collections = db.search_collections(folder_name, exact_match=args.exact)
     collection_count = len(collections)
     
-    with ProgressSpinner(f"Loading items from {collection_count} collections") as spinner:
+    with ProgressSpinner(f"Loading items from {collection_count} collections"):
         grouped_items, total_count = db.get_collection_items_grouped(
             folder_name, args.only_attachments, 
             args.after, args.before, args.books, args.articles, args.tag,

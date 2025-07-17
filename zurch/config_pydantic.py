@@ -3,10 +3,9 @@
 import logging
 from pathlib import Path
 from typing import Optional
-import json
 from pydantic import ValidationError
 
-from .config_models import ZurchConfigModel
+from .config_models import ZurchConfigModel, ZurchConfigModel as ZurchConfig
 
 logger = logging.getLogger(__name__)
 
@@ -152,8 +151,7 @@ def get_config_value(config: ZurchConfigModel, key: str, default: any = None) ->
     return getattr(config, key, default)
 
 
-# Backward compatibility exports
-from .config_models import ZurchConfigModel as ZurchConfig
+# Backward compatibility exports already imported above
 
 __all__ = [
     'load_config',

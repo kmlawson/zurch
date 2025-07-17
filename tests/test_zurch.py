@@ -5,10 +5,11 @@ from unittest.mock import patch
 from zurch.search import ZoteroDatabase
 from zurch.models import ZoteroItem, ZoteroCollection
 from zurch.database import DatabaseError
-from zurch.utils import load_config, format_attachment_icon, pad_number
-from zurch import cli
+from zurch.utils import format_attachment_icon, pad_number
+from zurch import load_config
 from zurch.display import display_items
 from zurch.handlers import interactive_selection
+from zurch.parser import create_parser
 
 class TestZoteroDatabase:
     """Test the ZoteroDatabase class."""
@@ -366,7 +367,7 @@ class TestCLIIntegration:
     
     def test_cli_help(self):
         """Test CLI help output."""
-        parser = cli.create_parser()
+        parser = create_parser()
         help_text = parser.format_help()
         
         # Check for key components
@@ -408,19 +409,19 @@ class TestCLIIntegration:
         mock_input.return_value = "1"
         selected, should_grab = interactive_selection(items)
         assert selected == items[0]
-        assert should_grab == False
+        assert not should_grab
         
         # Test cancel
         mock_input.return_value = "0"
         selected, should_grab = interactive_selection(items)
         assert selected is None
-        assert should_grab == False
+        assert not should_grab
         
         # Test KeyboardInterrupt (Ctrl+C)
         mock_input.side_effect = KeyboardInterrupt()
         selected, should_grab = interactive_selection(items)
         assert selected is None
-        assert should_grab == False
+        assert not should_grab
 
 class TestFilterFunctionality:
     """Test filtering capabilities."""

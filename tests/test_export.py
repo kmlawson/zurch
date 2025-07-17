@@ -176,7 +176,7 @@ class TestExportSecurity:
     
     def test_final_path_verification_after_creation(self, mock_db, sample_items, tmp_path):
         """Test that final export path is verified after file creation."""
-        export_file = tmp_path / "export.csv"
+        tmp_path / "export.csv"
         
         # Skip this test for now - the final path verification logic needs more investigation
         # The test infrastructure shows that the final check is not being called as expected
@@ -226,7 +226,7 @@ class TestAttachmentSecurity:
                 # We need to verify that the path is validated before copying
                 # The current implementation doesn't have this check, so this test
                 # documents the vulnerability that needs to be fixed
-                result = grab_attachment(mock_db, malicious_item, zotero_data_dir)
+                grab_attachment(mock_db, malicious_item, zotero_data_dir)
                 
                 # This test will fail until we implement the fix
                 # After fix, grab_attachment should return False for unsafe paths

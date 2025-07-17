@@ -272,7 +272,7 @@ class TestHandleListCommand:
         args.zotero_database_path = "/tmp/test.db"
         
         with patch('zurch.interactive.interactive_collection_selection_with_pagination', return_value=None) as mock_interactive:
-            with patch('zurch.handlers.display_items') as mock_display:
+            with patch('zurch.handlers.display_items'):
                 with patch('builtins.input', return_value=''):
                     result = handle_list_command(mock_db, args, max_results=100)
                     
@@ -294,7 +294,7 @@ class TestCommandHandlerIntegration:
         
         # This should not raise an exception but handle it gracefully
         try:
-            result = handle_list_command(mock_db, args, max_results=100)
+            handle_list_command(mock_db, args, max_results=100)
             # The function should handle the error internally
         except Exception as e:
             # If an exception is raised, it should be a controlled one

@@ -28,7 +28,7 @@ class ItemService:
             item_id = row['itemID']
             title = row['title']
             item_type = row['typeName']
-            order_index = row['orderIndex']
+            row['orderIndex']
             content_type = row['contentType']
             attachment_path = row['path']
             date_added = row['dateAdded']

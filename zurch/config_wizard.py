@@ -33,7 +33,6 @@ def get_user_input(prompt: str, default: str = "", validation_func=None) -> str:
 
 def get_yes_no_input(prompt: str, default: bool = False) -> bool:
     """Get yes/no input from user."""
-    default_str = "y" if default else "n"
     choices = "Y/n" if default else "y/N"
     
     while True:
