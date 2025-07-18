@@ -111,11 +111,13 @@ class ZoteroDatabase:
                             exact_match: bool = False, only_attachments: bool = False,
                             after_year: int = None, before_year: int = None,
                             only_books: bool = False, only_articles: bool = False, 
-                            tags: Optional[List[str]] = None, withnotes: bool = False) -> Tuple[List[ZoteroItem], int]:
+                            tags: Optional[List[str]] = None, withnotes: bool = False,
+                            date_filter_clause: str = "", date_filter_params: List = None) -> Tuple[List[ZoteroItem], int]:
         """Search items by combined criteria (title and/or author). Returns (items, total_count)."""
         return self.items.search_items_combined(
             name, author, exact_match, only_attachments,
-            after_year, before_year, only_books, only_articles, tags, withnotes
+            after_year, before_year, only_books, only_articles, tags, withnotes,
+            date_filter_clause, date_filter_params or []
         )
     
     # Metadata methods

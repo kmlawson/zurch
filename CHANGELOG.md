@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.10] - 2025-07-18
 
+### Features
+- **Notes Support**: Complete implementation of notes functionality
+  - `--shownotes` flag now displays 📝 icon next to items with notes in search results
+  - `--shownotes` flag works with `--id` command to show notes in metadata view
+  - `--withnotes` flag filters search results to only show items that have notes attached
+  - `--getnotes` flag exports notes content to text files
+  - Fixed notes icon display in interactive mode for search and collection browsing
+
+### Improvements
+- **Collection Browsing**: Enhanced interactive collection browsing experience
+  - Added full pagination support to collection item browsing
+  - Collection items now use same navigation menu as search results (n/b/g/l/0 commands)
+  - Fixed pagination state preservation - returning from metadata view goes back to correct page
+  - Consistent user experience between search results and collection browsing
+
+### Bug Fixes
+- **SQL Queries**: Fixed incorrect SQL queries for notes filtering
+  - Replaced invalid `note_items.parentItemID` references with correct `itemNotes.parentItemID`
+  - Fixed database errors when using `--withnotes` flag
+- **Test Suite**: Fixed broken test cases
+  - Updated test_history.py to work with pytest by adding `interactive=False` parameter
+  - Fixed test_tags.py mock assertions for updated function signatures
+  - Removed unused variables in test_date_filters.py to pass linting
+
 ### Development Improvements
 - **Makefile Version Management**: Enhanced version bumping automation
   - Fixed `make versionbump` command to work on macOS by detecting and using `gsed` when available

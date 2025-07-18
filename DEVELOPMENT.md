@@ -86,6 +86,37 @@ zurch/
 - **Interactive Mode**: Can be configured as default via `interactive_mode` setting
   - Priority: `--nointeract` > `-i` explicit > config setting > default (True)
 
+#### Adding New Configuration Fields
+
+**IMPORTANT**: When adding new configuration options, you must update the Pydantic model:
+
+1. **Add field to ZurchConfigModel** in `zurch/config_models.py`:
+   ```python
+   new_feature_enabled: bool = Field(default=True, description="Enable new feature")
+   new_feature_max_items: int = Field(default=50, ge=1, le=1000, description="Max items for new feature")
+   ```
+
+2. **Update config wizard** in `zurch/config_wizard.py`:
+   - Add prompts for new fields
+   - Include in configuration summary
+   - Add to `new_config` dictionary
+
+3. **Import correctly** in config wizard:
+   ```python
+   from .config_pydantic import load_config, save_config, ZurchConfigModel
+   ```
+
+4. **Create model from dict** when saving:
+   ```python
+   config_model = ZurchConfigModel(**new_config)
+   save_config(config_model)
+   ```
+
+**Common Issues**:
+- Config wizard validation errors → Check Pydantic model has all fields
+- "Additional properties not allowed" → Missing field in ZurchConfigModel
+- Import errors → Use `config_pydantic` not `utils` for save_config
+
 ### Database Access
 - **IMPORTANT Read-only SQLite access** using URI mode: `sqlite3.connect(f'file:{path}?mode=ro', uri=True)`
 - Never modify the Zotero database at any time
@@ -195,10 +226,17 @@ ORDER BY LOWER(COALESCE(title_data.value, ''))
 ### Common Development Tasks
 
 1. **Adding a New Command Flag**:
-   - Add to `create_parser()` in cli.py
-   - Implement logic in `main()`
+   - Add to `create_parser()` in parser.py
+   - Implement logic in `main()` in cli.py
    - Update tests
    - Update README.md and CHANGELOG.md
+
+2. **Adding New Configuration Settings**:
+   - **CRITICAL**: Update `ZurchConfigModel` in `config_models.py` first
+   - Add to config wizard prompts and dictionary
+   - Use `config_pydantic.save_config(ZurchConfigModel(**dict))` 
+   - Test config wizard doesn't throw validation errors
+   - Update documentation
 
 2. **Modifying Database Queries**:
    - Edit methods in search.py

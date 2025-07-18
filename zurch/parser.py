@@ -115,7 +115,19 @@ def add_filter_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--before", 
         type=int,
-        help="Show items published before this year (inclusive)"
+        help="Show items published before this year (exclusive)"
+    )
+    
+    parser.add_argument(
+        "--since",
+        type=str,
+        help="Show items published since (e.g., '3m', '6 months', '1y', '2 years')"
+    )
+    
+    parser.add_argument(
+        "--between",
+        type=str,
+        help="Show items published between dates (e.g., '2020-2023', '2020/01-2023/12')"
     )
     
     parser.add_argument(
@@ -229,6 +241,40 @@ def add_utility_arguments(parser: argparse.ArgumentParser) -> None:
         "--config", 
         action="store_true",
         help="Launch interactive configuration wizard"
+    )
+    
+    # History-related commands
+    parser.add_argument(
+        "--history",
+        action="store_true",
+        help="Show search history"
+    )
+    
+    parser.add_argument(
+        "--save-search",
+        type=str,
+        metavar="NAME",
+        help="Save the current search with a name"
+    )
+    
+    parser.add_argument(
+        "--load-search",
+        type=str,
+        metavar="NAME",
+        help="Load and execute a saved search"
+    )
+    
+    parser.add_argument(
+        "--list-saved",
+        action="store_true",
+        help="List all saved searches"
+    )
+    
+    parser.add_argument(
+        "--delete-search",
+        type=str,
+        metavar="NAME",
+        help="Delete a saved search"
     )
 
 def create_parser():

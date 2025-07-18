@@ -1,11 +1,24 @@
 from typing import List
 import fnmatch
+from datetime import datetime
 from .models import ZoteroItem
 from .stats import DatabaseStats
 from .utils import (
     format_item_type_icon, format_attachment_link_icon, pad_number, 
     highlight_search_term, format_duplicate_title, format_metadata_field
 )
+
+
+def format_date_for_display(date: datetime) -> str:
+    """Format a datetime for display.
+    
+    Args:
+        date: The datetime to format
+        
+    Returns:
+        Formatted date string
+    """
+    return date.strftime('%Y-%m-%d %H:%M')
 
 def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, show_notes: bool = False, db=None, sort_by_author: bool = False) -> None:
     """Display items with numbering and icons."""
@@ -446,7 +459,7 @@ def display_hierarchical_search_results(collections: List, search_term: str, max
     
     return displayed_count
 
-def show_item_metadata(db, item: ZoteroItem) -> None:
+def show_item_metadata(db, item: ZoteroItem, show_notes: bool = False) -> None:
     """Display full metadata for an item."""
     try:
         metadata = db.get_item_metadata(item.item_id)
@@ -505,6 +518,16 @@ def show_item_metadata(db, item: ZoteroItem) -> None:
         
         print(format_metadata_field("Date Added", metadata.get('dateAdded', 'Unknown')))
         print(format_metadata_field("Date Modified", metadata.get('dateModified', 'Unknown')))
+        
+        # Display notes if requested
+        if show_notes and db.notes.has_notes(item.item_id):
+            notes = db.notes.get_notes_content(item.item_id, strip_html=True)
+            if notes:
+                BOLD = '\033[1m'
+                RESET = '\033[0m'
+                print(f"\n{BOLD}Notes:{RESET}")
+                from .notes import format_notes_for_display
+                print(format_notes_for_display(notes))
         
     except Exception as e:
         print(f"Error getting metadata: {e}")

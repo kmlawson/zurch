@@ -67,7 +67,7 @@ def build_collection_items_query(collection_id: int, only_attachments: bool = Fa
         date_conditions.append("CAST(SUBSTR(date_data.value, 1, 4) AS INTEGER) >= ?")
         query_params.append(after_year)
     if before_year is not None:
-        date_conditions.append("CAST(SUBSTR(date_data.value, 1, 4) AS INTEGER) <= ?")
+        date_conditions.append("CAST(SUBSTR(date_data.value, 1, 4) AS INTEGER) < ?")
         query_params.append(before_year)
     
     # Build item type filtering conditions
@@ -93,7 +93,7 @@ def build_collection_items_query(collection_id: int, only_attachments: bool = Fa
     # Add notes filtering
     notes_conditions = []
     if withnotes:
-        notes_conditions.append("EXISTS (SELECT 1 FROM items note_items WHERE note_items.parentItemID = i.itemID AND note_items.itemTypeID = (SELECT itemTypeID FROM itemTypes WHERE typeName = 'note'))")
+        notes_conditions.append("EXISTS (SELECT 1 FROM itemNotes WHERE parentItemID = i.itemID)")
 
     # Combine all conditions
     where_conditions = ["ci.collectionID = ?"]
@@ -251,7 +251,8 @@ def build_tag_conditions(tags: List[str]) -> Tuple[List[str], List]:
 def build_name_search_query(name, exact_match: bool = False, only_attachments: bool = False,
                           after_year: int = None, before_year: int = None, 
                           only_books: bool = False, only_articles: bool = False, 
-                          tags: Optional[List[str]] = None, withnotes: bool = False) -> Tuple[str, str, List]:
+                          tags: Optional[List[str]] = None, withnotes: bool = False,
+                          date_filter_clause: str = "", date_filter_params: Optional[List] = None) -> Tuple[str, str, List]:
     """Build title search query with all filters and attachment data."""
     search_conditions, search_params = build_search_conditions(name, exact_match)
     
@@ -261,21 +262,32 @@ def build_name_search_query(name, exact_match: bool = False, only_attachments: b
         search_conditions.extend(tag_conditions)
         search_params.extend(tag_params)
 
-    where_clause = "WHERE " + " AND ".join(search_conditions)
+    # Build WHERE clause properly handling empty search conditions
+    where_conditions = []
+    if search_conditions:
+        where_conditions.extend(search_conditions)
     
     # Add date filtering if specified
-    if after_year is not None:
-        where_clause += " AND CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?"
-        search_params.append(after_year)
-    if before_year is not None:
-        where_clause += " AND CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) <= ?"
-        search_params.append(before_year)
+    if date_filter_clause:
+        # Use the new date filter clause
+        where_conditions.append(date_filter_clause)
+        search_params.extend(date_filter_params or [])
+    else:
+        # Use legacy date filtering
+        if after_year is not None:
+            where_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?")
+            search_params.append(after_year)
+        if before_year is not None:
+            where_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) < ?")
+            search_params.append(before_year)
     
     # Add item type filtering if specified
     if only_books:
-        where_clause += " AND it.typeName = 'book'"
+        where_conditions.append("it.typeName = 'book'")
     elif only_articles:
-        where_clause += " AND it.typeName = 'journalArticle'"
+        where_conditions.append("it.typeName = 'journalArticle'")
+    
+    where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
     
     # Add attachment filtering if specified
     attachment_join = ""
@@ -283,11 +295,13 @@ def build_name_search_query(name, exact_match: bool = False, only_attachments: b
         attachment_join = """
         JOIN itemAttachments ia_filter ON (i.itemID = ia_filter.parentItemID OR i.itemID = ia_filter.itemID)
         """
-        where_clause += " AND ia_filter.contentType IN ('application/pdf', 'application/epub+zip')"
+        where_conditions.append("ia_filter.contentType IN ('application/pdf', 'application/epub+zip')")
     
     # Add notes filtering if specified
     if withnotes:
-        where_clause += " AND EXISTS (SELECT 1 FROM items note_items WHERE note_items.parentItemID = i.itemID AND note_items.itemTypeID = (SELECT itemTypeID FROM itemTypes WHERE typeName = 'note'))"
+        where_conditions.append("EXISTS (SELECT 1 FROM itemNotes WHERE parentItemID = i.itemID)")
+    
+    where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
     
     # Count query
     count_query = f"""
@@ -336,18 +350,25 @@ def build_name_search_query(name, exact_match: bool = False, only_attachments: b
 def build_author_search_query(author, exact_match: bool = False, only_attachments: bool = False,
                             after_year: int = None, before_year: int = None,
                             only_books: bool = False, only_articles: bool = False, 
-                            tags: Optional[List[str]] = None, withnotes: bool = False) -> Tuple[str, str, List]:
+                            tags: Optional[List[str]] = None, withnotes: bool = False,
+                            date_filter_clause: str = "", date_filter_params: Optional[List] = None) -> Tuple[str, str, List]:
     """Build author search query with all filters and attachment data."""
     author_conditions, search_params = build_author_search_conditions(author, exact_match)
     
     # Add date filtering if specified
     date_conditions = []
-    if after_year is not None:
-        date_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?")
-        search_params.append(after_year)
-    if before_year is not None:
-        date_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) <= ?")
-        search_params.append(before_year)
+    if date_filter_clause:
+        # Use the new date filter clause
+        date_conditions.append(date_filter_clause)
+        search_params.extend(date_filter_params or [])
+    else:
+        # Use legacy date filtering
+        if after_year is not None:
+            date_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?")
+            search_params.append(after_year)
+        if before_year is not None:
+            date_conditions.append("CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) < ?")
+            search_params.append(before_year)
     
     # Add tag filtering
     tag_conditions = []
@@ -378,7 +399,7 @@ def build_author_search_query(author, exact_match: bool = False, only_attachment
     
     # Add notes filtering if specified
     if withnotes:
-        where_conditions.append("EXISTS (SELECT 1 FROM items note_items WHERE note_items.parentItemID = i.itemID AND note_items.itemTypeID = (SELECT itemTypeID FROM itemTypes WHERE typeName = 'note'))")
+        where_conditions.append("EXISTS (SELECT 1 FROM itemNotes WHERE parentItemID = i.itemID)")
     
     where_clause = "WHERE " + " AND ".join(where_conditions)
     
@@ -610,7 +631,8 @@ def build_combined_search_query(name=None, author=None, exact_match: bool = Fals
                                only_attachments: bool = False, after_year: int = None, 
                                before_year: int = None, only_books: bool = False, 
                                only_articles: bool = False, tags: Optional[List[str]] = None, 
-                               withnotes: bool = False) -> Tuple[str, str, List]:
+                               withnotes: bool = False, date_filter_clause: str = "", 
+                               date_filter_params: Optional[List] = None) -> Tuple[str, str, List]:
     """Build combined name and author search query with all filters and attachment data."""
     
     # Build conditions
@@ -639,14 +661,21 @@ def build_combined_search_query(name=None, author=None, exact_match: bool = Fals
     where_clause = "WHERE " + " AND ".join(all_conditions) if all_conditions else ""
     
     # Add date filtering if specified
-    if after_year is not None:
+    if date_filter_clause:
+        # Use the new date filter clause
         where_clause += " AND " if where_clause else "WHERE "
-        where_clause += "CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?"
-        search_params.append(after_year)
-    if before_year is not None:
-        where_clause += " AND " if where_clause else "WHERE "
-        where_clause += "CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) <= ?"
-        search_params.append(before_year)
+        where_clause += date_filter_clause
+        search_params.extend(date_filter_params or [])
+    else:
+        # Use legacy date filtering
+        if after_year is not None:
+            where_clause += " AND " if where_clause else "WHERE "
+            where_clause += "CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) >= ?"
+            search_params.append(after_year)
+        if before_year is not None:
+            where_clause += " AND " if where_clause else "WHERE "
+            where_clause += "CAST(SUBSTR(idv_date.value, 1, 4) AS INTEGER) < ?"
+            search_params.append(before_year)
     
     # Add type filtering
     if only_books:
@@ -664,7 +693,7 @@ def build_combined_search_query(name=None, author=None, exact_match: bool = Fals
     # Add notes filtering
     if withnotes:
         where_clause += " AND " if where_clause else "WHERE "
-        where_clause += "EXISTS (SELECT 1 FROM items note_items WHERE note_items.parentItemID = i.itemID AND note_items.itemTypeID = (SELECT itemTypeID FROM itemTypes WHERE typeName = 'note'))"
+        where_clause += "EXISTS (SELECT 1 FROM itemNotes WHERE parentItemID = i.itemID)"
     
     # Build count query
     count_query = f"""

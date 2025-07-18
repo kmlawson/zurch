@@ -8,12 +8,68 @@ from .search import ZoteroDatabase
 from .database import DatabaseError, DatabaseLockedError
 from .parser import create_parser
 from .handlers import (
-    handle_id_command, handle_getbyid_command, handle_list_command,
+    handle_id_command, handle_getbyid_command, handle_getnotes_command, handle_list_command,
     handle_folder_command, handle_search_command, handle_stats_command
 )
 from .config_wizard import run_config_wizard
+from .history_handlers import (
+    handle_history_command, handle_save_search_command, handle_load_search_command,
+    handle_list_saved_command, handle_delete_search_command
+)
 
 __version__ = "0.7.10"
+
+
+def _handle_save_search_and_history(args, command_type: str, config, result: int) -> None:
+    """Handle save-search and history recording.
+    
+    Args:
+        args: Command line arguments
+        command_type: Type of command (list, folder, search)
+        config: Configuration object
+        result: Result code from the command
+    """
+    if result != 0:
+        return  # Don't save failed searches
+    
+    # Convert config to dict if needed
+    config_dict = config.to_dict() if hasattr(config, 'to_dict') else config
+    
+    # Extract search arguments
+    search_args = {}
+    if command_type == "list":
+        search_args['list'] = args.list
+    elif command_type == "folder":
+        search_args['folder'] = args.folder
+    elif command_type in ["search", "name", "author", "tag"]:
+        if args.name:
+            search_args['name'] = args.name
+        if args.author:
+            search_args['author'] = args.author
+        if args.tag:
+            search_args['tag'] = args.tag
+    
+    # Add common filters
+    if hasattr(args, 'exact') and args.exact:
+        search_args['exact'] = args.exact
+    if hasattr(args, 'only_attachments') and args.only_attachments:
+        search_args['only_attachments'] = args.only_attachments
+    if hasattr(args, 'since') and args.since:
+        search_args['since'] = args.since
+    if hasattr(args, 'between') and args.between:
+        search_args['between'] = args.between
+    if hasattr(args, 'after') and args.after:
+        search_args['after'] = args.after
+    if hasattr(args, 'before') and args.before:
+        search_args['before'] = args.before
+    
+    # Handle --save-search
+    if hasattr(args, 'save_search') and args.save_search:
+        handle_save_search_command(args.save_search, command_type, search_args, config_dict)
+    
+    # Record in history (with dummy results_count for now)
+    from .history_handlers import record_search_in_history
+    record_search_in_history(command_type, search_args, 0, config_dict)
 
 def parse_max_results(value: str, config_default: int = 100) -> int:
     """Parse max_results value, handling special cases like 'all' and '0'."""
@@ -61,7 +117,7 @@ def get_database(config: dict) -> tuple[ZoteroDatabase, str]:
     Returns: (database_instance, error_type)
     error_type can be: 'success', 'config_missing', 'locked', 'error'
     """
-    db_path = config.get('zotero_database_path')
+    db_path = getattr(config, 'zotero_database_path', None)
     
     if not db_path:
         # Try to find database automatically
@@ -103,10 +159,7 @@ def main():
     # Load configuration
     config = load_config()
     
-    # Override max_results from command line, handling special values
-    max_results = parse_max_results(args.max_results, config.get('max_results', 100))
-    
-    # Handle interactive mode defaults with config support
+    # Handle interactive mode defaults with config support BEFORE history commands
     # Priority: --nointeract > -i explicit > config setting > default (True)
     if args.nointeract:
         args.interactive = False
@@ -115,32 +168,59 @@ def main():
         args.interactive = True
     else:
         # Neither -i nor --nointeract was used, use config setting
-        args.interactive = config.get('interactive_mode', True)
+        args.interactive = getattr(config, 'interactive_mode', True)
+    
+    # Handle history-related commands (these don't need database access)
+    if args.history:
+        return handle_history_command(config.to_dict() if hasattr(config, 'to_dict') else config, interactive=args.interactive)
+    
+    if args.list_saved:
+        return handle_list_saved_command(config.to_dict() if hasattr(config, 'to_dict') else config)
+    
+    if args.delete_search:
+        return handle_delete_search_command(args.delete_search, config.to_dict() if hasattr(config, 'to_dict') else config)
+    
+    # Handle load-search command
+    if args.load_search:
+        config_dict = config.to_dict() if hasattr(config, 'to_dict') else config
+        loaded_args = handle_load_search_command(args.load_search, config_dict)
+        if not loaded_args:
+            return 1
+        
+        # Apply loaded arguments to args object
+        for key, value in loaded_args.items():
+            if not hasattr(args, key) or getattr(args, key) is None:
+                setattr(args, key, value)
+    
+    # Override max_results from command line, handling special values
+    max_results = parse_max_results(args.max_results, getattr(config, 'max_results', 100))
+    
+    # Interactive mode logic already handled above for history commands
     
     # Apply display defaults from config if not explicitly set on command line
     if not hasattr(args, 'showids') or not args.showids:
-        args.showids = config.get('show_ids', False)
+        args.showids = getattr(config, 'show_ids', False)
     
     if not hasattr(args, 'showtags') or not args.showtags:
-        args.showtags = config.get('show_tags', False)
+        args.showtags = getattr(config, 'show_tags', False)
     
     if not hasattr(args, 'showyear') or not args.showyear:
-        args.showyear = config.get('show_year', False)
+        args.showyear = getattr(config, 'show_year', False)
     
     if not hasattr(args, 'showauthor') or not args.showauthor:
-        args.showauthor = config.get('show_author', False)
+        args.showauthor = getattr(config, 'show_author', False)
     
     if not hasattr(args, 'showcreated') or not args.showcreated:
-        args.showcreated = config.get('show_created', False)
+        args.showcreated = getattr(config, 'show_created', False)
     
     if not hasattr(args, 'showmodified') or not args.showmodified:
-        args.showmodified = config.get('show_modified', False)
+        args.showmodified = getattr(config, 'show_modified', False)
     
     if not hasattr(args, 'showcollections') or not args.showcollections:
-        args.showcollections = config.get('show_collections', False)
+        args.showcollections = getattr(config, 'show_collections', False)
     
     if not hasattr(args, 'only_attachments') or not args.only_attachments:
-        args.only_attachments = config.get('only_attachments', False)
+        args.only_attachments = getattr(config, 'only_attachments', False)
     
     # Handle sort flag - auto-enable related display flags
     if args.sort:
@@ -153,12 +233,32 @@ def main():
         elif args.sort in ['m', 'modified']:
             args.showmodified = True
     
-    if not any([args.folder, args.name, args.list is not None, args.id, args.author, args.getbyid, args.tag, args.stats]):
+    # Check if we have any date filters
+    has_date_filters = any([
+        getattr(args, 'since', None),
+        getattr(args, 'between', None),
+        getattr(args, 'after', None),
+        getattr(args, 'before', None)
+    ])
+    
+    if not any([args.folder, args.name, args.list is not None, args.id, args.author, args.getbyid, args.getnotes, args.tag, args.stats, has_date_filters]):
         parser.print_help()
         return 1
     
     if args.books and args.articles:
         print("Error: Cannot use both --books and --articles flags together")
+        return 1
+    
+    # Check for conflicting date filters
+    date_filter_count = sum([
+        1 if getattr(args, 'between', None) else 0,
+        1 if getattr(args, 'since', None) else 0,
+        1 if getattr(args, 'after', None) or getattr(args, 'before', None) else 0
+    ])
+    
+    if date_filter_count > 1:
+        print("Error: Cannot use --between with --since, --after, or --before flags")
+        print("Use either --between for a date range, or --since for relative dates, or --after/--before for absolute dates")
         return 1
     
     if args.export and not any([args.folder, args.name, args.author, args.tag]):
@@ -211,19 +311,43 @@ def main():
             return handle_stats_command(db)
             
         elif args.id:
-            return handle_id_command(db, args.id)
+            return handle_id_command(db, args.id, show_notes=args.shownotes)
             
         elif args.getbyid:
             return handle_getbyid_command(db, args.getbyid, config)
             
+        elif args.getnotes:
+            return handle_getnotes_command(db, args.getnotes, args.file)
+            
         elif args.list is not None:
-            return handle_list_command(db, args, max_results)
+            result = handle_list_command(db, args, max_results)
+            _handle_save_search_and_history(args, "list", config, result)
+            return result
         
         elif args.folder:
-            return handle_folder_command(db, args, max_results, config)
+            result = handle_folder_command(db, args, max_results, config)
+            _handle_save_search_and_history(args, "folder", config, result)
+            return result
         
         elif args.name or args.author or args.tag:
-            return handle_search_command(db, args, max_results, config)
+            result = handle_search_command(db, args, max_results, config)
+            # Determine the primary command type for history
+            if args.name:
+                command_type = "name"
+            elif args.author:
+                command_type = "author"
+            elif args.tag:
+                command_type = "tag"
+            else:
+                command_type = "search"
+            _handle_save_search_and_history(args, command_type, config, result)
+            return result
+        
+        elif has_date_filters:
+            # Handle standalone date filters (search all items with date constraints)
+            result = handle_search_command(db, args, max_results, config)
+            _handle_save_search_and_history(args, "date_filter", config, result)
+            return result
         
     except KeyboardInterrupt:
         print("\nInterrupted")

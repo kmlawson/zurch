@@ -15,6 +15,7 @@ from .export import export_items
 from .utils import sort_items
 from .pagination import handle_pagination_loop
 from .hierarchical_pagination import get_paginated_collections
+from .date_filters import build_date_filter_clause
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +265,7 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
         print(f"Error copying attachment: {e}")
         return False
 
-def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, display_opts: DisplayOptions = None, db=None, return_index: bool = False, show_go_back: bool = True):
+def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, display_opts: DisplayOptions = None, db=None, return_index: bool = False, show_go_back: bool = True, initial_page: int = 0):
     """Handle interactive item selection with automatic pagination.
     
     Returns (item, should_grab) tuple by default, or (item, should_grab, selected_index) if return_index=True.
@@ -283,7 +284,7 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
     needs_pagination = total_items > max_results
     
     if needs_pagination:
-        return interactive_selection_with_pagination(items, max_results, search_term, grouped_items, display_opts, db, return_index, show_go_back)
+        return interactive_selection_with_pagination(items, max_results, search_term, grouped_items, display_opts, db, return_index, show_go_back, initial_page)
     else:
         return interactive_selection_simple(items, max_results, search_term, grouped_items, display_opts, db, return_index, show_go_back)
 
@@ -300,12 +301,12 @@ def interactive_selection_simple(items, max_results: int, search_term: str, grou
                 display_grouped_items(grouped_items, max_results, search_term, 
                                      display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
                                      display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
-                                     display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+                                     display_opts.show_collections, display_opts.show_notes, db=db, sort_by_author=display_opts.sort_by_author)
             else:
                 display_items(items, max_results, search_term, 
                              display_opts.show_ids, display_opts.show_tags, display_opts.show_year, 
                              display_opts.show_author, display_opts.show_created, display_opts.show_modified, 
-                             display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+                             display_opts.show_collections, display_opts.show_notes, db=db, sort_by_author=display_opts.sort_by_author)
         try:
             # Try to use immediate key response for navigation keys
             from .keyboard import get_input_with_immediate_keys, is_terminal_interactive
@@ -354,11 +355,11 @@ def interactive_selection_simple(items, max_results: int, search_term: str, grou
             return (None, False, None) if return_index else (None, False)
 
 
-def interactive_selection_with_pagination(items, max_results: int, search_term: str, grouped_items, display_opts: DisplayOptions, db, return_index: bool, show_go_back: bool = True):
+def interactive_selection_with_pagination(items, max_results: int, search_term: str, grouped_items, display_opts: DisplayOptions, db, return_index: bool, show_go_back: bool = True, initial_page: int = 0):
     """Interactive selection with pagination support."""
     total_items = len(items)
     total_pages = (total_items + max_results - 1) // max_results
-    current_page = 0
+    current_page = initial_page
     first_display = True
     
     # Track if we need to display the page
@@ -408,12 +409,12 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
                 display_grouped_items(page_grouped, max_results, search_term,
                                     display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
                                     display_opts.show_author, display_opts.show_created, display_opts.show_modified,
-                                    display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+                                    display_opts.show_collections, display_opts.show_notes, db=db, sort_by_author=display_opts.sort_by_author)
             else:
                 display_items(page_items, max_results, search_term,
                              display_opts.show_ids, display_opts.show_tags, display_opts.show_year,
                              display_opts.show_author, display_opts.show_created, display_opts.show_modified,
-                             display_opts.show_collections, db=db, sort_by_author=display_opts.sort_by_author)
+                             display_opts.show_collections, display_opts.show_notes, db=db, sort_by_author=display_opts.sort_by_author)
             
             # Show pagination info
             print(f"\nShowing items {start_idx + 1}-{end_idx} of {total_items} total")
@@ -492,14 +493,15 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
         except EOFError:
             return (None, False, None) if return_index else (None, False)
 
-def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, sort_by_author: bool = False, show_go_back: bool = True) -> None:
+def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, show_notes: bool = False, sort_by_author: bool = False, show_go_back: bool = True) -> None:
     """Handle interactive item selection and actions."""
     zotero_data_dir = Path(config['zotero_database_path']).parent
     current_index = None  # Track current item for next/previous navigation
+    current_page = 0  # Track current page for pagination
     
     while True:
-        display_opts = DisplayOptions(show_ids=show_ids, show_tags=show_tags, show_year=show_year, show_author=show_author, show_created=show_created, show_modified=show_modified, show_collections=show_collections, sort_by_author=sort_by_author)
-        selected, should_grab, selected_index = interactive_selection(items, max_results, search_term, grouped_items, display_opts, db, return_index=True, show_go_back=show_go_back)
+        display_opts = DisplayOptions(show_ids=show_ids, show_tags=show_tags, show_year=show_year, show_author=show_author, show_created=show_created, show_modified=show_modified, show_collections=show_collections, show_notes=show_notes, sort_by_author=sort_by_author)
+        selected, should_grab, selected_index = interactive_selection(items, max_results, search_term, grouped_items, display_opts, db, return_index=True, show_go_back=show_go_back, initial_page=current_page)
         
         # Handle special case of "go back"
         if selected == "GO_BACK":
@@ -510,6 +512,10 @@ def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results
         
         current_index = selected_index
         
+        # Calculate which page this item is on
+        if len(items) > max_results:
+            current_page = current_index // max_results
+        
         # Check if user wants to grab (via 'g' suffix)
         if should_grab:
             grab_attachment(db, selected, zotero_data_dir)
@@ -519,6 +525,10 @@ def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results
             if result_index == -1:
                 break  # Exit completely
             current_index = result_index
+            
+            # Update current page based on the new index
+            if len(items) > max_results:
+                current_page = current_index // max_results
             
             # Don't redisplay the list here - let the pagination loop handle it
             # The next iteration will use the preserved current_page
@@ -611,7 +621,7 @@ def handle_metadata_navigation(db: ZoteroDatabase, items, current_index: int, zo
             except (KeyboardInterrupt, EOFError):
                 return current_index  # Return to main menu on interrupt
 
-def handle_id_command(db: ZoteroDatabase, item_id: int) -> int:
+def handle_id_command(db: ZoteroDatabase, item_id: int, show_notes: bool = False) -> int:
     """Handle --id flag - show metadata for specific item."""
     try:
         # Create a dummy ZoteroItem to get basic info first
@@ -630,7 +640,7 @@ def handle_id_command(db: ZoteroDatabase, item_id: int) -> int:
             title=title,
             item_type=item_type
         )
-        show_item_metadata(db, dummy_item)
+        show_item_metadata(db, dummy_item, show_notes=show_notes)
         
     except Exception as e:
         print(f"Error: Could not find item with ID {item_id}: {e}")
@@ -672,6 +682,41 @@ def handle_getbyid_command(db: ZoteroDatabase, item_ids, config: dict) -> int:
     
     print(f"\nSummary: {success_count} attachments grabbed, {error_count} failed")
     return 0 if error_count == 0 else 1
+
+def handle_getnotes_command(db: ZoteroDatabase, item_id: int, file_path: str = None) -> int:
+    """Handle --getnotes flag - copy notes for specific item ID to current directory."""
+    try:
+        # Get item metadata to show what we're getting notes for
+        metadata = db.get_item_metadata(item_id)
+        title = metadata.get('title', 'Untitled')
+        
+        print(f"Attempting to get notes for ID {item_id}: {title}")
+        
+        # Check if item has notes
+        if not db.notes.has_notes(item_id):
+            print(f"  → No notes found for ID {item_id}")
+            return 1
+        
+        # Determine output file path
+        if file_path:
+            output_path = Path(file_path)
+        else:
+            # Create filename from item title
+            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
+            safe_title = safe_title.replace(' ', '_')
+            output_path = Path(f"{safe_title[:50]}_notes.txt")
+        
+        # Get and save notes
+        if db.notes.save_notes_to_file(item_id, output_path):
+            print(f"  → Notes saved to: {output_path}")
+            return 0
+        else:
+            print(f"  → Failed to save notes for ID {item_id}")
+            return 1
+            
+    except Exception as e:
+        print(f"Error getting notes for ID {item_id}: {e}")
+        return 1
 
 def filter_collections(collections: List[ZoteroCollection], search_term: str, exact_match: bool) -> List[ZoteroCollection]:
     """Filter collections based on search criteria."""
@@ -727,7 +772,6 @@ def handle_interactive_list_mode(db: ZoteroDatabase, collections: List[ZoteroCol
 
 def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroCollection], args, max_results: int, display_search_term: str = "") -> None:
     """Enhanced interactive collection browser with item selection and navigation."""
-    zotero_data_dir = Path(args.zotero_database_path if hasattr(args, 'zotero_database_path') else str(db.db_path)).parent
     
     # Use hierarchical pagination for interactive mode
     current_page = 0
@@ -783,66 +827,15 @@ def interactive_collection_browser(db: ZoteroDatabase, collections: List[ZoteroC
             input("\nPress Enter to continue...")
             continue
         
-        display_sorted_items(items, max_results, args, db=db)
-        
-        # Interactive item selection loop
-        while True:
-            try:
-                # Try to use immediate key response for navigation keys
-                from .keyboard import get_input_with_immediate_keys, is_terminal_interactive
-                
-                prompt = f"\nSelect item number (1-{len(items)}, 0 or Enter to cancel, 'l' to go back to collections, add 'g' to grab: 3g): "
-                
-                if is_terminal_interactive():
-                    # Define keys that should respond immediately
-                    immediate_keys = {'l', 'L'}
-                    first_char_only_immediate = {'0'}
-                    choice = get_input_with_immediate_keys(prompt, immediate_keys, first_char_only_immediate).strip()
-                else:
-                    # Fallback to regular input (e.g., when piping input)
-                    choice = input(prompt).strip()
-                
-                if choice == "0" or choice == "":
-                    return  # Exit completely
-                elif choice.lower() == "l":
-                    # Go back to collection list
-                    break
-                
-                # Check for 'g' suffix
-                should_grab = choice.lower().endswith('g')
-                if should_grab:
-                    choice = choice[:-1]  # Remove 'g'
-                
-                idx = int(choice) - 1
-                if 0 <= idx < len(items):
-                    selected_item = items[idx]
-                    
-                    if should_grab:
-                        # Grab attachment
-                        attachment_path = db.get_item_attachment_path(selected_item.item_id, zotero_data_dir)
-                        if attachment_path:
-                            try:
-                                target_path = Path.cwd() / attachment_path.name
-                                shutil.copy2(attachment_path, target_path)
-                                print(f"Copied attachment to: {target_path}")
-                            except Exception as e:
-                                print(f"Error copying attachment: {e}")
-                        else:
-                            print(f"No attachment found for '{selected_item.title}'")
-                    else:
-                        # Show metadata
-                        show_item_metadata(db, selected_item)
-                else:
-                    print(f"Please enter a number between 1 and {len(items)}")
-                    
-            except ValueError:
-                print("Invalid input. Please enter a number or valid command.")
-                continue
-            except KeyboardInterrupt:
-                print("\nCancelled")
-                return
-            except EOFError:
-                return
+        # Use the proper interactive mode with pagination and metadata navigation
+        config = {'zotero_database_path': str(db.db_path)}
+        handle_interactive_mode(db, items, config, max_results, "", None, 
+                              show_ids=args.showids, show_tags=args.showtags, 
+                              show_year=args.showyear, show_author=args.showauthor, 
+                              show_created=args.showcreated, show_modified=args.showmodified, 
+                              show_collections=args.showcollections, show_notes=args.shownotes, 
+                              show_go_back=True)
+        break  # Exit the collection item loop after interactive mode ends
 
 def handle_non_interactive_list_mode(collections: List[ZoteroCollection], search_term: str, max_results: int, show_all_collections: bool = False, args=None) -> None:
     """Handle non-interactive list display."""
@@ -993,7 +986,7 @@ def handle_multiple_collections(db: ZoteroDatabase, folder_name: str, args, max_
         grouped_items, total_count = db.get_collection_items_grouped(
             folder_name, args.only_attachments, 
             args.after, args.before, args.books, args.articles, args.tag,
-            exact_match=args.exact
+            exact_match=args.exact, withnotes=args.withnotes
         )
     
     if not grouped_items:
@@ -1043,11 +1036,27 @@ def handle_single_collection(db: ZoteroDatabase, folder_name: str, args, max_res
     """Handle folder command when single collection matches."""
     from .spinner import Spinner
     
+    # Build date filter clause if needed
+    date_filter_clause = ""
+    date_filter_params = []
+    if hasattr(args, 'since') or hasattr(args, 'between') or args.after or args.before:
+        try:
+            date_filter_clause, date_filter_params = build_date_filter_clause(
+                since=getattr(args, 'since', None),
+                between=getattr(args, 'between', None),
+                after=args.after,
+                before=args.before,
+                date_field_name="idv_date.value"
+            )
+        except Exception as e:
+            print(f"Error processing date filters: {e}")
+            return 1
+    
     with Spinner(f"Loading items from '{folder_name}'"):
         items, total_count = db.get_collection_items(
             folder_name, args.only_attachments, 
             args.after, args.before, args.books, args.articles, args.tag,
-            exact_match=args.exact
+            exact_match=args.exact, withnotes=args.withnotes
         )
     
     if not items:
@@ -1309,7 +1318,7 @@ def handle_multiple_collections_with_subcollections(db: ZoteroDatabase, folder_n
         items, count = db.get_collection_items(
             collection.name, args.only_attachments, 
             args.after, args.before, args.books, args.articles, args.tag,
-            exact_match=args.exact
+            exact_match=args.exact, withnotes=args.withnotes
         )
         all_items.extend(items)
         total_count += count
@@ -1477,7 +1486,34 @@ def process_search_parameters(args) -> Tuple[Any, Any, str]:
             author_search = ' '.join(args.author)
             search_parts.append(f"author:{author_search}")
     
-    search_display = " + ".join(search_parts)
+    # Process tag search if provided
+    if args.tag:
+        if len(args.tag) > 1:
+            # Multiple tags: use AND search
+            search_parts.append(f"tags:({' AND '.join(args.tag)})")
+        else:
+            # Single tag
+            search_parts.append(f"tags:{args.tag[0]}")
+    
+    # Add date filter information to search display
+    date_filters = []
+    if hasattr(args, 'after') and args.after:
+        date_filters.append(f"after {args.after}")
+    if hasattr(args, 'before') and args.before:
+        date_filters.append(f"before {args.before}")
+    if hasattr(args, 'since') and args.since:
+        date_filters.append(f"since {args.since}")
+    if hasattr(args, 'between') and args.between:
+        date_filters.append(f"between {args.between}")
+    
+    # Handle case where we only have date filters (no search terms)
+    if not search_parts and date_filters:
+        search_display = f"all items ({', '.join(date_filters)})"
+    elif date_filters:
+        search_display = " + ".join(search_parts) + f" ({', '.join(date_filters)})"
+    else:
+        search_display = " + ".join(search_parts)
+    
     return name_search, author_search, search_display
 
 def build_filter_description(args) -> str:
@@ -1487,6 +1523,10 @@ def build_filter_description(args) -> str:
         date_filters.append(f"after {args.after}")
     if args.before:
         date_filters.append(f"before {args.before}")
+    if hasattr(args, 'since') and args.since:
+        date_filters.append(f"since {args.since}")
+    if hasattr(args, 'between') and args.between:
+        date_filters.append(f"between {args.between}")
     
     tag_filters = []
     if args.tag:
@@ -1536,6 +1576,22 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
     # Process search parameters
     name_search, author_search, search_display = process_search_parameters(args)
     
+    # Build date filter clause for database query
+    date_filter_clause = ""
+    date_filter_params = []
+    if hasattr(args, 'since') or hasattr(args, 'between') or args.after or args.before:
+        try:
+            date_filter_clause, date_filter_params = build_date_filter_clause(
+                since=getattr(args, 'since', None),
+                between=getattr(args, 'between', None),
+                after=args.after,
+                before=args.before,
+                date_field_name="idv_date.value"
+            )
+        except Exception as e:
+            print(f"Error processing date filters: {e}")
+            return 1
+    
     # Execute search with spinner
     from .spinner import Spinner
     with Spinner(f"Searching for '{search_display}'"):
@@ -1548,7 +1604,10 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
             before_year=args.before,
             only_books=args.books,
             only_articles=args.articles,
-            tags=args.tag
+            tags=args.tag,
+            withnotes=args.withnotes,
+            date_filter_clause=date_filter_clause,
+            date_filter_params=date_filter_params
         )
     
     if not items:
@@ -1571,7 +1630,7 @@ def handle_search_command(db: ZoteroDatabase, args, max_results: int, config: di
     
     if args.interactive:
         sort_by_author = hasattr(args, 'sort') and args.sort and args.sort.lower() in ['a', 'author']
-        handle_interactive_mode(db, items, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, sort_by_author=sort_by_author, show_go_back=False)
+        handle_interactive_mode(db, items, config, max_results, search_display, show_ids=args.showids, show_tags=args.showtags, show_year=args.showyear, show_author=args.showauthor, show_created=args.showcreated, show_modified=args.showmodified, show_collections=args.showcollections, show_notes=args.shownotes, sort_by_author=sort_by_author, show_go_back=False)
     else:
         # Enable pagination for search results if requested
         if not hasattr(args, 'pagination'):

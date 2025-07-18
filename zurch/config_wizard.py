@@ -1,7 +1,8 @@
 """Interactive configuration wizard for zurch."""
 
 from pathlib import Path
-from .utils import get_config_file, load_config, save_config, find_zotero_database
+from .utils import get_config_file, find_zotero_database
+from .config_pydantic import load_config, save_config, ZurchConfigModel
 
 
 def get_user_input(prompt: str, default: str = "", validation_func=None) -> str:
@@ -159,6 +160,31 @@ def run_config_wizard() -> int:
             return 1
         new_display_options[key] = result
     
+    # History options
+    print("\n📚 Search History")
+    print("-" * 16)
+    
+    history_enabled_default = current_config.get('history_enabled', True)
+    history_enabled = get_yes_no_input("Enable search history tracking", history_enabled_default)
+    if history_enabled is None:
+        return 1
+    
+    history_max_default = str(current_config.get('history_max_items', 100))
+    if history_enabled:
+        while True:
+            history_max = input(f"Maximum history items to keep [{history_max_default}]: ").strip()
+            if not history_max:
+                history_max = history_max_default
+                break
+            
+            error = validate_max_results(history_max)
+            if error is True:
+                break
+            else:
+                print(f"❌ {error}")
+    else:
+        history_max = history_max_default
+    
     # Other options
     print("\n⚙️  Other Options")
     print("-" * 16)
@@ -174,6 +200,8 @@ def run_config_wizard() -> int:
         'max_results': int(max_results),
         'debug': debug_mode,
         'partial_collection_match': current_config.get('partial_collection_match', True),
+        'history_enabled': history_enabled,
+        'history_max_items': int(history_max),
         **new_display_options
     }
     
@@ -189,12 +217,16 @@ def run_config_wizard() -> int:
     print(f"Show year: {new_config['show_year']}")
     print(f"Show author: {new_config['show_author']}")
     print(f"Only attachments: {new_config['only_attachments']}")
+    print(f"History enabled: {new_config['history_enabled']}")
+    print(f"History max items: {new_config['history_max_items']}")
     
     # Confirm and save
     print()
     if get_yes_no_input("Save this configuration?", True):
         try:
-            save_config(new_config)
+            # Create ZurchConfigModel from dictionary
+            config_model = ZurchConfigModel(**new_config)
+            save_config(config_model)
             print(f"✅ Configuration saved successfully to {config_file}")
             return 0
         except Exception as e:

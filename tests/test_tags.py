@@ -139,7 +139,7 @@ class TestTagSearch:
             items, total = item_service.search_items_combined(name="test", tags=["tag1"])
             assert len(items) == 1
             item_service.search_items_by_name.assert_called_once_with(
-                "test", False, False, None, None, False, False, ["tag1"], False
+                "test", False, False, None, None, False, False, ["tag1"], False, "", None
             )
 
             item_service.search_items_by_name.reset_mock()
@@ -149,7 +149,7 @@ class TestTagSearch:
             items, total = item_service.search_items_combined(author="test", tags=["tag2"])
             assert len(items) == 1
             item_service.search_items_by_author.assert_called_once_with(
-                "test", False, False, None, None, False, False, ["tag2"], False
+                "test", False, False, None, None, False, False, ["tag2"], False, "", None
             )
 
             item_service.search_items_by_name.reset_mock()

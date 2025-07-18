@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 import logging
 
@@ -42,6 +42,10 @@ class ZurchConfigModel(BaseModel):
     only_attachments: bool = Field(default=False, description="Show only items with attachments")
     partial_collection_match: bool = Field(default=True, description="Enable partial collection name matching")
     interactive_mode: bool = Field(default=True, description="Enable interactive mode by default")
+    
+    # History configuration
+    history_enabled: bool = Field(default=True, description="Enable search history tracking")
+    history_max_items: int = Field(default=100, ge=0, le=10000, description="Maximum number of history items to keep")
     
     # Computed field (not saved to config)
     zotero_data_dir: Optional[Path] = Field(default=None, exclude=True)
@@ -144,6 +148,17 @@ class ZurchConfigModel(BaseModel):
             if temp_file.exists():
                 temp_file.unlink()
             raise
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """Dictionary-like get method for compatibility."""
+        return getattr(self, key, default)
+    
+    def __getitem__(self, key: str) -> Any:
+        """Dictionary-like subscript access for compatibility."""
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(key)
 
 
 class CLIArgumentsModel(BaseModel):
