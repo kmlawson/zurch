@@ -33,6 +33,12 @@ def get_single_char() -> str:
         while True:
             if msvcrt.kbhit():
                 ch = msvcrt.getch()
+                # Keep as bytes for special key detection
+                if ch in [b'\x00', b'\xe0']:
+                    # Special keys (arrows, function keys, etc.) - return the prefix byte
+                    # The next getch() call will get the second byte
+                    return ch.decode('latin-1')
+                
                 if isinstance(ch, bytes):
                     ch = ch.decode('utf-8', errors='ignore')
                 

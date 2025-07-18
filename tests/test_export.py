@@ -223,19 +223,14 @@ class TestAttachmentSecurity:
         # The function should detect this and refuse to copy
         with patch('shutil.copy2') as mock_copy:
             with patch('zurch.handlers.Path.cwd', return_value=Path("/tmp")):
-                # We need to verify that the path is validated before copying
-                # The current implementation doesn't have this check, so this test
-                # documents the vulnerability that needs to be fixed
-                grab_attachment(mock_db, malicious_item, zotero_data_dir)
+                # grab_attachment should return False for unsafe paths
+                result = grab_attachment(mock_db, malicious_item, zotero_data_dir)
                 
-                # This test will fail until we implement the fix
-                # After fix, grab_attachment should return False for unsafe paths
-                # and mock_copy should not be called
+                # Should return False due to security check
+                assert result is False
                 
-                # For now, this documents the current behavior (vulnerable)
-                if mock_copy.called:
-                    # This indicates the vulnerability exists
-                    pytest.xfail("Attachment path traversal protection not yet implemented")
+                # Copy should not be called due to security check
+                mock_copy.assert_not_called()
 
 
 class TestExportFilenameGeneration:

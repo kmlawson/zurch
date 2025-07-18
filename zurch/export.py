@@ -165,11 +165,6 @@ def export_to_csv(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path) 
     import tempfile
     import os
     
-    # Prevent overwriting existing files
-    if file_path.exists():
-        logger.warning(f"Export file already exists: {file_path}")
-        return False
-    
     # Create temporary file in same directory as target (for atomic rename)
     temp_fd = None
     temp_path = None
@@ -290,14 +285,24 @@ def export_to_csv(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path) 
                         'URL': ''
                     })
         
-        # Atomic rename with exclusive creation
+        # Atomic rename with exclusive creation using O_CREAT|O_EXCL
         try:
-            # Use os.link + unlink for atomic operation on Unix
+            # Use os.open with O_CREAT|O_EXCL for atomic exclusive creation
+            try:
+                target_fd = os.open(file_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                os.close(target_fd)  # Close immediately, we just wanted to reserve the name
+                os.unlink(file_path)  # Remove the empty file we just created
+            except FileExistsError:
+                logger.warning(f"File already exists: {file_path}")
+                return False
+            
+            # Now use atomic move operations
             if hasattr(os, 'link'):
+                # Unix: use link + unlink for atomic operation
                 os.link(temp_path, file_path)
                 os.unlink(temp_path)
             else:
-                # Fallback to rename on Windows
+                # Windows: use rename (atomic on same filesystem)
                 os.rename(temp_path, file_path)
             temp_path = None  # Successfully moved
             return True
@@ -325,11 +330,6 @@ def export_to_json(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path)
     """Export items to JSON format with atomic file creation."""
     import tempfile
     import os
-    
-    # Prevent overwriting existing files  
-    if file_path.exists():
-        logger.warning(f"Export file already exists: {file_path}")
-        return False
     
     # Create temporary file in same directory as target (for atomic rename)
     temp_fd = None
@@ -416,14 +416,24 @@ def export_to_json(items: List[ZoteroItem], db: ZoteroDatabase, file_path: Path)
             temp_fd = None  # fdopen takes ownership
             json.dump(export_data, jsonfile, indent=2, ensure_ascii=False)
         
-        # Atomic rename with exclusive creation
+        # Atomic rename with exclusive creation using O_CREAT|O_EXCL
         try:
-            # Use os.link + unlink for atomic operation on Unix
+            # Use os.open with O_CREAT|O_EXCL for atomic exclusive creation
+            try:
+                target_fd = os.open(file_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                os.close(target_fd)  # Close immediately, we just wanted to reserve the name
+                os.unlink(file_path)  # Remove the empty file we just created
+            except FileExistsError:
+                logger.warning(f"File already exists: {file_path}")
+                return False
+            
+            # Now use atomic move operations
             if hasattr(os, 'link'):
+                # Unix: use link + unlink for atomic operation
                 os.link(temp_path, file_path)
                 os.unlink(temp_path)
             else:
-                # Fallback to rename on Windows
+                # Windows: use rename (atomic on same filesystem)
                 os.rename(temp_path, file_path)
             temp_path = None  # Successfully moved
             return True
@@ -489,10 +499,7 @@ def export_items(items: List[ZoteroItem], db: ZoteroDatabase, export_format: str
         print("Try exporting to a subdirectory of your home directory or current working directory.")
         return False
     
-    # Check if file exists (no overwriting)
-    if output_path.exists():
-        print(f"Error: File {output_path} already exists. Will not overwrite.")
-        return False
+    # Note: File existence check is now handled atomically in export functions
     
     # Ensure directory exists
     if not ensure_directory_exists(output_path):

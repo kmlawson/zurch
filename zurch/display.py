@@ -3,6 +3,7 @@ import fnmatch
 from datetime import datetime
 from .models import ZoteroItem
 from .stats import DatabaseStats
+from .constants import Colors
 from .utils import (
     format_item_type_icon, format_attachment_link_icon, pad_number, 
     highlight_search_term, format_duplicate_title, format_metadata_field
@@ -22,6 +23,26 @@ def format_date_for_display(date: datetime) -> str:
 
 def display_items(items: List[ZoteroItem], max_results: int, search_term: str = "", show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, show_notes: bool = False, db=None, sort_by_author: bool = False) -> None:
     """Display items with numbering and icons."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Bulk fetch metadata if needed for author sorting or display
+    metadata_cache = {}
+    if (sort_by_author or show_author or show_year or show_created or show_modified) and db:
+        try:
+            item_ids = [item.item_id for item in items]
+            metadata_cache = db.get_bulk_item_metadata(item_ids)
+            logger.debug(f"Bulk fetched metadata for display: {len(item_ids)} items")
+        except Exception as e:
+            logger.warning(f"Error bulk fetching metadata for display, falling back to individual queries: {e}")
+            # Fall back to individual fetching if bulk fails
+            for item in items:
+                try:
+                    metadata_cache[item.item_id] = db.get_item_metadata(item.item_id)
+                except Exception as e:
+                    logger.warning(f"Error getting metadata for item {item.item_id}: {e}")
+                    metadata_cache[item.item_id] = {}
+    
     for i, item in enumerate(items, 1):
         # Item type icon (books and journal articles)
         type_icon = format_item_type_icon(item.item_type, item.is_duplicate)
@@ -49,7 +70,7 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
         # Handle special case for author sorting
         if sort_by_author and db:
             try:
-                metadata = db.get_item_metadata(item.item_id)
+                metadata = metadata_cache.get(item.item_id, {})
                 author_prefix = ""
                 year_display = ""
                 
@@ -91,7 +112,7 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
             
             if (show_year or show_author) and db:
                 try:
-                    metadata = db.get_item_metadata(item.item_id)
+                    metadata = metadata_cache.get(item.item_id, {})
                     
                     # Extract publication year
                     if show_year:
@@ -129,15 +150,15 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
             tags = db.get_item_tags(item.item_id)
             if tags:
                 # Display tags in a muted color
-                GRAY = '\033[90m'
-                RESET = '\033[0m'
+                GRAY = Colors.GRAY
+                RESET = Colors.RESET
                 tag_text = f"{GRAY}    Tags: {' | '.join(tags)}{RESET}"
                 print(tag_text)
         
         # Show created/modified dates if requested
         if (show_created or show_modified) and db:
-            GRAY = '\033[90m'
-            RESET = '\033[0m'
+            GRAY = Colors.GRAY
+            RESET = Colors.RESET
             date_parts = []
             
             if show_created and item.date_added:
@@ -153,8 +174,8 @@ def display_items(items: List[ZoteroItem], max_results: int, search_term: str = 
         if show_collections and db:
             collections = db.get_item_collections(item.item_id)
             if collections:
-                GRAY = '\033[90m'
-                RESET = '\033[0m'
+                GRAY = Colors.GRAY
+                RESET = Colors.RESET
                 collection_text = f"{GRAY}    Collections: {' | '.join(collections)}{RESET}"
                 print(collection_text)
 
@@ -292,8 +313,8 @@ def display_grouped_items(grouped_items: List[tuple], max_results: int, search_t
             
             # Show created/modified dates if requested
             if (show_created or show_modified) and db:
-                GRAY = '\033[90m'
-                RESET = '\033[0m'
+                GRAY = Colors.GRAY
+                RESET = Colors.RESET
                 date_parts = []
                 
                 if show_created and item.date_added:
@@ -476,8 +497,8 @@ def show_item_metadata(db, item: ZoteroItem, show_notes: bool = False) -> None:
         
         # Display creators
         if 'creators' in metadata:
-            BOLD = '\033[1m'
-            RESET = '\033[0m'
+            BOLD = Colors.BOLD
+            RESET = Colors.RESET
             print(f"{BOLD}Creators:{RESET}")
             for creator in metadata['creators']:
                 name_parts = []
@@ -492,8 +513,8 @@ def show_item_metadata(db, item: ZoteroItem, show_notes: bool = False) -> None:
         # Display collections this item belongs to
         collections = db.get_item_collections(item.item_id)
         if collections:
-            BOLD = '\033[1m'
-            RESET = '\033[0m'
+            BOLD = Colors.BOLD
+            RESET = Colors.RESET
             print(f"{BOLD}Collections:{RESET}")
             for collection in collections:
                 print(f"  {collection}")
@@ -501,8 +522,8 @@ def show_item_metadata(db, item: ZoteroItem, show_notes: bool = False) -> None:
         # Display tags for this item
         tags = db.get_item_tags(item.item_id)
         if tags:
-            BOLD = '\033[1m'
-            RESET = '\033[0m'
+            BOLD = Colors.BOLD
+            RESET = Colors.RESET
             print(f"{BOLD}Tags:{RESET} {' | '.join(tags)}")
         
         # Display other fields
@@ -510,8 +531,8 @@ def show_item_metadata(db, item: ZoteroItem, show_notes: bool = False) -> None:
         other_fields = {k: v for k, v in metadata.items() if k not in skip_fields}
         
         if other_fields:
-            BOLD = '\033[1m'
-            RESET = '\033[0m'
+            BOLD = Colors.BOLD
+            RESET = Colors.RESET
             print(f"{BOLD}Other fields:{RESET}")
             for field, value in sorted(other_fields.items()):
                 print(f"  {BOLD}{field}:{RESET} {value}")
@@ -523,8 +544,8 @@ def show_item_metadata(db, item: ZoteroItem, show_notes: bool = False) -> None:
         if show_notes and db.notes.has_notes(item.item_id):
             notes = db.notes.get_notes_content(item.item_id, strip_html=True)
             if notes:
-                BOLD = '\033[1m'
-                RESET = '\033[0m'
+                BOLD = Colors.BOLD
+                RESET = Colors.RESET
                 print(f"\n{BOLD}Notes:{RESET}")
                 from .notes import format_notes_for_display
                 print(format_notes_for_display(notes))
@@ -534,12 +555,12 @@ def show_item_metadata(db, item: ZoteroItem, show_notes: bool = False) -> None:
 
 def display_database_stats(stats: DatabaseStats, db_path: str = None) -> None:
     """Display comprehensive database statistics."""
-    BOLD = '\033[1m'
-    RESET = '\033[0m'
-    BLUE = '\033[34m'
-    GREEN = '\033[32m'
-    YELLOW = '\033[33m'
-    GRAY = '\033[90m'
+    BOLD = Colors.BOLD
+    RESET = Colors.RESET
+    BLUE = Colors.BLUE
+    GREEN = Colors.GREEN
+    YELLOW = Colors.YELLOW
+    GRAY = Colors.GRAY
     
     print(f"{BOLD}📊 Zotero Database Statistics{RESET}")
     print("=" * 50)

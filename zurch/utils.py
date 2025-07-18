@@ -4,6 +4,7 @@ import platform
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
+from .constants import Colors
 
 logger = logging.getLogger(__name__)
 
@@ -334,8 +335,8 @@ def highlight_search_term(text: str, search_term: str) -> str:
         return text
     
     # ANSI escape codes for bold
-    BOLD = '\033[1m'
-    RESET = '\033[0m'
+    BOLD = Colors.BOLD
+    RESET = Colors.RESET
     
     # Handle % wildcards by converting to simple contains matching
     clean_term = search_term.replace('%', '')
@@ -354,15 +355,15 @@ def highlight_search_term(text: str, search_term: str) -> str:
 def format_duplicate_title(title: str, is_duplicate: bool = False) -> str:
     """Format title with purple color if it's a duplicate."""
     if is_duplicate:
-        PURPLE = '\033[35m'
-        RESET = '\033[0m'
+        PURPLE = Colors.MAGENTA
+        RESET = Colors.RESET
         return f"{PURPLE}{title}{RESET}"
     return title
 
 def format_metadata_field(field_name: str, value: str) -> str:
     """Format a metadata field with bold label."""
-    BOLD = '\033[1m'
-    RESET = '\033[0m'
+    BOLD = Colors.BOLD
+    RESET = Colors.RESET
     return f"{BOLD}{field_name}:{RESET} {value}"
 
 def sort_items(items, sort_by: str, db=None):
@@ -384,11 +385,30 @@ def sort_items(items, sort_by: str, db=None):
         if not db:
             return sorted(items, key=lambda item: item.title.lower())
         
+        # Bulk fetch metadata for all items
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            item_ids = [item.item_id for item in items]
+            metadata_cache = db.metadata.get_bulk_item_metadata(item_ids)
+            logger.debug(f"Bulk fetched metadata for date sorting: {len(item_ids)} items")
+        except Exception as e:
+            logger.warning(f"Error bulk fetching metadata for date sorting, falling back to individual queries: {e}")
+            # Fall back to individual fetching if bulk fails
+            metadata_cache = {}
+            for item in items:
+                try:
+                    metadata_cache[item.item_id] = db.metadata.get_item_metadata(item.item_id)
+                except Exception as e:
+                    logger.warning(f"Error getting metadata for item {item.item_id}: {e}")
+                    metadata_cache[item.item_id] = {}
+        
         # Get publication years for all items
         item_years = {}
         for item in items:
             try:
-                metadata = db.metadata.get_item_metadata(item.item_id)
+                metadata = metadata_cache.get(item.item_id, {})
                 year = metadata.get('date', '')
                 # Extract year from date string (format might be "2023", "2023-01-01", etc.)
                 if year:
@@ -408,11 +428,30 @@ def sort_items(items, sort_by: str, db=None):
         if not db:
             return sorted(items, key=lambda item: item.title.lower())
         
+        # Bulk fetch metadata for all items
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            item_ids = [item.item_id for item in items]
+            metadata_cache = db.metadata.get_bulk_item_metadata(item_ids)
+            logger.debug(f"Bulk fetched metadata for author sorting: {len(item_ids)} items")
+        except Exception as e:
+            logger.warning(f"Error bulk fetching metadata for author sorting, falling back to individual queries: {e}")
+            # Fall back to individual fetching if bulk fails
+            metadata_cache = {}
+            for item in items:
+                try:
+                    metadata_cache[item.item_id] = db.metadata.get_item_metadata(item.item_id)
+                except Exception as e:
+                    logger.warning(f"Error getting metadata for item {item.item_id}: {e}")
+                    metadata_cache[item.item_id] = {}
+        
         # Get authors for all items
         item_authors = {}
         for item in items:
             try:
-                metadata = db.metadata.get_item_metadata(item.item_id)
+                metadata = metadata_cache.get(item.item_id, {})
                 creators = metadata.get('creators', [])
                 if creators and len(creators) > 0:
                     # Use last name of first author for sorting

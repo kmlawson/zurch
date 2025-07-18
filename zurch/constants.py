@@ -143,6 +143,32 @@ class FieldIDs:
     DATE_ADDED = 'dateAdded'
     DATE_MODIFIED = 'dateModified'
 
+# Database Field Names (from Zotero schema)
+class FieldNames:
+    """Zotero database field name constants."""
+    ITEM_TYPE = 'itemType'
+    TYPE_NAME = 'typeName'
+    DATE_ADDED = 'dateAdded'
+    DATE_MODIFIED = 'dateModified'
+    ITEM_ID = 'itemID'
+    FIELD_NAME = 'fieldName'
+    VALUE = 'value'
+    CREATOR_TYPE = 'creatorType'
+    FIRST_NAME = 'firstName'
+    LAST_NAME = 'lastName'
+    CREATORS = 'creators'
+    PATH = 'path'
+    NAME = 'name'
+    KEY = 'key'
+    PARENT_COLLECTION_ID = 'parentCollectionID'
+    COLLECTION_ID = 'collectionID'
+    COLLECTION_NAME = 'collectionName'
+    TITLE = 'title'
+    DATE = 'date'
+    ABSTRACT_NOTE = 'abstractNote'
+    DOI = 'DOI'
+    URL = 'url'
+
 # Creator Type Constants
 class CreatorTypes:
     """Zotero creator type constants."""
@@ -244,7 +270,7 @@ class Network:
     """Network and protocol constants."""
     HTTP_TIMEOUT = 30
     MAX_REDIRECTS = 5
-    USER_AGENT = "zurch/0.7.10"
+    USER_AGENT = "zurch/0.7.11"
 
 # Error Messages
 class ErrorMessages:
@@ -266,3 +292,36 @@ class SuccessMessages:
     CONFIG_SAVED = "Configuration saved to {}"
     DIRECTORY_CREATED = "Created directory: {}"
     ATTACHMENT_COPIED = "Copied attachment to: {}"
+
+# User Input Constants
+class UserInput:
+    """Constants for user input responses."""
+    YES = 'y'
+    YES_FULL = 'yes'
+    NO = 'n'
+    NO_FULL = 'no'
+    QUIT = 'q'
+    CANCEL = '0'
+    NEXT = 'n'
+    PREVIOUS = 'p'
+    
+    # Special values
+    ALL = 'all'
+    UNLIMITED = '0'
+    
+    # Collection of affirmative responses
+    AFFIRMATIVE = {YES, YES_FULL, 'Y', 'YES'}
+    
+    # Collection of negative responses
+    NEGATIVE = {NO, NO_FULL, 'N', 'NO'}
+
+# Display Formatting Constants
+class DisplayFormat:
+    """Constants for display formatting."""
+    SEPARATOR_LONG = "=" * 40
+    SEPARATOR_SHORT = "-" * 40
+    SEPARATOR_MEDIUM = "-" * 35
+    SEPARATOR_NARROW = "-" * 32
+    PATH_SEPARATOR = " > "
+    LIST_SEPARATOR = "; "
+    ITEM_SEPARATOR = ", "

@@ -51,6 +51,27 @@ def get_authors_from_metadata(db: ZoteroDatabase, item_id: int) -> str:
         logger.warning(f"Error getting authors for item {item_id}: {e}")
         return ""
 
+def get_authors_from_cached_metadata(metadata: dict) -> str:
+    """Get concatenated author names from cached metadata."""
+    try:
+        creators = metadata.get('creators', [])
+        
+        authors = []
+        for creator in creators:
+            if creator.get('creatorType') == 'author':
+                name_parts = []
+                if creator.get('lastName'):
+                    name_parts.append(creator['lastName'])
+                if creator.get('firstName'):
+                    name_parts.append(creator['firstName'])
+                if name_parts:
+                    authors.append(' '.join(name_parts))
+        
+        return '; '.join(sorted(authors))  # Sort for consistent comparison
+    except Exception as e:
+        logger.warning(f"Error getting authors from cached metadata: {e}")
+        return ""
+
 def create_duplicate_key(db: ZoteroDatabase, item: ZoteroItem) -> DuplicateKey:
     """Create a duplicate detection key for an item."""
     # Get authors from metadata
@@ -59,6 +80,25 @@ def create_duplicate_key(db: ZoteroDatabase, item: ZoteroItem) -> DuplicateKey:
     # Get year from metadata
     try:
         metadata = db.get_item_metadata(item.item_id)
+        date = metadata.get('date', '')
+        year = extract_year_from_date(date)
+    except Exception:
+        year = None
+    
+    return DuplicateKey(
+        title=item.title,
+        authors=authors,
+        year=year
+    )
+
+def create_duplicate_key_with_cache(item: ZoteroItem, get_cached_metadata) -> DuplicateKey:
+    """Create a duplicate detection key for an item using cached metadata."""
+    # Get authors from cached metadata
+    metadata = get_cached_metadata(item.item_id)
+    authors = get_authors_from_cached_metadata(metadata)
+    
+    # Get year from cached metadata
+    try:
         date = metadata.get('date', '')
         year = extract_year_from_date(date)
     except Exception:
@@ -196,36 +236,6 @@ def deduplicate_items(db: ZoteroDatabase, items: List[ZoteroItem], debug_mode: b
     
     return result_items, total_duplicates_removed
 
-
-def create_duplicate_key_with_cache(item: ZoteroItem, get_metadata_func) -> DuplicateKey:
-    """Create a duplicate detection key using cached metadata."""
-    metadata = get_metadata_func(item.item_id)
-    
-    # Get authors from cached metadata
-    creators = metadata.get('creators', [])
-    authors = []
-    for creator in creators:
-        if creator.get('creatorType') == 'author':
-            name_parts = []
-            if creator.get('lastName'):
-                name_parts.append(creator['lastName'])
-            if creator.get('firstName'):
-                name_parts.append(creator['firstName'])
-            if name_parts:
-                authors.append(' '.join(name_parts))
-    
-    # Sort authors for consistent comparison (as per original logic)
-    authors_str = '; '.join(sorted(authors))
-    
-    # Get year from cached metadata
-    date = metadata.get('date', '')
-    year = extract_year_from_date(date)
-    
-    return DuplicateKey(
-        title=item.title,
-        authors=authors_str,
-        year=year
-    )
 
 
 def select_best_duplicate_with_cache(duplicates: List[ZoteroItem], get_metadata_func) -> ZoteroItem:

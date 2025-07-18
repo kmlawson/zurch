@@ -141,7 +141,6 @@ release-check: check-all build
 
 # Version management
 versionbump:
-	@# Get current version from pyproject.toml
 	@CURRENT_VERSION=$$(grep 'version = ' pyproject.toml | cut -d'"' -f2); \
 	if [ -z "$(VERSION)" ]; then \
 		echo "No VERSION specified, auto-incrementing patch version..."; \
@@ -154,30 +153,17 @@ versionbump:
 		echo "Specified version: $$NEW_VERSION"; \
 	fi; \
 	echo "Bumping version to $$NEW_VERSION..."; \
-	# Get current date in YYYY-MM-DD format \
 	TODAY=$$(date +%Y-%m-%d); \
-	# Determine which sed to use (gsed on macOS, sed on Linux) \
-	if command -v gsed >/dev/null 2>&1; then \
-		SED_CMD="gsed"; \
-	else \
-		SED_CMD="sed"; \
-	fi; \
-	# Update pyproject.toml \
-	$$SED_CMD -i "s/version = \"[^\"]*\"/version = \"$$NEW_VERSION\"/" pyproject.toml; \
-	# Update __init__.py \
-	$$SED_CMD -i "s/__version__ = \"[^\"]*\"/__version__ = \"$$NEW_VERSION\"/" zurch/__init__.py; \
-	# Update cli.py \
-	$$SED_CMD -i "s/__version__ = \"[^\"]*\"/__version__ = \"$$NEW_VERSION\"/" zurch/cli.py; \
-	# Update constants.py \
-	$$SED_CMD -i "s/zurch\/[^\"]*\"/zurch\/$$NEW_VERSION\"/" zurch/constants.py; \
-	# Update README.md badge \
-	$$SED_CMD -i "s/PyPI-v[^-]*-blue/PyPI-v$$NEW_VERSION-blue/" README.md; \
-	# Update CHANGELOG.md (add new version header) \
-	$$SED_CMD -i "1,/^## \[/s/^## \[.*/## [$$NEW_VERSION] - $$TODAY\n\n### Changes\n- TBD\n\n&/" CHANGELOG.md; \
+	gsed -i "s/version = \"[^\"]*\"/version = \"$$NEW_VERSION\"/" pyproject.toml; \
+	gsed -i "s/__version__ = \"[^\"]*\"/__version__ = \"$$NEW_VERSION\"/" zurch/__init__.py; \
+	gsed -i "s/__version__ = \"[^\"]*\"/__version__ = \"$$NEW_VERSION\"/" zurch/cli.py; \
+	gsed -i "s/zurch\/[^\"]*\"/zurch\/$$NEW_VERSION\"/" zurch/constants.py; \
+	gsed -i "s/PyPI-v[^-]*-blue/PyPI-v$$NEW_VERSION-blue/" README.md; \
+	gsed -i "1,/^## \[/s/^## \[.*/## [$$NEW_VERSION] - $$TODAY\n\n### Changes\n- TBD\n\n&/" CHANGELOG.md; \
 	echo "Version bumped to $$NEW_VERSION in all files"
 	@echo "Remember to:"
 	@echo "  1. Update CHANGELOG.md with actual changes"
-	@echo "  2. Commit changes: git add . && git commit -m 'Bump version to $$NEW_VERSION'"
+	@echo "  2. Commit changes: git add . && git commit -m 'Bump version to '"
 	@echo "  3. Build and deploy: make clean build && uv run twine upload dist/*"
 
 # Default target when no arguments provided

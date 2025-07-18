@@ -345,24 +345,32 @@ class TestUtilityFunctions:
     def test_highlight_search_term(self):
         """Test search term highlighting."""
         from zurch.utils import highlight_search_term
+        from zurch.constants import Colors
         
         # Test basic highlighting
         result = highlight_search_term("Japanese History", "japan")
-        assert "\033[1m" in result  # Contains bold formatting
-        assert "Japan" in result
+        # Check if ANSI is supported - if not, highlighting won't be applied
+        if Colors.BOLD:
+            assert Colors.BOLD in result  # Contains bold formatting
+            assert Colors.RESET in result  # Contains reset formatting
+        # Always check that the text is preserved
+        assert "Japanese History" in result
         
         # Test case insensitive
         result = highlight_search_term("JAPANESE HISTORY", "japan")
-        assert "\033[1m" in result
+        if Colors.BOLD:
+            assert Colors.BOLD in result
         
         # Test with wildcard
         result = highlight_search_term("Japanese History", "japan%")
-        assert "\033[1m" in result
-        assert "Japan" in result
+        if Colors.BOLD:
+            assert Colors.BOLD in result
+        assert "Japanese History" in result
         
         # Test no match
         result = highlight_search_term("Chinese History", "japan")
-        assert "\033[1m" not in result
+        if Colors.BOLD:
+            assert Colors.BOLD not in result
         
         # Test empty inputs
         result = highlight_search_term("", "japan")

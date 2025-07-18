@@ -122,16 +122,24 @@ class ZurchConfig:
     
     @classmethod
     def load_from_file(cls, config_file: Path) -> 'ZurchConfig':
-        """Load configuration from file."""
+        """Load configuration from file with validation."""
         try:
             if config_file.exists():
                 with open(config_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
+                
+                # Validate configuration data
+                is_valid, error_msg = validate_config_data(data)
+                if not is_valid:
+                    logger.error(f"Invalid configuration in {config_file}: {error_msg}")
+                    raise ValueError(f"Invalid configuration: {error_msg}")
+                
                 return cls(**data)
-        except (json.JSONDecodeError, IOError):
-            pass
+        except (json.JSONDecodeError, IOError, ValueError) as e:
+            logger.error(f"Failed to load configuration from {config_file}: {e}")
+            raise
         
-        # Return defaults if load failed
+        # Return defaults if file doesn't exist
         return cls()
     
     def save_to_file(self, config_file: Path) -> None:

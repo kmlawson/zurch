@@ -280,6 +280,48 @@ class TestHandleListCommand:
                     mock_interactive.assert_called_once()
 
 
+class TestMetadataNavigation:
+    """Test metadata navigation functionality including 't' key for notes toggle."""
+    
+    def test_metadata_navigation_with_notes_toggle(self):
+        """Test that 't' key toggles notes display in metadata view."""
+        from zurch.handlers import handle_metadata_navigation
+        
+        # Create mock database and items
+        mock_db = MagicMock()
+        mock_db.notes.has_notes.return_value = True
+        mock_db.notes.get_notes_content.return_value = ["Test note content"]
+        
+        # Create test item with notes
+        test_item = ZoteroItem(
+            item_id=1,
+            title="Test Item with Notes",
+            item_type="book"
+        )
+        items = [test_item]
+        
+        # Mock the display function to track calls
+        with patch('zurch.handlers.show_item_metadata') as mock_show_metadata:
+            # Mock user input: 't' to toggle notes, then '0' to exit
+            with patch('builtins.input', side_effect=['t', '0']):
+                # For systems without termios, it will fall back to regular input
+                with patch('sys.stdin.read', side_effect=['t', '\r']):
+                    result = handle_metadata_navigation(mock_db, items, 0, Path("/test"))
+                    
+                    # Should have shown metadata twice: once without notes, once with notes
+                    assert mock_show_metadata.call_count >= 2
+                    
+                    # Check that show_notes parameter changed
+                    first_call = mock_show_metadata.call_args_list[0]
+                    second_call = mock_show_metadata.call_args_list[1]
+                    
+                    # First call should have show_notes=False (default)
+                    assert first_call[1].get('show_notes', False) == False
+                    
+                    # Second call should have show_notes=True (after toggle)
+                    assert second_call[1].get('show_notes', False) == True
+
+
 class TestCommandHandlerIntegration:
     """Integration tests for command handlers."""
     

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.10] - 2025-07-18
+## [0.7.11] - 2025-07-18
 
 ### Features
 - **Notes Support**: Complete implementation of notes functionality
@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `--withnotes` flag filters search results to only show items that have notes attached
   - `--getnotes` flag exports notes content to text files
   - Fixed notes icon display in interactive mode for search and collection browsing
+  - Added 't' key support in metadata view to toggle notes display on/off
+
+- **Arrow Key Navigation**: New interactive navigation system for item selection
+  - Use up/down arrow keys or j/k (vim-style) to navigate through search results
+  - Visual highlighting shows currently selected item with reverse video
+  - Enter key selects the highlighted item
+  - Number keys jump directly to specific items
+  - 'g' key selects and grabs attachment for current item
+  - Full cross-platform support for Windows, macOS, and Linux terminals
+  - Automatically falls back to number-based selection in non-interactive environments
 
 ### Improvements
 - **Collection Browsing**: Enhanced interactive collection browsing experience
@@ -30,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated test_history.py to work with pytest by adding `interactive=False` parameter
   - Fixed test_tags.py mock assertions for updated function signatures
   - Removed unused variables in test_date_filters.py to pass linting
+  - Fixed test_zurch.py highlight_search_term test to handle terminal color support properly
 
 ### Development Improvements
 - **Makefile Version Management**: Enhanced version bumping automation

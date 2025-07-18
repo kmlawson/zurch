@@ -265,7 +265,7 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
         print(f"Error copying attachment: {e}")
         return False
 
-def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, display_opts: DisplayOptions = None, db=None, return_index: bool = False, show_go_back: bool = True, initial_page: int = 0):
+def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, display_opts: DisplayOptions = None, db=None, return_index: bool = False, show_go_back: bool = True, initial_page: int = 0, use_arrow_navigation: bool = True):
     """Handle interactive item selection with automatic pagination.
     
     Returns (item, should_grab) tuple by default, or (item, should_grab, selected_index) if return_index=True.
@@ -278,6 +278,18 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
     
     if display_opts is None:
         display_opts = DisplayOptions()
+    
+    # Use arrow navigation if enabled and no grouping (arrow nav doesn't support grouped items yet)
+    if use_arrow_navigation and not grouped_items:
+        from .arrow_navigation import arrow_navigation_selection
+        # Convert display options to parameters
+        show_notes = display_opts.show_notes if display_opts else False
+        result = arrow_navigation_selection(items, max_display=20, search_term=search_term, 
+                                          show_notes=show_notes, db=db, show_go_back=show_go_back)
+        # Convert result format if needed
+        if not return_index:
+            return (result[0], result[1])
+        return result
     
     # Check if we need pagination
     total_items = len(items)
@@ -540,6 +552,8 @@ def handle_metadata_navigation(db: ZoteroDatabase, items, current_index: int, zo
     """
     import sys
     
+    show_notes = False  # Track whether to show notes
+    
     def get_single_char():
         """Get a single character input without waiting for Enter."""
         try:
@@ -569,10 +583,13 @@ def handle_metadata_navigation(db: ZoteroDatabase, items, current_index: int, zo
     while True:
         # Show metadata for current item
         current_item = items[current_index]
-        show_item_metadata(db, current_item)
+        show_item_metadata(db, current_item, show_notes=show_notes)
         
         # Check if current item has attachment
         has_attachment = current_item.attachment_type is not None
+        
+        # Check if current item has notes
+        has_notes = db.notes.has_notes(current_item.item_id)
         
         # Build navigation prompt
         nav_options = []
@@ -582,6 +599,9 @@ def handle_metadata_navigation(db: ZoteroDatabase, items, current_index: int, zo
             nav_options.append("'n' for next")
         if has_attachment:
             nav_options.append("'g' to grab attachment")
+        if has_notes:
+            notes_text = "hide notes" if show_notes else "show notes"
+            nav_options.append(f"'t' to {notes_text}")
         nav_options.append("'l' for back to list")
         nav_options.append("'0' or Enter to exit")
         
@@ -614,6 +634,10 @@ def handle_metadata_navigation(db: ZoteroDatabase, items, current_index: int, zo
                 elif choice == "b" and current_index <= 0:
                     print("No more previous items available.")
                     continue  # Continue in input loop, don't re-display metadata
+                elif choice == "t" and has_notes:
+                    # Toggle notes display
+                    show_notes = not show_notes
+                    break  # Break inner loop to re-display metadata with/without notes
                 else:
                     print("Invalid option. Please try again.")
                     continue  # Continue in input loop, don't re-display metadata
