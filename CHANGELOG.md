@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.10] - 2025-07-18
+
+### Development Improvements
+- **Makefile Version Management**: Enhanced version bumping automation
+  - Fixed `make versionbump` command to work on macOS by detecting and using `gsed` when available
+  - Auto-detects GNU sed (gsed) on macOS and falls back to standard sed on Linux
+  - Resolves issue where BSD sed on macOS wasn't properly updating version numbers
+  - Version bumping now reliably updates all 6 locations: pyproject.toml, __init__.py, cli.py, constants.py, README.md badge, and CHANGELOG.md
+- **Documentation**: Added comprehensive Makefile documentation in DEVELOPMENT.md
+  - Documented all available make targets and their purposes
+  - Added detailed explanation of how the versionbump target works
+  - Included auto-increment functionality that bumps patch version by 0.0.1 when no VERSION specified
+
+### Bug Fixes
+- **Cross-platform Compatibility**: Fixed sed command compatibility issues between macOS and Linux in Makefile
+
 ## [0.7.9] - 2025-07-17
 
 ### New Features

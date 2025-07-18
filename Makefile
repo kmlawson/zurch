@@ -156,18 +156,24 @@ versionbump:
 	echo "Bumping version to $$NEW_VERSION..."; \
 	# Get current date in YYYY-MM-DD format \
 	TODAY=$$(date +%Y-%m-%d); \
+	# Determine which sed to use (gsed on macOS, sed on Linux) \
+	if command -v gsed >/dev/null 2>&1; then \
+		SED_CMD="gsed"; \
+	else \
+		SED_CMD="sed"; \
+	fi; \
 	# Update pyproject.toml \
-	sed -i '' "s/version = \"[^\"]*\"/version = \"$$NEW_VERSION\"/" pyproject.toml; \
+	$$SED_CMD -i "s/version = \"[^\"]*\"/version = \"$$NEW_VERSION\"/" pyproject.toml; \
 	# Update __init__.py \
-	sed -i '' "s/__version__ = \"[^\"]*\"/__version__ = \"$$NEW_VERSION\"/" zurch/__init__.py; \
+	$$SED_CMD -i "s/__version__ = \"[^\"]*\"/__version__ = \"$$NEW_VERSION\"/" zurch/__init__.py; \
 	# Update cli.py \
-	sed -i '' "s/__version__ = \"[^\"]*\"/__version__ = \"$$NEW_VERSION\"/" zurch/cli.py; \
+	$$SED_CMD -i "s/__version__ = \"[^\"]*\"/__version__ = \"$$NEW_VERSION\"/" zurch/cli.py; \
 	# Update constants.py \
-	sed -i '' "s/zurch\/[^\"]*\"/zurch\/$$NEW_VERSION\"/" zurch/constants.py; \
+	$$SED_CMD -i "s/zurch\/[^\"]*\"/zurch\/$$NEW_VERSION\"/" zurch/constants.py; \
 	# Update README.md badge \
-	sed -i '' "s/PyPI-v[^-]*-blue/PyPI-v$$NEW_VERSION-blue/" README.md; \
+	$$SED_CMD -i "s/PyPI-v[^-]*-blue/PyPI-v$$NEW_VERSION-blue/" README.md; \
 	# Update CHANGELOG.md (add new version header) \
-	sed -i '' "1,/^## \[/s/^## \[.*/## [$$NEW_VERSION] - $$TODAY\n\n### Changes\n- TBD\n\n&/" CHANGELOG.md; \
+	$$SED_CMD -i "1,/^## \[/s/^## \[.*/## [$$NEW_VERSION] - $$TODAY\n\n### Changes\n- TBD\n\n&/" CHANGELOG.md; \
 	echo "Version bumped to $$NEW_VERSION in all files"
 	@echo "Remember to:"
 	@echo "  1. Update CHANGELOG.md with actual changes"

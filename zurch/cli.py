@@ -13,7 +13,7 @@ from .handlers import (
 )
 from .config_wizard import run_config_wizard
 
-__version__ = "0.7.9"
+__version__ = "0.7.10"
 
 def parse_max_results(value: str, config_default: int = 100) -> int:
     """Parse max_results value, handling special cases like 'all' and '0'."""

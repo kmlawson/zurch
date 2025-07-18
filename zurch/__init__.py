@@ -1,6 +1,6 @@
 """zurch - A CLI search tool for Zotero installations."""
 
-__version__ = "0.7.9"
+__version__ = "0.7.10"
 
 # Core exports that don't import CLI
 from .search import ZoteroDatabase

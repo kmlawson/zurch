@@ -1,6 +1,6 @@
 # zurch - Zotero Search CLI
 
-[![PyPI version](https://img.shields.io/badge/PyPI-v0.7.9-blue)](https://pypi.org/project/zurch/) [![Tests](https://img.shields.io/badge/Tests-202%2F202%20passing-brightgreen.svg)](https://github.com/kmlawson/zurch) [![Zotero](https://img.shields.io/badge/Zotero-is_Awesome-CC2936.svg)](https://www.zotero.org/) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-blue.svg)](https://claude.ai/code)
+[![PyPI version](https://img.shields.io/badge/PyPI-v0.7.10-blue)](https://pypi.org/project/zurch/) [![Tests](https://img.shields.io/badge/Tests-202%2F202%20passing-brightgreen.svg)](https://github.com/kmlawson/zurch) [![Zotero](https://img.shields.io/badge/Zotero-is_Awesome-CC2936.svg)](https://www.zotero.org/) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-blue.svg)](https://claude.ai/code)
 
 A command-line interface tool to interact with your local Zotero installation and extract information from it.
 
