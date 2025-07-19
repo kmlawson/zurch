@@ -113,11 +113,11 @@ class TestDisplayWithHighlight:
         ]
         
         with patch('builtins.print') as mock_print:
-            lines = display_items_with_highlight(items, selected_index=1, 
+            items_shown, lines = display_items_with_highlight(items, selected_index=1, 
                                                start_index=0, max_display=3)
             
-            # Should have printed 3 lines
-            assert lines == 3
+            # Should have displayed 3 items
+            assert items_shown == 3
             assert mock_print.call_count == 3
             
             # Check that the second item was highlighted
@@ -253,3 +253,64 @@ class TestArrowNavigationSelection:
                 # Should have called the simple selection
                 mock_simple.assert_called_once()
                 assert result == (items[0], False, 0)
+    
+    def test_page_navigation(self):
+        """Test page navigation with n/b keys."""
+        items = [
+            ZoteroItem(item_id=i, title=f"Item {i}", item_type="book")
+            for i in range(1, 31)  # 30 items
+        ]
+        
+        with patch('zurch.arrow_navigation.is_terminal_interactive', return_value=True):
+            with patch('zurch.arrow_navigation.handle_arrow_key_input') as mock_input:
+                with patch('builtins.print'):
+                    # Simulate: next page, then select
+                    mock_input.side_effect = ['next_page', 'enter']
+                    
+                    result = arrow_navigation_selection(items, max_display=10)
+                    
+                    # Should have jumped to next page (item 11, index 10)
+                    assert result[2] >= 10  # Selected index should be on second page
+    
+    def test_empty_enter_selects_current(self):
+        """Test that empty Enter selects current item."""
+        items = [
+            ZoteroItem(item_id=1, title="Item 1", item_type="book")
+        ]
+        
+        with patch('zurch.arrow_navigation.is_terminal_interactive', return_value=True):
+            with patch('zurch.arrow_navigation.handle_arrow_key_input') as mock_input:
+                with patch('builtins.print'):
+                    # Simulate pressing Enter without typing anything
+                    mock_input.return_value = 'enter'
+                    
+                    result = arrow_navigation_selection(items, max_display=10)
+                    
+                    # Should have selected the first item
+                    assert result[0] == items[0]
+                    assert result[1] == False
+                    assert result[2] == 0
+    
+    def test_number_buffer_display(self):
+        """Test that number buffer is shown while typing."""
+        items = [
+            ZoteroItem(item_id=i, title=f"Item {i}", item_type="book")
+            for i in range(1, 21)  # 20 items
+        ]
+        
+        with patch('zurch.arrow_navigation.is_terminal_interactive', return_value=True):
+            with patch('zurch.arrow_navigation.handle_arrow_key_input') as mock_input:
+                with patch('builtins.print') as mock_print:
+                    # Simulate typing "1", "5", then Enter
+                    mock_input.side_effect = ['1', '5', 'enter']
+                    
+                    result = arrow_navigation_selection(items, max_display=10)
+                    
+                    # Check that status line showed "Typing: 1" and "Typing: 15"
+                    print_calls = [call[0][0] for call in mock_print.call_args_list]
+                    typing_shown = any("Typing: 1" in str(call) or "Typing: 15" in str(call) 
+                                     for call in print_calls)
+                    assert typing_shown
+                    
+                    # Should have selected item 15 (index 14)
+                    assert result[2] == 14

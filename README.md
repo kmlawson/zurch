@@ -1,6 +1,6 @@
 # zurch - Zotero Search CLI
 
-[![PyPI version](https://img.shields.io/badge/PyPI-v0.7.11-blue)](https://pypi.org/project/zurch/) [![Tests](https://img.shields.io/badge/Tests-202%2F202%20passing-brightgreen.svg)](https://github.com/kmlawson/zurch) [![Zotero](https://img.shields.io/badge/Zotero-is_Awesome-CC2936.svg)](https://www.zotero.org/) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-blue.svg)](https://claude.ai/code)
+[![PyPI version](https://img.shields.io/badge/PyPI-v0.7.12-blue)](https://pypi.org/project/zurch/) [![Tests](https://img.shields.io/badge/Tests-202%2F202%20passing-brightgreen.svg)](https://github.com/kmlawson/zurch) [![Zotero](https://img.shields.io/badge/Zotero-is_Awesome-CC2936.svg)](https://www.zotero.org/) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-blue.svg)](https://claude.ai/code)
 
 A command-line interface tool to interact with your local Zotero installation and extract information from it.
 
@@ -74,11 +74,13 @@ zurch -f "Heritage"
 zurch -n "China"
 zurch -a "Smith"
 
-# NEW: Arrow key navigation in interactive mode
-# - Use ↑/↓ arrow keys or j/k to navigate
+# Arrow key navigation in interactive mode
+# - Use ↑/↓ arrow keys or j/k to navigate items
+# - Use n/b to jump forward/back by pages
 # - Enter to select highlighted item
 # - Type numbers to jump directly to items
 # - Press 'g' to grab attachment for current item
+# - Shows current typing and page info in status line
 
 # Use --nointeract to disable interactive mode and get simple list output
 zurch -f "Heritage" --nointeract
