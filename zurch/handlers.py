@@ -265,7 +265,7 @@ def grab_attachment(db: ZoteroDatabase, item: ZoteroItem, zotero_data_dir: Path)
         print(f"Error copying attachment: {e}")
         return False
 
-def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, display_opts: DisplayOptions = None, db=None, return_index: bool = False, show_go_back: bool = True, initial_page: int = 0, use_arrow_navigation: bool = True):
+def interactive_selection(items, max_results: int = 100, search_term: str = "", grouped_items = None, display_opts: DisplayOptions = None, db=None, return_index: bool = False, show_go_back: bool = True, initial_page: int = 0):
     """Handle interactive item selection with automatic pagination.
     
     Returns (item, should_grab) tuple by default, or (item, should_grab, selected_index) if return_index=True.
@@ -278,18 +278,6 @@ def interactive_selection(items, max_results: int = 100, search_term: str = "", 
     
     if display_opts is None:
         display_opts = DisplayOptions()
-    
-    # Use arrow navigation if enabled and no grouping (arrow nav doesn't support grouped items yet)
-    if use_arrow_navigation and not grouped_items:
-        from .arrow_navigation import arrow_navigation_selection
-        # Convert display options to parameters
-        show_notes = display_opts.show_notes if display_opts else False
-        result = arrow_navigation_selection(items, max_display=20, search_term=search_term, 
-                                          show_notes=show_notes, db=db, show_go_back=show_go_back)
-        # Convert result format if needed
-        if not return_index:
-            return (result[0], result[1])
-        return result
     
     # Check if we need pagination
     total_items = len(items)

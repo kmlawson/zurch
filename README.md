@@ -13,7 +13,6 @@ Zotero is a powerful citation manager and research assistant for managing source
 - **List Collections**: Browse all your Zotero collections and sub-collections
 - **Search Items**: Find items by title or browse specific folders  
 - **Interactive Mode**: Select items interactively to view metadata or grab attachments
-- **Arrow Key Navigation**: Navigate search results with ↑/↓ arrows or j/k keys, with visual highlighting
 - **Attachment Management**: Copy PDF, EPUB, and text attachments to your current directory
 - **Visual Indicators**: Icons show item types (📗 books, 📄 articles) and attachments (🔗 PDF/EPUB available)
 - **Fast Performance**: Optimized SQLite queries for quick results
@@ -74,13 +73,6 @@ zurch -f "Heritage"
 zurch -n "China"
 zurch -a "Smith"
 
-# Arrow key navigation in interactive mode
-# - Use ↑/↓ arrow keys or j/k to navigate items
-# - Use n/b to jump forward/back by pages
-# - Enter to select highlighted item
-# - Type numbers to jump directly to items
-# - Press 'g' to grab attachment for current item
-# - Shows current typing and page info in status line
 
 # Use --nointeract to disable interactive mode and get simple list output
 zurch -f "Heritage" --nointeract

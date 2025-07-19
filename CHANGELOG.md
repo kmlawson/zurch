@@ -5,28 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.12] - 2025-07-19
-
-### Improvements
-- **Enhanced Arrow Key Navigation**: Major improvements to the arrow key navigation system
-  - Fixed multiple lines being highlighted simultaneously due to improper terminal clearing
-  - Added page navigation with 'n' (next page) and 'b' (previous page) keys
-  - Implemented proper terminal size detection and line wrapping calculation
-  - Added number buffer display showing what you're typing (e.g., "Typing: 15")
-  - Fixed terminal display issues at screen boundaries with absolute cursor positioning
-  - Added comprehensive error recovery with automatic fallback to simple selection
-  - Improved status line showing "Item X of Y | Page P of Q" format
-  - Better handling of long item titles that wrap across multiple lines
-
-### Bug Fixes
-- **Arrow Navigation Display**: Fixed display corruption when scrolling near terminal top/bottom
-- **Terminal Compatibility**: Improved ANSI escape sequence handling for better cross-platform support
-- **Line Wrapping**: Properly calculate terminal lines used by items with long titles
-
-### Technical Improvements
-- **Terminal Safety**: Replaced relative cursor movements with absolute positioning
-- **Display Efficiency**: Only redraw when necessary, reducing flicker
-- **Better Error Handling**: Graceful fallback to simple selection on terminal errors
 
 ## [0.7.11] - 2025-07-18
 
@@ -39,14 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed notes icon display in interactive mode for search and collection browsing
   - Added 't' key support in metadata view to toggle notes display on/off
 
-- **Arrow Key Navigation**: New interactive navigation system for item selection
-  - Use up/down arrow keys or j/k (vim-style) to navigate through search results
-  - Visual highlighting shows currently selected item with reverse video
-  - Enter key selects the highlighted item
-  - Number keys jump directly to specific items
-  - 'g' key selects and grabs attachment for current item
-  - Full cross-platform support for Windows, macOS, and Linux terminals
-  - Automatically falls back to number-based selection in non-interactive environments
 
 ### Improvements
 - **Collection Browsing**: Enhanced interactive collection browsing experience
