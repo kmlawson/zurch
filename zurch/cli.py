@@ -17,7 +17,7 @@ from .history_handlers import (
     handle_list_saved_command, handle_delete_search_command
 )
 
-__version__ = "0.7.12"
+__version__ = "0.7.13"
 
 
 def _handle_save_search_and_history(args, command_type: str, config, result: int) -> None:
