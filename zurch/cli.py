@@ -111,7 +111,7 @@ def setup_logging(debug=False):
 
 
 
-def get_database(config: dict) -> tuple[ZoteroDatabase, str]:
+def get_database(config) -> tuple[ZoteroDatabase, str]:
     """Get and validate Zotero database connection.
     
     Returns: (database_instance, error_type)
@@ -124,8 +124,15 @@ def get_database(config: dict) -> tuple[ZoteroDatabase, str]:
         auto_path = find_zotero_database()
         if auto_path:
             db_path = str(auto_path)
-            config['zotero_database_path'] = db_path
-            save_config(config)
+            # Create new config model with updated database path
+            if hasattr(config, 'model_copy'):
+                # Pydantic model - create a copy with updated path
+                updated_config = config.model_copy(update={'zotero_database_path': db_path})
+                save_config(updated_config)
+            else:
+                # Legacy dict - update directly
+                config['zotero_database_path'] = db_path
+                save_config(config)
             print(f"Found Zotero database: {db_path}")
         else:
             print("Zotero database not found. Please run 'zurch --config' to set up.")
