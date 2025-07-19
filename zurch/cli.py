@@ -17,7 +17,7 @@ from .history_handlers import (
     handle_list_saved_command, handle_delete_search_command
 )
 
-__version__ = "0.7.14"
+__version__ = "0.7.15"
 
 
 def _handle_save_search_and_history(args, command_type: str, config, result: int) -> None:
@@ -94,7 +94,7 @@ def parse_max_results(value: str, config_default: int = 100) -> int:
         return config_default
 
 def setup_logging(debug=False):
-    level = logging.DEBUG if debug else logging.INFO
+    level = logging.DEBUG if debug else logging.WARNING
     logging.basicConfig(
         level=level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -361,6 +361,8 @@ def main():
         return 1
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         if args.debug:
             raise
         return 1

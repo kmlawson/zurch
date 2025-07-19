@@ -495,7 +495,13 @@ def interactive_selection_with_pagination(items, max_results: int, search_term: 
 
 def handle_interactive_mode(db: ZoteroDatabase, items, config: dict, max_results: int = 100, search_term: str = "", grouped_items = None, show_ids: bool = False, show_tags: bool = False, show_year: bool = False, show_author: bool = False, show_created: bool = False, show_modified: bool = False, show_collections: bool = False, show_notes: bool = False, sort_by_author: bool = False, show_go_back: bool = True) -> None:
     """Handle interactive item selection and actions."""
-    zotero_data_dir = Path(config['zotero_database_path']).parent
+    # Get zotero_data_dir from config - handle both dict and Pydantic model
+    if hasattr(config, 'zotero_database_path'):
+        db_path = config.zotero_database_path
+    else:
+        db_path = config.get('zotero_database_path')
+    
+    zotero_data_dir = Path(db_path).parent if db_path else None
     current_index = None  # Track current item for next/previous navigation
     current_page = 0  # Track current page for pagination
     

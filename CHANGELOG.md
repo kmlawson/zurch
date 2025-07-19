@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.7.15] - 2025-07-19
+
+### Bug Fixes
+- **Fixed Fresh Install User Experience**: Improved first-time user experience with cleaner output and error-free operation
+  - Removed INFO logging messages that appeared during normal operation (only show in debug mode)
+  - Fixed NoneType error in interactive mode when config is first created with auto-detected database path
+  - Added proper config attribute handling for both Pydantic models and legacy dictionary configs
+  - Fresh installs now provide clean output: "Found Zotero database: ..." followed by search results without errors
+  - Interactive mode now works seamlessly on fresh installations without crashes
+
 ## [0.7.14] - 2025-07-19
 
 ### Bug Fixes

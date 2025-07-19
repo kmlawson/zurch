@@ -270,7 +270,7 @@ class Network:
     """Network and protocol constants."""
     HTTP_TIMEOUT = 30
     MAX_REDIRECTS = 5
-    USER_AGENT = "zurch/0.7.14"
+    USER_AGENT = "zurch/0.7.15"
 
 # Error Messages
 class ErrorMessages:

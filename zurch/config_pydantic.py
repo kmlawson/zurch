@@ -50,7 +50,7 @@ def save_config(config: ZurchConfigModel, config_file: Optional[Path] = None) ->
     
     try:
         config.save_to_file(config_file)
-        logger.info(f"Configuration saved to {config_file}")
+        logger.debug(f"Configuration saved to {config_file}")
         return True
     except ValidationError as e:
         logger.error(f"Invalid configuration: {e}")
