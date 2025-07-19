@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.7.14] - 2025-07-19
+
+### Bug Fixes
+- **Fixed Fresh Install Configuration Bug**: Resolved TypeError when auto-detecting Zotero database path on fresh installs
+  - Fixed issue where get_database() tried to assign to immutable Pydantic model using dictionary-style assignment
+  - Added proper handling for both Pydantic models and legacy dict configs
+  - Use model_copy() to create updated config for Pydantic models while maintaining backward compatibility
+  - Fixes crash when config directory is deleted and needs to be recreated
+  - Fresh installs now work seamlessly with automatic database detection
+
 ## [0.7.13] - 2025-07-19
 
 ### Changes
